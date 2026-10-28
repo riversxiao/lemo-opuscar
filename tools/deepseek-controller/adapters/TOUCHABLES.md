@@ -4,12 +4,13 @@ Controller / Flash / thin glue may **only** write content-side artifacts. Engine
 
 ## Always protected (never rewrite in a film project)
 
-Typical globs (see each `manifests/*.json` → `protectedGlobs`):
+Typical globs (see each `manifests/*.json` → `protectedGlobs` / `glue_base.PROTECTED_BY_STYLE`):
 
-- Motion / ease / shaders: `ease.js`, `engine.js`, `film.js`, `*.frag`, `*.vert`, `poses/**`
-- Page shell: `index.html`, `main.js` (Swiss), `cover.html`
-- Mix / build scripts: `mix.py`, `mux.sh`, `build.sh`, `tools/**`
-- Bundled fonts: `fonts/**`
+| Style | Locked cores |
+|---|---|
+| swiss-motion | `ease.js`, `film.js`, `main.js`, `mix.py`, `index.html`, `fonts/**`, `tools/**` |
+| pictogram-motion | `engine.js`, `edl.js`, `scenes.js`, `render.mjs`, `shot.mjs`, `poses/**`, `index.html`, `fonts/**` |
+| caption-news | `main.js`, `index.html`, `build.sh`, `fonts/**`, `tools/**`, `assets/**` |
 
 Changing these requires an expert PR + regression — not a per-film Flash edit.
 
@@ -22,22 +23,23 @@ Written under `<project>/` by `adapt` / `scaffold`:
 | `content/plan.json` | Validated plan snapshot |
 | `content/lines.json` | VO / subtitle source lines |
 | `content/shots.json` / `edl_content.json` / `timeline_content.json` | Style-shaped shot list |
-| `content/palette.json` | Palette constants (sidecar; Swiss demo `film.js` `C` is still protected) |
+| `content/palette.json` | Palette constants |
 | `content/credits.json` | Title / author / license |
-| `content/TOUCHABLES.md` | Per-project copy of this contract |
-| `content/engine.lock.json` | SHA-256 of protected files right after demo copy |
-| `lines.json` (Swiss root) | Engine-fetched lines (synced from `content/lines.json`) |
-| `palette.json` (root sidecar) | Same palette for tooling; does **not** patch `film.js` |
-| `CREDITS` | Human-readable credits text |
+| `content/TOUCHABLES.md` | Per-project contract |
+| `content/engine.lock.json` | SHA-256 of protected files after demo copy |
+| Root / audio sidecars | Style-specific (see below) |
 | `voices/dur.json`, `timeline.parsed.json`, `quality.json` | After TTS / schedule / quality |
 | `PROJECT.md` | Next commands |
 
-## Swiss thin glue specifically
+## Per-style thin glue
 
-1. Copy `styles/swiss-motion/demo/` → project.
-2. `adapt` → `content/*`.
-3. Sync root `lines.json` + `CREDITS` + root `palette.json` sidecar.
-4. Leave `events.json` for later (`events.mjs` / schedule cues) — do not hand-edit foley timelines in Flash.
-5. Hash-check protected files vs `content/engine.lock.json`.
+All three: copy `styles/<slug>/demo/` → project → `adapt` → sync touchables → lock hashes → `PROJECT.md`.
 
-Pictogram / Caption scaffolds today: **copy demo + adapt only** (no deep wire into `scenes.js` / caption `main.js` yet).
+### Swiss
+Sync root `lines.json`, `palette.json` sidecar, `CREDITS`. Leave `events.json` for later. Do **not** patch `film.js` `C`.
+
+### Pictogram
+Sync root `edl_content.json`, `lines.json`, `palette.json`, `CREDITS`. Do **not** rewrite `edl.js` / `engine.js` / `scenes.js`.
+
+### Caption
+Sync root `timeline.json` (engine-fetched), `lines.json`, `audio/lines.json`, `facts.json`, `FACTS.md`, `palette.json`, `CREDITS`. Do **not** rewrite `main.js` (including hardcoded `SHOTS`).

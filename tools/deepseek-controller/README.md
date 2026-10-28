@@ -13,29 +13,33 @@ Minimal controller for Lemo-DeepSeek: `validate` → `adapt` / **`scaffold`** �
 - Plan schema: `plan.schema.json` (content only; rejects code/path/shader-looking keys).
 - Style manifests: `manifests/{swiss-motion,pictogram-motion,caption-news}.json`.
 - Adapters write **content-only** files under `<project>/content/` (see `adapters/TOUCHABLES.md`).
-- **`scaffold`**: copies `styles/<slug>/demo/` → project, runs adapt, Swiss thin-glues touchables (`lines.json`, `palette.json` sidecar, `CREDITS`), locks protected SHA-256. Never rewrites `ease.js` / `film.js` / shaders.
+- **`scaffold`** (all three styles): copy `styles/<slug>/demo/` → project, adapt, sync touchable sidecars only, write `engine.lock.json` + `PROJECT.md`. Never rewrites style cores (`ease.js`/`film.js`, `engine.js`/`edl.js`, or `main.js`).
 - `schedule` builds `timeline.parsed.json` from measured VO; **fails** if over target.
 - `quality` writes `quality.json`; required `FAIL` / `NOT_CHECKED` blocks delivery.
 
-### One-shot Swiss path (fixture)
+### One-shot paths (fixtures)
 
 ```bash
 # from repo root
-python3 tools/deepseek-controller/cli.py scaffold \
-  tools/deepseek-controller/fixtures/plan-swiss-motion.json \
-  -o /tmp/film-fuli --lib "$PWD"
+LIB="$PWD"
+CTL=tools/deepseek-controller
 
-# same via shell wrapper:
-# bash tools/deepseek-controller/scaffold_project.sh \
-#   tools/deepseek-controller/fixtures/plan-swiss-motion.json -o /tmp/film-fuli --lib "$PWD"
+python3 $CTL/cli.py scaffold $CTL/fixtures/plan-swiss-motion.json \
+  -o /tmp/film-fuli --lib "$LIB"
 
-# then: TTS → schedule → (render) → quality
-python3 tools/deepseek-controller/cli.py schedule --project /tmp/film-fuli --require-vo
-python3 tools/deepseek-controller/cli.py quality  --project /tmp/film-fuli --skip-heavy
-bash tools/deepseek-controller/tests/test_mvp.sh
+python3 $CTL/cli.py scaffold $CTL/fixtures/plan-pictogram-motion.json \
+  -o /tmp/film-diversify --lib "$LIB"
+
+python3 $CTL/cli.py scaffold $CTL/fixtures/plan-caption-news.json \
+  -o /tmp/film-liquidity --lib "$LIB"
+
+# shell wrapper (same args):
+# bash $CTL/scaffold_project.sh $CTL/fixtures/plan-swiss-motion.json -o /tmp/film-fuli --lib "$LIB"
+
+python3 $CTL/cli.py schedule --project /tmp/film-fuli --require-vo
+python3 $CTL/cli.py quality  --project /tmp/film-fuli --skip-heavy
+bash $CTL/tests/test_mvp.sh
 ```
-
-Pictogram / Caption: `scaffold` does **copy demo + adapt** only (stub); deep engine wire not implemented.
 
 Do **not** full-render MP4 in CI — glue + hash tests are enough.
 
@@ -43,31 +47,43 @@ Do **not** full-render MP4 in CI — glue + hash tests are enough.
 
 ## 中文
 
-### 一键 Swiss（样例计划）
+### 三风格一键脚手架
 
 ```bash
-# 在仓库根目录
-python3 tools/deepseek-controller/cli.py scaffold \
-  tools/deepseek-controller/fixtures/plan-swiss-motion.json \
-  -o /tmp/film-fuli --lib "$PWD"
+LIB="$PWD"
+CTL=tools/deepseek-controller
+
+# Swiss · 复利
+python3 $CTL/cli.py scaffold $CTL/fixtures/plan-swiss-motion.json \
+  -o /tmp/film-fuli --lib "$LIB"
+
+# Pictogram · 分散投资
+python3 $CTL/cli.py scaffold $CTL/fixtures/plan-pictogram-motion.json \
+  -o /tmp/film-diversify --lib "$LIB"
+
+# Caption · 流动性
+python3 $CTL/cli.py scaffold $CTL/fixtures/plan-caption-news.json \
+  -o /tmp/film-liquidity --lib "$LIB"
 ```
 
-脚手架会：
+每个脚手架都会：
 
-1. 复制 `styles/swiss-motion/demo/` → 项目（引擎锁定）
+1. 复制 `styles/<slug>/demo/` → 项目（引擎锁定）
 2. `adapt` → `content/*`
-3. 只改可触文件：根目录 `lines.json`、`palette.json`（sidecar，**不**改 `film.js` 的 `C`）、`CREDITS`；写入 `content/engine.lock.json`
-4. 写出 `PROJECT.md`（后续 TTS → schedule → still/video/mix/mux → quality）
+3. 只写可触 sidecar（见下），写入 `content/engine.lock.json` + `PROJECT.md`
+4. 校验受保护文件 hash 与 demo 一致
 
-**禁止**改：`ease.js` / `film.js` / `main.js` / `mix.py` / `index.html` / `fonts/**`
+| 风格 | 可触同步 | 绝不改 |
+|---|---|---|
+| swiss-motion | `lines.json`, `palette.json`, `CREDITS` | `ease.js` / `film.js` / `main.js` / `mix.py` |
+| pictogram-motion | `edl_content.json`, `lines.json`, `palette.json`, `CREDITS` | `engine.js` / `edl.js` / `scenes.js` / `poses/**` |
+| caption-news | `timeline.json`, `lines.json`, `audio/lines.json`, `FACTS.md`, `palette.json`, `CREDITS` | `main.js` / `build.sh` / `assets/**` |
 
 ### 逐步命令
 
 ```bash
 python3 tools/deepseek-controller/cli.py validate tools/deepseek-controller/fixtures/plan-swiss-motion.json
-python3 tools/deepseek-controller/cli.py adapt tools/deepseek-controller/fixtures/plan-swiss-motion.json -o /tmp/film-fuli-content-only
-
-# 旁白合成后
+python3 tools/deepseek-controller/cli.py adapt … -o /tmp/…   # content-only，不复制 demo
 python3 tools/deepseek-controller/cli.py schedule --project /tmp/film-fuli --require-vo
 python3 tools/deepseek-controller/cli.py quality --project /tmp/film-fuli --media /tmp/film-fuli/out.mp4
 ```
@@ -78,16 +94,15 @@ python3 tools/deepseek-controller/cli.py quality --project /tmp/film-fuli --medi
 
 | 路径 | 作用 |
 |---|---|
-| `plan.schema.json` | 计划字段说明（代码侧以 `validate.py` 为准） |
+| `plan.schema.json` | 计划字段说明 |
 | `manifests/*.json` | 三风格能力说明 / 白名单 |
-| `adapters/` | 计划 → `content/*`；`TOUCHABLES.md` 约定 |
-| `glue_swiss.py` / `scaffold.py` | 复制 demo + 薄胶合 |
-| `scaffold_project.sh` | 脚手架 shell 入口 |
-| `schedule.py` | VO → `timeline.parsed.json` |
-| `quality.py` | 统一 `quality.json` |
-| `fixtures/` | 复利 / 分散 / 流动性样例 |
+| `adapters/` | 计划 → `content/*`；`TOUCHABLES.md` |
+| `glue_base.py` | 复制 / 锁定 / 校验共享逻辑 |
+| `glue_{swiss,pictogram,caption}.py` | 各风格薄胶合 |
+| `scaffold.py` / `scaffold_project.sh` | 统一入口 |
+| `schedule.py` / `quality.py` | 排期与验收门 |
 | `cli.py` | `validate \| adapt \| scaffold \| schedule \| quality` |
 
 ### 与评估文档的对应
 
-见 [`docs/NEXT-ROUND.md`](../../docs/NEXT-ROUND.md) P1。本目录落地控制器 + Swiss 薄胶合；12 支对照与完整 Playwright 出片不在本 PR。
+见 [`docs/NEXT-ROUND.md`](../../docs/NEXT-ROUND.md) P1。12 支对照与完整 Playwright 出片不在本 PR。

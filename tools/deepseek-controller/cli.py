@@ -119,7 +119,7 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--no-manifest", action="store_true")
     a.set_defaults(func=cmd_adapt)
 
-    sc = sub.add_parser("scaffold", help="copy style demo + adapt + thin glue (Swiss)")
+    sc = sub.add_parser("scaffold", help="copy style demo + full thin glue (swiss/pictogram/caption)")
     sc.add_argument("plan")
     sc.add_argument("-o", "--out", required=True, help="project output directory")
     sc.add_argument("--lib", help="repo root with styles/*/demo")

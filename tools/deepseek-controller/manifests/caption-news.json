@@ -1,8 +1,19 @@
 {
   "slug": "caption-news",
-  "title": { "en": "Caption News", "zh": "字幕新闻" },
-  "languages": ["zh", "en", "zh-en"],
-  "durationSec": { "min": 20, "max": 60, "demo": 59.5 },
+  "title": {
+    "en": "Caption News",
+    "zh": "字幕新闻"
+  },
+  "languages": [
+    "zh",
+    "en",
+    "zh-en"
+  ],
+  "durationSec": {
+    "min": 20,
+    "max": 60,
+    "demo": 59.5
+  },
   "beatGridSec": 0.25,
   "text": {
     "shotMaxChars": 60,
@@ -10,11 +21,44 @@
     "lineMaxChars": 100,
     "maxShots": 16
   },
-  "voiceModes": ["none", "edge", "kokoro", "qwen3", "omnivoice"],
-  "shotRoles": ["hook", "setup", "explain", "evidence", "contrast", "payoff", "end", "credits"],
-  "motionPresets": ["hook", "stock", "loss", "stress", "chart", "compare", "end", "sting"],
-  "footageModes": ["stock", "loss", "stress", "end"],
-  "fonts": ["Inter", "Noto Sans SC", "Noto Serif SC"],
+  "voiceModes": [
+    "none",
+    "edge",
+    "kokoro",
+    "qwen3",
+    "omnivoice"
+  ],
+  "shotRoles": [
+    "hook",
+    "setup",
+    "explain",
+    "evidence",
+    "contrast",
+    "payoff",
+    "end",
+    "credits"
+  ],
+  "motionPresets": [
+    "hook",
+    "stock",
+    "loss",
+    "stress",
+    "chart",
+    "compare",
+    "end",
+    "sting"
+  ],
+  "footageModes": [
+    "stock",
+    "loss",
+    "stress",
+    "end"
+  ],
+  "fonts": [
+    "Inter",
+    "Noto Sans SC",
+    "Noto Serif SC"
+  ],
   "protectedGlobs": [
     "main.js",
     "index.html",
@@ -34,7 +78,16 @@
     "content/TOUCHABLES.md",
     "voices/dur.json",
     "timeline.parsed.json",
-    "quality.json"
+    "quality.json",
+    "content/engine.lock.json",
+    "timeline.json",
+    "lines.json",
+    "audio/lines.json",
+    "facts.json",
+    "FACTS.md",
+    "palette.json",
+    "CREDITS",
+    "PROJECT.md"
   ],
   "notes": "Pure-graphic path only: motionPreset limited to stock|loss|stress|end|hook|chart|compare|sting. Do not pull live-action packs."
 }

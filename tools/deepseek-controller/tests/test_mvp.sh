@@ -82,9 +82,20 @@ else
   bad "quality allow-unchecked: $(cat /tmp/dc-q2.out) $(cat /tmp/dc-q2.err)"
 fi
 
-# 8) Swiss scaffold: expected files + ease.js hash unchanged vs demo
-DEMO_EASE="$ROOT/styles/swiss-motion/demo/ease.js"
-DEMO_HASH="$(sha256sum "$DEMO_EASE" | awk '{print $1}')"
+# 8–10) Full thin glue for all three styles: files + protected hashes
+assert_hash() {
+  local demo="$1" proj="$2" label="$3"
+  local dh ph
+  dh="$(sha256sum "$demo" | awk '{print $1}')"
+  ph="$(sha256sum "$proj" | awk '{print $1}')"
+  if test "$dh" = "$ph"; then
+    ok "$label hash unchanged vs demo"
+  else
+    bad "$label hash changed"
+  fi
+}
+
+# Swiss
 rm -rf /tmp/dc-scaffold-swiss
 if "${CLI[@]}" scaffold "$FIX/plan-swiss-motion.json" -o /tmp/dc-scaffold-swiss --lib "$ROOT" >/tmp/dc-sc.out 2>/tmp/dc-sc.err \
   && test -f /tmp/dc-scaffold-swiss/content/shots.json \
@@ -93,44 +104,52 @@ if "${CLI[@]}" scaffold "$FIX/plan-swiss-motion.json" -o /tmp/dc-scaffold-swiss 
   && test -f /tmp/dc-scaffold-swiss/palette.json \
   && test -f /tmp/dc-scaffold-swiss/PROJECT.md \
   && test -f /tmp/dc-scaffold-swiss/ease.js \
-  && test -f /tmp/dc-scaffold-swiss/film.js; then
+  && test -f /tmp/dc-scaffold-swiss/film.js \
+  && grep -q '一块钱' /tmp/dc-scaffold-swiss/lines.json; then
   ok "scaffold swiss creates expected files"
-  PROJ_HASH="$(sha256sum /tmp/dc-scaffold-swiss/ease.js | awk '{print $1}')"
-  if test "$PROJ_HASH" = "$DEMO_HASH"; then
-    ok "scaffold leaves ease.js hash identical to demo"
-  else
-    bad "ease.js hash changed: demo=$DEMO_HASH proj=$PROJ_HASH"
-  fi
-  FILM_DEMO="$(sha256sum "$ROOT/styles/swiss-motion/demo/film.js" | awk '{print $1}')"
-  FILM_PROJ="$(sha256sum /tmp/dc-scaffold-swiss/film.js | awk '{print $1}')"
-  if test "$FILM_DEMO" = "$FILM_PROJ"; then
-    ok "scaffold leaves film.js hash identical to demo"
-  else
-    bad "film.js hash changed"
-  fi
-  if grep -q '一块钱' /tmp/dc-scaffold-swiss/lines.json; then
-    ok "scaffold synced Chinese lines into root lines.json"
-  else
-    bad "root lines.json missing plan text"
-  fi
+  assert_hash "$ROOT/styles/swiss-motion/demo/ease.js" /tmp/dc-scaffold-swiss/ease.js "swiss ease.js"
+  assert_hash "$ROOT/styles/swiss-motion/demo/film.js" /tmp/dc-scaffold-swiss/film.js "swiss film.js"
 else
-  bad "scaffold swiss files: $(cat /tmp/dc-sc.out) $(cat /tmp/dc-sc.err)"
+  bad "scaffold swiss: $(cat /tmp/dc-sc.out) $(cat /tmp/dc-sc.err)"
 fi
 
-# 9) pictogram stub scaffold (copy+adapt only)
+# Pictogram
 rm -rf /tmp/dc-scaffold-picto
 if "${CLI[@]}" scaffold "$FIX/plan-pictogram-motion.json" -o /tmp/dc-scaffold-picto --lib "$ROOT" --force >/tmp/dc-sc2.out 2>/tmp/dc-sc2.err \
   && test -f /tmp/dc-scaffold-picto/content/edl_content.json \
-  && test -f /tmp/dc-scaffold-picto/engine.js; then
-  ENG_DEMO="$(sha256sum "$ROOT/styles/pictogram-motion/demo/engine.js" | awk '{print $1}')"
-  ENG_PROJ="$(sha256sum /tmp/dc-scaffold-picto/engine.js | awk '{print $1}')"
-  if test "$ENG_DEMO" = "$ENG_PROJ"; then
-    ok "pictogram stub scaffold keeps engine.js hash"
-  else
-    bad "pictogram engine.js hash changed"
-  fi
+  && test -f /tmp/dc-scaffold-picto/content/engine.lock.json \
+  && test -f /tmp/dc-scaffold-picto/edl_content.json \
+  && test -f /tmp/dc-scaffold-picto/palette.json \
+  && test -f /tmp/dc-scaffold-picto/PROJECT.md \
+  && test -f /tmp/dc-scaffold-picto/engine.js \
+  && test -f /tmp/dc-scaffold-picto/edl.js \
+  && grep -q '分散投资\|股票\|sprint' /tmp/dc-scaffold-picto/edl_content.json; then
+  ok "scaffold pictogram creates expected files"
+  assert_hash "$ROOT/styles/pictogram-motion/demo/engine.js" /tmp/dc-scaffold-picto/engine.js "pictogram engine.js"
+  assert_hash "$ROOT/styles/pictogram-motion/demo/edl.js" /tmp/dc-scaffold-picto/edl.js "pictogram edl.js"
+  assert_hash "$ROOT/styles/pictogram-motion/demo/scenes.js" /tmp/dc-scaffold-picto/scenes.js "pictogram scenes.js"
 else
-  bad "pictogram stub scaffold: $(cat /tmp/dc-sc2.out) $(cat /tmp/dc-sc2.err)"
+  bad "scaffold pictogram: $(cat /tmp/dc-sc2.out) $(cat /tmp/dc-sc2.err)"
+fi
+
+# Caption
+rm -rf /tmp/dc-scaffold-caption
+if "${CLI[@]}" scaffold "$FIX/plan-caption-news.json" -o /tmp/dc-scaffold-caption --lib "$ROOT" --force >/tmp/dc-sc3.out 2>/tmp/dc-sc3.err \
+  && test -f /tmp/dc-scaffold-caption/content/timeline_content.json \
+  && test -f /tmp/dc-scaffold-caption/content/engine.lock.json \
+  && test -f /tmp/dc-scaffold-caption/timeline.json \
+  && test -f /tmp/dc-scaffold-caption/lines.json \
+  && test -f /tmp/dc-scaffold-caption/audio/lines.json \
+  && test -f /tmp/dc-scaffold-caption/palette.json \
+  && test -f /tmp/dc-scaffold-caption/FACTS.md \
+  && test -f /tmp/dc-scaffold-caption/PROJECT.md \
+  && test -f /tmp/dc-scaffold-caption/main.js \
+  && grep -q '流动性' /tmp/dc-scaffold-caption/timeline.json; then
+  ok "scaffold caption creates expected files"
+  assert_hash "$ROOT/styles/caption-news/demo/main.js" /tmp/dc-scaffold-caption/main.js "caption main.js"
+  assert_hash "$ROOT/styles/caption-news/demo/index.html" /tmp/dc-scaffold-caption/index.html "caption index.html"
+else
+  bad "scaffold caption: $(cat /tmp/dc-sc3.out) $(cat /tmp/dc-sc3.err)"
 fi
 
 echo

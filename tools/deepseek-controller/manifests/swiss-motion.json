@@ -1,8 +1,19 @@
 {
   "slug": "swiss-motion",
-  "title": { "en": "Swiss Motion Graphics", "zh": "瑞士动态排版" },
-  "languages": ["zh", "en", "zh-en"],
-  "durationSec": { "min": 20, "max": 50, "demo": 44 },
+  "title": {
+    "en": "Swiss Motion Graphics",
+    "zh": "瑞士动态排版"
+  },
+  "languages": [
+    "zh",
+    "en",
+    "zh-en"
+  ],
+  "durationSec": {
+    "min": 20,
+    "max": 50,
+    "demo": 44
+  },
   "beatGridSec": 0.25,
   "text": {
     "shotMaxChars": 80,
@@ -10,8 +21,23 @@
     "lineMaxChars": 80,
     "maxShots": 12
   },
-  "voiceModes": ["none", "edge", "kokoro", "qwen3", "omnivoice"],
-  "shotRoles": ["hook", "setup", "explain", "evidence", "contrast", "payoff", "end", "credits"],
+  "voiceModes": [
+    "none",
+    "edge",
+    "kokoro",
+    "qwen3",
+    "omnivoice"
+  ],
+  "shotRoles": [
+    "hook",
+    "setup",
+    "explain",
+    "evidence",
+    "contrast",
+    "payoff",
+    "end",
+    "credits"
+  ],
   "motionPresets": [
     "locked-spread",
     "hard-pan",
@@ -26,7 +52,11 @@
     "push-in",
     "split-cells"
   ],
-  "fonts": ["Archivo", "Inter", "Noto Sans SC"],
+  "fonts": [
+    "Archivo",
+    "Inter",
+    "Noto Sans SC"
+  ],
   "protectedGlobs": [
     "ease.js",
     "film.js",
@@ -46,7 +76,12 @@
     "content/TOUCHABLES.md",
     "voices/dur.json",
     "timeline.parsed.json",
-    "quality.json"
+    "quality.json",
+    "content/engine.lock.json",
+    "lines.json",
+    "palette.json",
+    "CREDITS",
+    "PROJECT.md"
   ],
   "notes": "Adapter writes content/*. Flash may not edit ease.js / film.js / mix.py. Wire content into a project copy of demo via thin project glue only."
 }
