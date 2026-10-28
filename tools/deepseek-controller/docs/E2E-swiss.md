@@ -61,5 +61,5 @@ Evidence copies in the project: `evidence/quality-novo.json`, `evidence/timeline
 - Homophone lexicon is a small finance starter set; extend `asr_homophones.json` as needed.
 - Full MP4 / mux / Release not part of this dry path.
 
-## Fixed in `e862a01`
+## Fixed in `3b0ec88`
 See table above; remaining gaps unchanged.
