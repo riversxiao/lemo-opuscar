@@ -60,32 +60,32 @@
 
 失败归因：内容 → Flash；环境/资源 → 控制器或停止；引擎 → 专家。专家只拿必要函数与证据，产出**隔离候选**，经回归后由维护者发版；禁止每片临时塞改正式引擎。
 
-## 能力补强（与控制器同阶段脚手架 / 并行调研）
+## 能力补强（Capability track · 与控制器并行）
 
-与「视频大模型换人 / Seedance」划清界限：下列项与**代码做片**同构，可进本仓；H3 / Ref2VA / Seedance 短剧仍归酒楼诗人等线，不并入本 fork 主路径。
+与「视频大模型换人 / Seedance」划清界限：下列项与**代码做片**同构，可进本仓；H3 / Ref2VA / Seedance 短剧仍归酒楼诗人等线，不并入本 fork 主路径。**未实测前不得声称已完整接通。**
 
-### 同栈优先（P0 setup 之后立刻脚手架或并行）
+### 落地状态（2026-10-28 脚手架）
 
-| # | 能力 | 本 sprint | 成功标准 |
+| # | 能力 | 路径 | Stub vs 已实现 |
 |---|---|---|---|
-| 1 | **openfilm 式工程导出** | 技能桩 `plugin/skills/lemo-export-nle/` + `tools/openfilm_handoff.sh`（单镜 HTML 手递） | MP4 默认保留；handoff 可跑；Premiere/DaVinci 仍为 TODO |
-| 2 | **HyperFrames 备用渲染轨** | 技能桩 `plugin/skills/lemo-hyperframes/` + `docs/integrations/hyperframes.md`；**不**替换 Playwright 默认 | SKILL 写清何时试用/回退；无自动迁 Opus demo |
-| 3 | **中文 TTS 可插拔路由** | `plugin/skills/lemo-tts-router/` + `core/tts/tts_router.py` + `tools/tts_router.md`；`qwen3`/`omnivoice` 为 HTTP stub | 默认 `edge`；stub 调用非零退出；无密钥、无默认安装大模型 |
-| 4 | **Remotion 第二引擎（信息图）** | 技能桩 `plugin/skills/lemo-remotion-infographic/` + `docs/integrations/remotion.md`；**禁止**解锁或改 Opus demo | 仅新 Remotion 工程；与 `$LIB/styles/*/demo` 隔离 |
+| 1 | **OpenFilm NLE 手递** | `plugin/skills/lemo-export-nle/SKILL.md` · `tools/openfilm_handoff.sh` | 技能 + **单镜 MP4 打包脚本已写**（按 [OpenFilm manual](https://openfilm.dev/docs/manual/) 的 `film.html`）；Studio / Premiere·Resolve 时间轴导出未在 CI 实测；分镜级 `frame(t)` 适配器 **未做** |
+| 2 | **HyperFrames 备用轨** | `docs/integrations/hyperframes.md` · `plugin/skills/lemo-hyperframes/SKILL.md` | 文档/技能 **stub**；默认仍 Playwright |
+| 3 | **中文 TTS 路由** | `tools/tts_router.md` · `core/tts/tts_router.py` · `core/tts/providers/` · `requirements-voice-extra.txt` | edge / kokoro **可调**；qwen3 / omnivoice **stub**（不下载大模型）；`AGENTS.deepseek.md` 已写明：跳过词对齐 ≠ 跳过 VO 完整性 |
+| 4 | **Remotion 信息图** | `docs/integrations/remotion.md` · `plugin/skills/lemo-remotion-infographic/SKILL.md` | 桥接说明 **stub**；不 vendoring Remotion 模板；不碰 Opus demo |
+| 5 | Stickman my-style | `docs/integrations/stickman-style.md` + `MY-STYLES.md` 指针 | 调研笔记（偏 stix / 自研 SVG，勿走视频大模型） |
+| 6 | 动效 / 合集 stitch | `docs/integrations/motion-and-stitch.md` | 计划短文 |
+| 7 | 本地歌床 YuE2/Plenio | `docs/integrations/local-music.md` | 调研（VRAM / 许可注意） |
 
-### 中等优先级（控制器三风格稳定后）
+### Sprint 分期
 
-| # | 能力 | 形态 |
-|---|---|---|
-| 5 | Stickman / Stickman Director | 候选进 `~/lemo-my-styles/`（`MY-STYLES.md`），非官方 59 格 |
-| 6 | 动效 demo 仓 + 开源剪辑技能 | 喂新 STYLE 底座，或把多支 30s 样片拼成合集 Release |
-| 7 | 本地歌床 YuE2 / Plenio | music tier 替代 `pluck` / 外部 Suno；先调研许可与 CLI |
+| Sprint | 范围 |
+|---|---|
+| **A · 现在** | setup.sh P1（上节）+ 本表文档/技能脚手架 |
+| **B** | TTS 某一自托管 provider 的 HTTP 客户端 MVP + 用真实 mux 片跑一遍 `openfilm_handoff.sh` |
+| **C** | Remotion 桥接试做：一个 Caption 类中文题材（Flash 只填 props/data JSON） |
+| **D** | HyperFrames 试片（非锁定引擎片）；Stickman styleframe；本地乐床 drop-in |
 
-### 本 sprint 落地约定
-
-- **代码桩**：上表 1–4 的 `SKILL.md`、integrations 文档、`tools/openfilm_handoff.sh`、`core/tts/tts_router.py`（qwen3/omnivoice 仅 stub），**无假造已通的克隆 API、不接密钥、不重生成片**。
-- **仅调研**：5–7 写入本节即可，除非用户指定仓库路径再开 stub。
-- Playwright 逐帧仍为默认出片路径；Remotion / HyperFrames 均为可选轨。
+Playwright 逐帧仍为默认出片路径。不重生成片、不扩写 59 格。
 
 ## 明确不做（本轮）
 
