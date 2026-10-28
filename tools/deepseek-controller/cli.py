@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DeepSeek controller CLI: validate | adapt | scaffold | schedule | mix | quality."""
+"""DeepSeek controller CLI: validate | adapt | scaffold | tts | schedule | mix | quality."""
 from __future__ import annotations
 
 import argparse
@@ -123,6 +123,51 @@ def cmd_mix(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_tts(args: argparse.Namespace) -> int:
+    """Synthesize VO via core/tts/tts_router (edge / kokoro / auto / HTTP providers)."""
+    if getattr(args, "list_providers", False):
+        import json
+        import sys as _sys
+        from pathlib import Path as _Path
+        root = _Path(__file__).resolve().parents[2]
+        tts = root / "core" / "tts"
+        if str(tts) not in _sys.path:
+            _sys.path.insert(0, str(tts))
+        from providers.runtime import list_statuses
+        rows = [s.as_dict() for s in list_statuses()]
+        if args.json:
+            print(json.dumps({"providers": rows}, ensure_ascii=False, indent=2))
+        else:
+            print(f"{'id':<12} {'state':<14} detail")
+            for r in rows:
+                print(f"{r['id']:<12} {r['state']:<14} {r['detail']}")
+            ready = [r['id'] for r in rows if r['ready']]
+            print(f"ready: {', '.join(ready) if ready else '(none)'}")
+        return 0
+    from run_tts import run_tts
+    try:
+        meta = run_tts(
+            Path(args.project),
+            provider=args.provider,
+            fallback=args.fallback or "",
+            lines_path=Path(args.lines) if args.lines else None,
+            out_dir=Path(args.out) if args.out else None,
+            voice=args.voice,
+            rate=args.rate,
+            pitch=args.pitch,
+            post_words=not args.no_post_words,
+        )
+    except (FileNotFoundError, SystemExit) as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 1
+    print(f"OK tts provider={meta['provider']} → {meta['voices']}")
+    for lid, sec in (meta.get('dur') or {}).items():
+        print(f"  {lid}: {sec}s")
+    if meta.get('wordsRel'):
+        print(f"  words_rel: {meta['wordsRel']}")
+    return 0
+
+
 def cmd_quality(args: argparse.Namespace) -> int:
     argv = ["--project", args.project]
     if args.media:
@@ -147,7 +192,7 @@ def cmd_quality(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="deepseek-controller",
-        description="Minimal DeepSeek film controller (plan → adapt → scaffold → schedule → mix → quality)",
+        description="Minimal DeepSeek film controller (plan → adapt → scaffold → tts → schedule → mix → quality)",
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -185,6 +230,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
     s.add_argument("-o", "--output")
     s.set_defaults(func=cmd_schedule)
+
+
+    t = sub.add_parser(
+        "tts",
+        help="synthesize VO via tts_router (edge/kokoro/auto; qwen3|omnivoice when *_BASE set)",
+    )
+    t.add_argument("--project", help="film project root (required unless --list)")
+    t.add_argument(
+        "--provider",
+        default="edge",
+        help="edge|kokoro|qwen3|omnivoice|auto (default edge)",
+    )
+    t.add_argument(
+        "--fallback",
+        default="edge,kokoro",
+        help="comma list for retries / auto preference (empty disables)",
+    )
+    t.add_argument("--lines", help="override lines.json path")
+    t.add_argument("--out", help="voices dir (default: <project>/voices)")
+    t.add_argument("--voice", default=None)
+    t.add_argument("--rate", default="+0%")
+    t.add_argument("--pitch", default="+0Hz")
+    t.add_argument("--no-post-words", action="store_true", help="skip zh words_rel refresh")
+    t.add_argument("--list", dest="list_providers", action="store_true", help="show provider readiness")
+    t.add_argument("--json", action="store_true", help="with --list, JSON output")
+    t.set_defaults(func=cmd_tts)
 
     q = sub.add_parser("quality", help="write quality.json and gate delivery")
     q.add_argument("--project", required=True)

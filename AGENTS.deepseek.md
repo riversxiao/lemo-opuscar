@@ -86,6 +86,8 @@ MVP CLI：[`tools/deepseek-controller/README.md`](tools/deepseek-controller/READ
 ## VO / TTS（所有供应商）
 
 - 默认中文旁白：`python core/tts/tts_zh.py`（edge-tts 云希/晓晓）或 `python core/tts/tts_router.py … --provider edge`。
-- 路由与自托管计划见 [`tools/tts_router.md`](tools/tts_router.md)；`qwen3` / `omnivoice` 目前为 stub。
+- 第二条真路径：**kokoro**（离线；`.venv-voice` 或 `LEMO_TTS_PYTHON`）。`python core/tts/tts_router.py --list` 看 ready。
+- 控制器：`python3 tools/deepseek-controller/cli.py tts --project <film> [--provider auto|kokoro|edge]`。
+- `qwen3` / `omnivoice`：HTTP 客户端已接；仅当设置 `LEMO_TTS_QWEN3_BASE` / `LEMO_TTS_OMNIVOICE_BASE` 时为 ready（不臆造 Key）。见 [`tools/tts_router.md`](tools/tts_router.md)。
 - **「中文跳过 ASR 词对齐」只影响词级时间事件，不影响语音内容完整性检查。** 无论哪个 provider：`lines.json` 每句都要有非静音 WAV + `dur.json`；成片混音须保留这些语音；画面/字幕中文与朗读内容一致（可标点），禁止默默缩短意译。
 - 无旁白片可在质量报告里把 ASR 标为 `NOT_APPLICABLE`；有旁白片不得用「缺依赖」冒充通过。

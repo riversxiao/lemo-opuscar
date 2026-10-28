@@ -10,13 +10,14 @@ Studio 清点（本机是否存在、与三风格适配器关系）：[`docs/STU
 
 ## English (short)
 
-Minimal controller for Lemo-DeepSeek: `validate` → `adapt` / **`scaffold`** → `schedule` → `quality`.
+Minimal controller for Lemo-DeepSeek: `validate` → `adapt` / **`scaffold`** → **`tts`** → `schedule` → `mix` → `quality`.
 
 - Plan schema: `plan.schema.json` (content only; rejects code/path/shader-looking keys).
 - Style manifests: `manifests/{swiss-motion,pictogram-motion,caption-news}.json`.
 - Adapters write **content-only** files under `<project>/content/` (see `adapters/TOUCHABLES.md`).
 - **`scaffold`** (all three styles): copy `styles/<slug>/demo/` → project, adapt, sync touchable sidecars only, write `engine.lock.json` + `PROJECT.md`. Never rewrites style cores (`ease.js`/`film.js`, `engine.js`/`edl.js`, or `main.js`).
 - `schedule` builds `timeline.parsed.json` from measured VO; **pads** under-target (hold-last-beat); **fails** if over target.
+- `tts` routes VO through `core/tts/tts_router` (`edge` / `kokoro` ready; `qwen3`/`omnivoice` when `*_BASE` set). See `../tts_router.md`.
 - `quality` writes `quality.json`; required `FAIL` / `NOT_CHECKED` blocks delivery.
 
 ### One-shot paths (fixtures)
@@ -38,6 +39,9 @@ python3 $CTL/cli.py scaffold $CTL/fixtures/plan-caption-news.json \
 # shell wrapper (same args):
 # bash $CTL/scaffold_project.sh $CTL/fixtures/plan-swiss-motion.json -o /tmp/film-fuli --lib "$LIB"
 
+python3 $CTL/cli.py tts --list
+python3 $CTL/cli.py tts --project /tmp/film-fuli --provider kokoro   # offline
+# or: --provider auto --fallback kokoro,edge
 python3 $CTL/cli.py schedule --project /tmp/film-fuli --require-vo
 python3 $CTL/cli.py quality  --project /tmp/film-fuli --skip-heavy
 bash $CTL/tests/test_mvp.sh

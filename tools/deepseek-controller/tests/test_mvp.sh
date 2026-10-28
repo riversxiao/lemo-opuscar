@@ -958,6 +958,54 @@ fi
 
 
 
+# 30) tts router --list + kokoro one-line when .venv-voice ready; qwen3 needs-server without BASE
+if python3 - <<'PY'
+import json, os, subprocess, sys, tempfile
+from pathlib import Path
+root = Path(".").resolve()
+cli = [sys.executable, "tools/deepseek-controller/cli.py"]
+r = subprocess.run(cli + ["tts", "--list", "--json"], capture_output=True, text=True)
+assert r.returncode == 0, r.stderr
+data = json.loads(r.stdout)
+by = {p["id"]: p for p in data["providers"]}
+assert by["edge"]["state"] == "ready", by["edge"]
+assert by["qwen3"]["state"] == "needs-server", by["qwen3"]
+assert by["omnivoice"]["state"] == "needs-server", by["omnivoice"]
+r2 = subprocess.run([sys.executable, "core/tts/tts_router.py", "--list", "--json"], capture_output=True, text=True)
+assert r2.returncode == 0, r2.stderr
+td = Path(tempfile.mkdtemp(prefix="dc-tts-qwen-"))
+lines = td / "lines.json"
+lines.write_text(json.dumps([{"id": "t1", "text": "测试一句。"}], ensure_ascii=False), encoding="utf-8")
+env = {k: v for k, v in os.environ.items() if not k.startswith("LEMO_TTS_QWEN3")}
+r3 = subprocess.run(
+    [sys.executable, "core/tts/tts_router.py", str(lines), str(td / "out"),
+     "--provider", "qwen3", "--fallback", ""],
+    capture_output=True, text=True, env=env,
+)
+assert r3.returncode != 0, r3.stdout
+blob = r3.stderr + r3.stdout
+assert "QWEN3_BASE" in blob or "needs-server" in blob, blob
+venv_py = root / ".venv-voice" / "bin" / "python"
+if venv_py.is_file() and by["kokoro"]["state"] == "ready":
+    out = td / "kokoro"
+    r4 = subprocess.run(
+        cli + ["tts", "--project", str(td), "--lines", str(lines), "--out", str(out),
+               "--provider", "kokoro", "--fallback", "", "--no-post-words"],
+        capture_output=True, text=True,
+    )
+    assert r4.returncode == 0, r4.stderr + r4.stdout
+    assert (out / "t1.wav").is_file() and (out / "dur.json").is_file()
+    assert json.loads((out / "tts_router.json").read_text())["provider"] == "kokoro"
+print("ok")
+PY
+then
+  ok "tts router list + kokoro/qwen3 honesty"
+else
+  bad "tts router list / kokoro"
+fi
+
+
+
 echo
 echo "Results: $pass passed, $fail failed"
 test "$fail" -eq 0

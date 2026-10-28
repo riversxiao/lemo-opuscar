@@ -89,7 +89,7 @@
 |---|---|---|---|
 | 1 | **OpenFilm NLE 手递** | `plugin/skills/lemo-export-nle/SKILL.md` · `tools/openfilm_handoff.sh` | 技能 + **单镜 MP4 打包脚本已写**（按 [OpenFilm manual](https://openfilm.dev/docs/manual/) 的 `film.html`）；Studio / Premiere·Resolve 时间轴导出未在 CI 实测；分镜级 `frame(t)` 适配器 **未做** |
 | 2 | **HyperFrames 备用轨** | `docs/integrations/hyperframes.md` · `plugin/skills/lemo-hyperframes/SKILL.md` | 文档/技能 **stub**；默认仍 Playwright |
-| 3 | **中文 TTS 路由** | `tools/tts_router.md` · `core/tts/tts_router.py` · `core/tts/providers/` · `requirements-voice-extra.txt` | edge / kokoro **可调**；qwen3 / omnivoice **stub**（不下载大模型）；`AGENTS.deepseek.md` 已写明：跳过词对齐 ≠ 跳过 VO 完整性 |
+| 3 | **中文 TTS 路由** | `tools/tts_router.md` · `core/tts/tts_router.py` · `cli.py tts` · `providers/` | edge + kokoro **ready**（`.venv-voice`）；qwen3/omnivoice **HTTP ready when `*_BASE` set**（不臆造 Key、不下载大模型）；`AGENTS.deepseek.md`：跳过词对齐 ≠ 跳过 VO 完整性 |
 | 4 | **Remotion 信息图** | `docs/integrations/remotion.md` · `plugin/skills/lemo-remotion-infographic/SKILL.md` | 桥接说明 **stub**；不 vendoring Remotion 模板；不碰 Opus demo |
 | 5 | Stickman my-style | `docs/integrations/stickman-style.md` + `MY-STYLES.md` 指针 | 调研笔记（偏 stix / 自研 SVG，勿走视频大模型） |
 | 6 | 动效 / 合集 stitch | `docs/integrations/motion-and-stitch.md` | 计划短文 |

@@ -111,7 +111,7 @@ Avoid dual controllers: if Studio later arrives, **diff its plan/hash/ledger/exp
 ## 6. Recommended next step
 
 1. **If you have the evaluation Studio** (the `../../opuscar-studio/README.md` tree): put it on the box (path or private clone) and ask for a **diff against `tools/deepseek-controller/`** — import only ledger + expert-candidate gaps.
-2. **If you do not:** treat Studio as **out of scope**; continue controller gaps (12-film matrix, TTS multi-route beyond edge/kokoro stubs, HyperFrames/OpenFilm only as optional rails).
+2. **If you do not:** treat Studio as **out of scope**; continue controller gaps (12-film matrix, HyperFrames/OpenFilm only as optional rails; TTS multi-route is wired — see docs/TTS.md).
 3. **Do not** rename community documentary repos or HyperFrames/OpenFilm as “Opuscar Studio integrated.”
 
 ---

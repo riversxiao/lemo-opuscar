@@ -5,10 +5,25 @@ Shared interface for every voice provider in this fork. Matches `core/tts/tts_zh
 ## CLI
 
 ```sh
-python core/tts/tts_router.py lines.json out_dir [--provider edge|kokoro|qwen3|omnivoice] [provider flags…]
+# readiness (honest: ready | deps-missing | needs-server)
+python core/tts/tts_router.py --list
+python core/tts/tts_router.py --list --json
+
+# synthesize
+python core/tts/tts_router.py lines.json out_dir \
+  [--provider edge|kokoro|qwen3|omnivoice|auto] \
+  [--fallback edge,kokoro] [--voice …] [--rate +0%] [--pitch +0Hz]
 ```
 
-Default provider: **`edge`** (`tts_zh.py`, Yunxi / Xiaoxiao Neural via Microsoft edge-tts).
+Controller mirror:
+
+```sh
+python3 tools/deepseek-controller/cli.py tts --list
+python3 tools/deepseek-controller/cli.py tts --project /path/to/film \
+  --provider auto --fallback kokoro,edge
+```
+
+Defaults: **`edge`** (Yunxi). Env overrides: `LEMO_TTS_PROVIDER`, `LEMO_TTS_FALLBACK`, `LEMO_TTS_PYTHON` (interpreter for subprocess providers).
 
 ## Input · `lines.json`
 
@@ -29,31 +44,67 @@ Default provider: **`edge`** (`tts_zh.py`, Yunxi / Xiaoxiao Neural via Microsoft
 - `text` — canonical line (subtitles / on-screen); VO completeness checks compare against this (or `say` when present — see AGENTS.deepseek).
 - `say` — optional speak-as form (numbers expanded, etc.).
 - `rate` / `pitch` — edge-tts style; numeric `speed` accepted as multiplier (same as `tts_zh.py`).
-- Provider-specific voice names belong in `voice` or provider env defaults.
+- Provider-specific voice names belong in `voice` or provider env defaults. Kokoro strips Microsoft `*Neural` names and uses `zf_xiaoxiao` for CJK.
 
 ## Output · `out_dir/`
 
 | Artifact | Meaning |
 |---|---|
-| `<id>.wav` | 24 kHz mono WAV, leading/trailing silence trimmed (same as `tts_zh.py`) |
+| `<id>.wav` | 24 kHz mono WAV, leading/trailing silence trimmed |
 | `dur.json` | `{ "<id>": seconds, … }` |
-| `.cache/` | provider cache (optional; edge uses this today) |
+| `tts_router.json` | (controller only) provider used + readiness snapshot |
+| `.cache/` | edge-tts mp3 cache |
 
-## Providers
+## Providers (this box)
 
 | id | Module | Network | Status |
 |---|---|---|---|
-| `edge` | `core/tts/tts_zh.py` | required (Microsoft) | **default · implemented** |
-| `kokoro` | `core/tts/tts.py` + `lang: cmn` | offline | implemented (plain timbre) |
-| `qwen3` | HTTP OpenAI-compatible `/v1/audio/speech` | local server | **stub** — see `providers/qwen3.py` |
-| `omnivoice` | HTTP OpenAI-compatible `/v1/audio/speech` | local server | **stub** — see `providers/omnivoice.py` |
+| `edge` | `tts_zh.py` / edge-tts | required (Microsoft) | **ready** · default Yunxi |
+| `kokoro` | `tts.py` + `lang: cmn` | offline | **ready** when `.venv-voice` (or `LEMO_TTS_PYTHON`) has `kokoro-onnx` and weights exist |
+| `qwen3` | `providers/http_speech.py` | optional HTTP | **needs-server** until `LEMO_TTS_QWEN3_BASE` is set |
+| `omnivoice` | same HTTP client | optional HTTP | **needs-server** until `LEMO_TTS_OMNIVOICE_BASE` is set |
+
+### Enable kokoro (offline second path)
+
+Weights are already fetched by `sh tools/fetch.sh voice` (~350 MB under `core/tts/`). Create a 3.12 voice venv (not committed):
+
+```sh
+uv venv .venv-voice --python 3.12
+uv pip install --python .venv-voice/bin/python kokoro-onnx soundfile numpy edge-tts
+python core/tts/tts_router.py --list   # kokoro → ready
+```
+
+Or point `LEMO_TTS_PYTHON` at any interpreter that can `import kokoro_onnx`.
+
+### Enable qwen3 / omnivoice (self-hosted)
+
+HTTP client is implemented (stdlib + ffmpeg). **No API keys are shipped or invented.**
+
+```sh
+# example — only after YOU start a local OpenAI-compatible speech server
+export LEMO_TTS_QWEN3_BASE=http://127.0.0.1:8091/v1
+# optional:
+# export LEMO_TTS_QWEN3_MODEL=tts-1
+# export LEMO_TTS_QWEN3_API_KEY=…   # only if your server requires one
+
+python core/tts/tts_router.py --list          # qwen3 → ready
+python core/tts/tts_router.py lines.json out --provider qwen3
+```
+
+Same pattern for OmniVoice: `LEMO_TTS_OMNIVOICE_BASE=http://127.0.0.1:8880/v1`.
 
 Self-host references (do not vendor weights here):
 
-- Qwen3-TTS: `Qwen/Qwen3-TTS-12Hz-*` via vLLM-Omni speech API or community FastAPI (`groxaxo/Qwen3-TTS-Openai-Fastapi`, `second-state/qwen3_audio_api`)
-- OmniVoice: `k2-fsa/OmniVoice`; Docker API e.g. `diogod2r/OmniVoice-FastAPI` (`POST /v1/audio/speech`)
+- Qwen3-TTS: `Qwen/Qwen3-TTS-12Hz-*` via vLLM-Omni or community FastAPI
+- OmniVoice: `k2-fsa/OmniVoice`; Docker API e.g. `diogod2r/OmniVoice-FastAPI`
 
-Extra Python deps for future local clients: [`requirements-voice-extra.txt`](../requirements-voice-extra.txt) (comments only until a provider is switched on).
+Extra notes: [`requirements-voice-extra.txt`](../requirements-voice-extra.txt).
+
+## Selection rules
+
+- `--provider edge|kokoro|…` — try that first; then `--fallback` list (skip entries that are not ready).
+- `--provider auto` — first **ready** provider in the fallback / default order (`edge,kokoro`, then HTTP if configured).
+- Empty `--fallback ''` disables retries.
 
 ## Completeness (all providers)
 
