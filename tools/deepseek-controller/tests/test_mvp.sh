@@ -82,6 +82,57 @@ else
   bad "quality allow-unchecked: $(cat /tmp/dc-q2.out) $(cat /tmp/dc-q2.err)"
 fi
 
+# 8) Swiss scaffold: expected files + ease.js hash unchanged vs demo
+DEMO_EASE="$ROOT/styles/swiss-motion/demo/ease.js"
+DEMO_HASH="$(sha256sum "$DEMO_EASE" | awk '{print $1}')"
+rm -rf /tmp/dc-scaffold-swiss
+if "${CLI[@]}" scaffold "$FIX/plan-swiss-motion.json" -o /tmp/dc-scaffold-swiss --lib "$ROOT" >/tmp/dc-sc.out 2>/tmp/dc-sc.err \
+  && test -f /tmp/dc-scaffold-swiss/content/shots.json \
+  && test -f /tmp/dc-scaffold-swiss/content/engine.lock.json \
+  && test -f /tmp/dc-scaffold-swiss/lines.json \
+  && test -f /tmp/dc-scaffold-swiss/palette.json \
+  && test -f /tmp/dc-scaffold-swiss/PROJECT.md \
+  && test -f /tmp/dc-scaffold-swiss/ease.js \
+  && test -f /tmp/dc-scaffold-swiss/film.js; then
+  ok "scaffold swiss creates expected files"
+  PROJ_HASH="$(sha256sum /tmp/dc-scaffold-swiss/ease.js | awk '{print $1}')"
+  if test "$PROJ_HASH" = "$DEMO_HASH"; then
+    ok "scaffold leaves ease.js hash identical to demo"
+  else
+    bad "ease.js hash changed: demo=$DEMO_HASH proj=$PROJ_HASH"
+  fi
+  FILM_DEMO="$(sha256sum "$ROOT/styles/swiss-motion/demo/film.js" | awk '{print $1}')"
+  FILM_PROJ="$(sha256sum /tmp/dc-scaffold-swiss/film.js | awk '{print $1}')"
+  if test "$FILM_DEMO" = "$FILM_PROJ"; then
+    ok "scaffold leaves film.js hash identical to demo"
+  else
+    bad "film.js hash changed"
+  fi
+  if grep -q '一块钱' /tmp/dc-scaffold-swiss/lines.json; then
+    ok "scaffold synced Chinese lines into root lines.json"
+  else
+    bad "root lines.json missing plan text"
+  fi
+else
+  bad "scaffold swiss files: $(cat /tmp/dc-sc.out) $(cat /tmp/dc-sc.err)"
+fi
+
+# 9) pictogram stub scaffold (copy+adapt only)
+rm -rf /tmp/dc-scaffold-picto
+if "${CLI[@]}" scaffold "$FIX/plan-pictogram-motion.json" -o /tmp/dc-scaffold-picto --lib "$ROOT" --force >/tmp/dc-sc2.out 2>/tmp/dc-sc2.err \
+  && test -f /tmp/dc-scaffold-picto/content/edl_content.json \
+  && test -f /tmp/dc-scaffold-picto/engine.js; then
+  ENG_DEMO="$(sha256sum "$ROOT/styles/pictogram-motion/demo/engine.js" | awk '{print $1}')"
+  ENG_PROJ="$(sha256sum /tmp/dc-scaffold-picto/engine.js | awk '{print $1}')"
+  if test "$ENG_DEMO" = "$ENG_PROJ"; then
+    ok "pictogram stub scaffold keeps engine.js hash"
+  else
+    bad "pictogram engine.js hash changed"
+  fi
+else
+  bad "pictogram stub scaffold: $(cat /tmp/dc-sc2.out) $(cat /tmp/dc-sc2.err)"
+fi
+
 echo
 echo "Results: $pass passed, $fail failed"
 test "$fail" -eq 0

@@ -35,7 +35,8 @@
 | 适配器（只写 content/） | `tools/deepseek-controller/adapters/` |
 | VO 排期（超目标则失败） | `tools/deepseek-controller/schedule.py` |
 | `quality.json` 验收门 | `tools/deepseek-controller/quality.py` |
-| CLI | `python3 tools/deepseek-controller/cli.py validate / adapt / schedule / quality` |
+| CLI | `python3 tools/deepseek-controller/cli.py validate / adapt / scaffold / schedule / quality` |
+| Swiss 薄胶合 | `glue_swiss.py` · `scaffold.py` · `scaffold_project.sh`（复制 demo、同步 lines/CREDITS/palette sidecar、engine.lock；不改 ease.js） |
 | 样例 / 回归 | `fixtures/` · `tests/test_mvp.sh` |
 
 说明见 [`tools/deepseek-controller/README.md`](../tools/deepseek-controller/README.md)。

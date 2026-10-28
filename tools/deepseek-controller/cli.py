@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DeepSeek controller CLI: validate | adapt | schedule | quality."""
+"""DeepSeek controller CLI: validate | adapt | scaffold | schedule | quality."""
 from __future__ import annotations
 
 import argparse
@@ -15,6 +15,7 @@ from common import load_json  # noqa: E402
 from quality import main as quality_main  # noqa: E402
 from schedule import main as schedule_main  # noqa: E402
 from validate import validate_plan  # noqa: E402
+from scaffold import scaffold  # noqa: E402
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
@@ -44,6 +45,24 @@ def cmd_adapt(args: argparse.Namespace) -> int:
         print(f"  {w.relative_to(out)}")
     return 0
 
+
+
+def cmd_scaffold(args: argparse.Namespace) -> int:
+    try:
+        info = scaffold(
+            Path(args.plan),
+            Path(args.out),
+            lib=Path(args.lib) if args.lib else None,
+            force=args.force,
+        )
+    except (ValueError, FileExistsError, FileNotFoundError, RuntimeError) as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 1
+    print(f"OK scaffold {info.get('style')} mode={info.get('mode')} → {info['project']}")
+    if info.get("protectedSha256"):
+        for name, h in info["protectedSha256"].items():
+            print(f"  lock {name}: {h[:16]}…")
+    return 0
 
 def cmd_schedule(args: argparse.Namespace) -> int:
     # Re-parse into schedule.main argv
@@ -85,7 +104,7 @@ def cmd_quality(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="deepseek-controller",
-        description="Minimal DeepSeek film controller (plan → adapt → schedule → quality)",
+        description="Minimal DeepSeek film controller (plan → adapt → scaffold → schedule → quality)",
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -99,6 +118,13 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("-o", "--out", required=True, help="project output directory")
     a.add_argument("--no-manifest", action="store_true")
     a.set_defaults(func=cmd_adapt)
+
+    sc = sub.add_parser("scaffold", help="copy style demo + adapt + thin glue (Swiss)")
+    sc.add_argument("plan")
+    sc.add_argument("-o", "--out", required=True, help="project output directory")
+    sc.add_argument("--lib", help="repo root with styles/*/demo")
+    sc.add_argument("--force", action="store_true", help="overwrite existing project")
+    sc.set_defaults(func=cmd_scaffold)
 
     s = sub.add_parser("schedule", help="VO-driven timeline.parsed.json")
     s.add_argument("--project", required=True)
