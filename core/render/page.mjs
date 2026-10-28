@@ -119,6 +119,42 @@ export async function openDemo(dir, { w = 1920, h = 1080, q = '', warnings = fal
     console.error('[edl_runtime] bridge failed:', (e && e.message) ? e.message.split('\n')[0] : e);
     process.exit(1);
   }
+  // Swiss controller bridge: touchable texts_runtime.json installs window.TEXTS(t) after READY
+  // when the locked demo never registered it. film.js/main.js hashes unchanged. No-op if TEXTS
+  // already exists (caption / style versions) or the JSON is absent.
+  try {
+    const textsApplied = await page.evaluate(async () => {
+      if (typeof window.TEXTS === 'function') return { ok: false, reason: 'already' };
+      const r = await fetch('texts_runtime.json', { cache: 'no-store' });
+      if (!r.ok) return { ok: false, reason: 'missing' };
+      const runtime = await r.json();
+      const entries = runtime && Array.isArray(runtime.entries) ? runtime.entries : [];
+      if (!entries.length) return { ok: false, reason: 'empty' };
+      window.__TEXTS_RUNTIME = runtime;
+      window.TEXTS = (t) => {
+        const out = [];
+        for (const e of entries) {
+          if (!e || t < e.t0 || t > e.t1) continue;
+          out.push({
+            id: String(e.id),
+            text: String(e.text || ''),
+            x0: +e.x0, y0: +e.y0, x1: +e.x1, y1: +e.y1,
+          });
+        }
+        return out;
+      };
+      window.__TEXTS_RUNTIME_APPLIED = true;
+      return { ok: true, n: entries.length, holdPad: (runtime.holdPad || []).length };
+    });
+    if (textsApplied && textsApplied.ok) {
+      console.error(`[texts_runtime] installed window.TEXTS (${textsApplied.n} entries` +
+        (textsApplied.holdPad ? `, holdPad=${textsApplied.holdPad}` : '') +
+        '; film.js/main.js hash untouched)');
+    }
+  } catch (e) {
+    console.error('[texts_runtime] bridge failed:', (e && e.message) ? e.message.split('\n')[0] : e);
+    process.exit(1);
+  }
   return { browser, page };
 }
 export function closeServer() { if (srv) srv.server.close(); }

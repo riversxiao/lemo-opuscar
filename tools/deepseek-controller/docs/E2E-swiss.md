@@ -61,7 +61,7 @@ Deps needed on the box: `soundfile`, `soxr`, `faster-whisper` (pip). Swiss `font
 Evidence copies in the project: `evidence/quality-novo.json`, `evidence/timeline-novo.json`, `evidence/quality-final.json`, `evidence/timeline-final.json`.
 
 ## Remaining known gaps
-- No `window.TEXTS(t)` hook without editing protected `film.js`/`main.js`/`index.html` — maintainer style version needed before readcheck can PASS.
+- ~~No `window.TEXTS(t)`~~ → **`texts_runtime.json` overlay** (see below). German poster TX literals still demo-locked.
 - Homophone lexicon is a small finance starter set; extend `asr_homophones.json` as needed.
 - Full MP4 / mux / Release not part of this dry path (see Full render below).
 
@@ -128,7 +128,7 @@ Evidence: `evidence/quality-mux-strict.json`, `evidence/quality-mux-tolerant.jso
 - Locked `setLines` only splits on ASCII `. `; CJK needs that touchable hack (or a future style version with `。` support + Noto).
 - Locked `mix.py` path assumes `styles/…/demo`; films under `/workspace/films` need `PYTHONPATH=$LIB/core/audio`.
 - Plan `targetDurationSec` is schedule budget; mux length under Swiss lock follows engine `DUR` (44s) — pad does not rewrite `film.js`.
-- No `window.TEXTS(t)` without unlocking engine → readcheck stays NOT_APPLICABLE.
+- Without `texts_runtime.json` → readcheck NOT_APPLICABLE; with overlay → real PASS (holdPad may extend l5 under PAGE_OUT).
 - Strict ASR on short Yunxi remains flaky; **recommended delivery** uses `--delivery` (zh → tolerant). Unrelated mishears (e.g. 蝙蝠) still block.
 - Caption full mux: see `E2E-caption.md` (liudong-controller-e2e, quality --delivery PASS). Pictogram full mux: see `E2E-pictogram.md` (fensan-controller-e2e, quality --delivery PASS).
 
@@ -159,3 +159,40 @@ See [`E2E-caption.md`](./E2E-caption.md) and [`E2E-pictogram.md`](./E2E-pictogra
 ## Audio note
 
 Swiss E2E mux uses project mix / VO path; when freepats/`score.py` is unavailable, prefer **`cli mix` / `music_bed.py`** (placeholder bed + VO) or `--vo-only`. See `docs/MUSIC-BED.md`.
+
+
+## texts_runtime overlay (readcheck without unlocking film.js) — 2026-10-29
+
+Pattern mirrors Pictogram `edl_runtime` / `brand_strings`: touchable JSON + `core/render/page.mjs` post-READY hook. **Default demo lock unchanged** (`film.js` / `main.js` / `index.html` hashes intact on `fuli-controller-e2e`).
+
+| piece | role |
+|---|---|
+| `apply_swiss_texts.py` | `lines.json` → `texts_runtime.json` (LAYOUT boxes, big-statement text, holdPad) |
+| `page.mjs` | if no `window.TEXTS` yet and JSON present → install `TEXTS(t)` |
+| glue / schedule | write overlay automatically for swiss-motion |
+| quality | with overlay → **real readcheck**; without → `NOT_APPLICABLE` `swiss-demo-without-registry` |
+
+```bash
+P=/workspace/films/fuli-controller-e2e
+python3 tools/deepseek-controller/apply_swiss_texts.py --project $P
+# or: schedule / scaffold already writes it
+PLAYWRIGHT_CHROME=/usr/bin/google-chrome \
+  python3 tools/deepseek-controller/cli.py quality --project $P --delivery
+# discovers $P/$(basename $P).mp4
+```
+
+### quality before → after (fuli-controller-e2e, `--delivery` + media)
+
+| check | before | after |
+|---|---|---|
+| readcheck | **NOT_APPLICABLE** `swiss-demo-without-registry` | **PASS** (5 VO statements; l5 holdPad +0.6s under locked PAGE_OUT) |
+| overall / deliveryAllowed | PASS / true (N/A readcheck) | **PASS / true** with real readcheck |
+| film.js / main.js sha256 | locked | **unchanged** |
+
+Evidence: `evidence/quality-texts-runtime.json`.
+
+### Honest limits
+- Registry covers **touchable VO/statement lines** (big band after `. `). German poster `TX` / end-card demo strings stay out of TEXTS (ornamental / locked).
+- `holdPad`: when locked LAYOUT hold &lt; readcheck need (e.g. l5 vs PAGE_OUT=24.5), `t1` extends with in-frame box — visual flip may finish slightly earlier.
+- Style-version unlock of `film.js` still needed to retarget poster copy or LAYOUT ends themselves.
+

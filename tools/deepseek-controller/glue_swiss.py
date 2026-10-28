@@ -74,6 +74,16 @@ def apply_touchables(project: Path, plan: dict[str, Any]) -> list[Path]:
         wr = build_zh_words_rel(project)
         written.append(wr)
 
+    # TEXTS overlay for readcheck (page.mjs); never edits film.js/main.js.
+    try:
+        from apply_swiss_texts import apply_swiss_texts
+
+        info = apply_swiss_texts(project)
+        written.append(project / "texts_runtime.json")
+        _ = info
+    except (OSError, ValueError, FileNotFoundError):
+        pass
+
     return written
 
 
@@ -99,8 +109,10 @@ def glue_swiss(
             "- Scaffold fetches OFL `.ttf` into `fonts/` (gitignored upstream). Re-run: "
             "`python3 tools/deepseek-controller/fetch_fonts.py --project <proj>`",
             "- zh plans get `voices/words_rel.json` via `zh_words_rel.py` (not `tools/words.py`).",
-            "- **Known gap:** demo has no `window.TEXTS(t)` → quality marks readcheck "
-            "`NOT_APPLICABLE` (swiss-demo-without-registry), not eternal NOT_CHECKED.",
+            "- `texts_runtime.json` (from glue/schedule) → `page.mjs` installs "
+            "`window.TEXTS(t)` after READY; film.js/main.js hashes stay locked.",
+            "- Without texts_runtime: readcheck `NOT_APPLICABLE` "
+            "`swiss-demo-without-registry` (not eternal NOT_CHECKED).",
         ]
     )
     extra = "\n".join(

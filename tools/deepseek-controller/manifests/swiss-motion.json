@@ -82,7 +82,8 @@
     "palette.json",
     "CREDITS",
     "PROJECT.md",
-    "voices/words_rel.json"
+    "voices/words_rel.json",
+    "texts_runtime.json"
   ],
-  "notes": "Adapter writes content/*. Flash may not edit ease.js / film.js / mix.py. Wire content into a project copy of demo via thin project glue only."
+  "notes": "Adapter writes content/*. Flash may not edit ease.js / film.js / mix.py. texts_runtime.json + page.mjs overlay installs window.TEXTS without unlocking film.js. Wire content into a project copy of demo via thin project glue only."
 }

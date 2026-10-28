@@ -77,7 +77,7 @@ python3 $CTL/cli.py scaffold $CTL/fixtures/plan-caption-news.json \
 
 | 风格 | 可触同步 | 绝不改 |
 |---|---|---|
-| swiss-motion | `lines.json`, `palette.json`, `CREDITS` | `ease.js` / `film.js` / `main.js` / `mix.py` |
+| swiss-motion | `lines.json`, `texts_runtime.json` (page.mjs TEXTS), `palette.json`, `CREDITS` | `ease.js` / `film.js` / `main.js` / `mix.py` / `index.html` |
 | pictogram-motion | `edl_content.json` → `edl_runtime.json` (page.mjs overlay), `lines.json`, `timeline.json`, `palette.json`, `CREDITS` | `engine.js` / `edl.js` / `scenes.js` / `poses/**` |
 | caption-news | `timeline.json`, `lines.json`, `audio/lines.json`, `FACTS.md`, `palette.json`, `CREDITS` | `main.js` / `build.sh` / `assets/**` |
 
@@ -130,6 +130,6 @@ python3 tools/deepseek-controller/cli.py quality --project "$P" --require-vo \
 - Scaffold fetches OFL fonts via `fetch_fonts.py` for **all three styles** (Swiss `.ttf`, Pictogram `.ttf`, Caption `.woff2` subsets via cache/sibling/`tools/fonts.sh`). Override with `$LEMO_FONT_CACHE`. Swiss also writes `voices/words_rel.json` for zh (`zh_words_rel.py` / `post_tts.py`). Do **not** run English `tools/words.py` on CJK.
 - Pictogram: `edl_runtime.json` + optional `brand_strings.json` (HUD/intro/finale literal rewrite at eval time). Disk `edl.js`/`scenes.js` hashes stay locked on default scaffold. Audio: **`cli mix` / `music_bed.py`** writes `music/bed.wav` + ducked VO → `out/mix.wav` (locked Olympics `music.py` unused). See `docs/MUSIC-BED.md`.
 - Pictogram **style version** `finance-v001`: `apply_pictogram_style_version.py --version finance-v001` replaces `scenes.js` with content-driven intro/finale (see `styles/pictogram-motion/versions/finance-v001/VERSION.md`). Demo lock path unchanged.
-- Swiss readcheck without `window.TEXTS(t)` → `NOT_APPLICABLE` (`swiss-demo-without-registry`), not a forever-blocking `NOT_CHECKED`.
+- Swiss: `texts_runtime.json` + `page.mjs` installs `window.TEXTS(t)` (no film.js unlock). Without overlay → `NOT_APPLICABLE` (`swiss-demo-without-registry`), not eternal `NOT_CHECKED`.
 - When `content/engine.lock.json` protects `film.js`, `media_duration` uses **`style_locked_duration`**: compare mux length to engine `DUR` (±1s). Plan `targetDurationSec` stays the schedule budget.
 - `--asr-mode=zh-homophone-tolerant` uses `asr_homophones.json` v2 (`members` + optional `short` truncations, longest-match).

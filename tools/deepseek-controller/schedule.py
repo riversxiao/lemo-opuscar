@@ -367,6 +367,21 @@ def main(argv: list[str] | None = None) -> int:
             )
         except Exception as e:
             print(f"WARN: pictogram edl apply failed: {e}", file=sys.stderr)
+
+    # Swiss: texts_runtime.json → page.mjs installs window.TEXTS (film.js unlocked not required).
+    if style == "swiss-motion" and (
+        (project / "lines.json").is_file() or (project / "content" / "lines.json").is_file()
+    ):
+        try:
+            from apply_swiss_texts import apply_swiss_texts
+
+            info = apply_swiss_texts(project)
+            print(
+                f"OK applied swiss texts_runtime entries={info['entryCount']} "
+                f"holdPad={info['holdPadCount']}"
+            )
+        except Exception as e:
+            print(f"WARN: swiss texts_runtime apply failed: {e}", file=sys.stderr)
     return 0
 
 

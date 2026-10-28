@@ -417,22 +417,22 @@ def run_readcheck(project: Path, *, style: str = "") -> dict[str, Any]:
             required=True,
         )
 
-    # Swiss demo (and current scaffold) has no window.TEXTS(t) registry; film.js /
-    # main.js / index.html are protected — cannot inject safely. Prefer N/A over
-    # eternal blocking NOT_CHECKED (see docs/E2E-swiss.md).
+    # Swiss: locked film.js/main.js have no TEXTS. Prefer texts_runtime.json overlay
+    # (page.mjs installs window.TEXTS after READY) so readcheck can run for real.
+    # Without the overlay → NOT_APPLICABLE (not eternal NOT_CHECKED). See E2E-swiss.md.
     swiss_no_registry = style == "swiss-motion" or (
         (project / "content" / "engine.lock.json").is_file()
         and load_json(project / "content" / "engine.lock.json").get("style") == "swiss-motion"
     )
-    # Quick static hint: film/main never define TEXTS
-    if swiss_no_registry:
+    texts_runtime = (project / "texts_runtime.json").is_file()
+    if swiss_no_registry and not texts_runtime:
         film = project / "film.js"
         main = project / "main.js"
         blob = ""
-        for p in (film, main):
-            if p.is_file():
+        for pth in (film, main):
+            if pth.is_file():
                 try:
-                    blob += p.read_text(encoding="utf-8", errors="ignore")
+                    blob += pth.read_text(encoding="utf-8", errors="ignore")
                 except OSError:
                     pass
         if "TEXTS" not in blob and "window.TEXTS" not in blob:
@@ -440,9 +440,8 @@ def run_readcheck(project: Path, *, style: str = "") -> dict[str, Any]:
                 "readcheck",
                 "NOT_APPLICABLE",
                 "swiss-demo-without-registry: protected film.js/main.js/index.html "
-                "have no window.TEXTS(t); cannot inject via touchables. "
-                "Known gap — not a delivery block. Add a maintainer TEXTS hook in a "
-                "future style version to enable readcheck.",
+                "have no window.TEXTS(t) and no texts_runtime.json overlay. "
+                "Run apply_swiss_texts / schedule to enable readcheck, or keep N/A.",
                 required=False,
             )
 
@@ -489,7 +488,7 @@ def run_readcheck(project: Path, *, style: str = "") -> dict[str, Any]:
         return check("readcheck", "PASS", detail or "all text holds OK")
     if proc.returncode == 2:
         no_texts = "no window.TEXTS" in detail or "has no window.TEXTS" in detail
-        if no_texts and (style == "swiss-motion" or swiss_no_registry):
+        if no_texts and (style == "swiss-motion" or swiss_no_registry) and not texts_runtime:
             return check(
                 "readcheck",
                 "NOT_APPLICABLE",
@@ -801,7 +800,7 @@ def gate(
 
     media_path = media.resolve() if media else project / "out.mp4"
     if not media_path.is_file():
-        for cand in ("final.mp4", "film.mp4", "mux.mp4"):
+        for cand in (f"{project.name}.mp4", "final.mp4", "film.mp4", "mux.mp4", "out/video24.mp4"):
             if (project / cand).is_file():
                 media_path = project / cand
                 break

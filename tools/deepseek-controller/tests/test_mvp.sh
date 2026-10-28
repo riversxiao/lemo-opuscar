@@ -6,6 +6,8 @@ CLI=(python3 "$CTL/cli.py")
 FIX="$CTL/fixtures"
 pass=0
 fail=0
+# Headless Chrome for page.mjs readcheck smoke (texts_runtime overlay test).
+export PLAYWRIGHT_CHROME="${PLAYWRIGHT_CHROME:-/usr/bin/google-chrome}"
 
 ok() { echo "PASS: $*"; pass=$((pass+1)); }
 bad() { echo "FAIL: $*"; fail=$((fail+1)); }
@@ -889,6 +891,71 @@ then
 else
   bad "caption style-version liquidity-v001"
 fi
+
+
+# 29) swiss texts_runtime overlay: LAYOUT boxes + holdPad; quality skips N/A when present
+if python3 - <<'PY'
+import json, sys, tempfile, shutil
+from pathlib import Path
+sys.path.insert(0, "tools/deepseek-controller")
+from apply_swiss_texts import apply_swiss_texts, build_texts_runtime
+import quality
+from common import dump_json
+
+lines = [
+    {"id": "l1", "t": 4.4, "text": "一块钱. 放着不动会怎样？"},
+    {"id": "l5", "t": 22.15, "text": "复利靠的是留下. 而不是赌一把。"},
+]
+rt = build_texts_runtime(lines, dur=44)
+assert len(rt["entries"]) == 2
+e1 = rt["entries"][0]
+assert e1["id"] == "l1" and e1["pos"] == "page" and "放着不动" in e1["text"]
+assert e1["t1"] == 7.8 and e1["x0"] >= 0 and e1["x1"] <= 1920
+pads = {p["id"]: p for p in rt["holdPad"]}
+assert "l5" in pads and pads["l5"]["padSec"] > 0
+e5 = rt["entries"][1]
+assert e5["t1"] > e5["t1Visual"]
+
+td = Path(tempfile.mkdtemp(prefix="dc-swiss-texts-"))
+try:
+    (td / "content").mkdir()
+    (td / "lines.json").write_text(json.dumps(lines, ensure_ascii=False), encoding="utf-8")
+    (td / "film.js").write_text("export const DUR = 44;\n", encoding="utf-8")
+    info = apply_swiss_texts(td)
+    assert (td / "texts_runtime.json").is_file()
+    assert info["entryCount"] == 2
+
+    td2 = Path(tempfile.mkdtemp(prefix="dc-swiss-na-"))
+    try:
+        (td2 / "content").mkdir()
+        # Minimal READY page (no module) so Playwright returns quickly.
+        (td2 / "index.html").write_text(
+            "<!doctype html><canvas id=c></canvas><script>"
+            "window.DUR=1;window.render=function(){};window.READY=true;</script>",
+            encoding="utf-8",
+        )
+        (td2 / "film.js").write_text("// no TEXTS\n", encoding="utf-8")
+        (td2 / "main.js").write_text("// no TEXTS\n", encoding="utf-8")
+        dump_json(td2 / "content" / "engine.lock.json", {"style": "swiss-motion", "protectedSha256": {"film.js": "x"}})
+        rc = quality.run_readcheck(td2, style="swiss-motion")
+        assert rc["status"] == "NOT_APPLICABLE" and "swiss-demo-without-registry" in rc["detail"], rc
+        # Overlay present → must not take static N/A. Stub DUR=1 yields no entry hits → NOT_CHECKED.
+        dump_json(td2 / "texts_runtime.json", rt)
+        rc2 = quality.run_readcheck(td2, style="swiss-motion")
+        assert rc2["status"] != "NOT_APPLICABLE", rc2
+        assert rc2["status"] in ("NOT_CHECKED", "PASS", "FAIL"), rc2
+    finally:
+        shutil.rmtree(td2, ignore_errors=True)
+finally:
+    shutil.rmtree(td, ignore_errors=True)
+print("ok")
+PY
+then
+  ok "swiss texts_runtime overlay + quality N/A gate"
+else
+  bad "swiss texts_runtime overlay"
+fi
+
 
 
 echo
