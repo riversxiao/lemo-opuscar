@@ -78,33 +78,42 @@ export async function openDemo(dir, { w = 1920, h = 1080, q = '', warnings = fal
         const br = await fetch('brand_strings.json', { cache: 'no-store' });
         if (br.ok) {
           const brand = await br.json();
-          const reps = Array.isArray(brand && brand.replace) ? brand.replace.slice() : [];
-          reps.sort((a, b) => String((b && b.from) || '').length - String((a && a.from) || '').length);
-          for (const row of reps) {
-            const frm = row && row.from, to = row && row.to;
-            if (typeof frm !== 'string' || typeof to !== 'string' || !frm) continue;
-            if (code.includes(frm)) { code = code.split(frm).join(to); brandApplied = true; }
-          }
-          const ticks = brand && brand.hudTicks;
-          if (Number.isFinite(ticks) && ticks >= 1) {
-            const n = Math.floor(ticks);
-            const denom = Math.max(n - 1, 1);
-            const before = code;
-            code = code.replace(/for \(let i = 1; i <= 43; i\+\+\)/, `for (let i = 1; i <= ${n}; i++)`);
-            code = code.replace(/\(i - 1\) \/ 42/g, `(i - 1) / ${denom}`);
-            if (code !== before) brandApplied = true;
-          }
           window.__BRAND_STRINGS = brand;
+          // Style-version scenes (finance-v001) already carry content strings — skip
+          // Olympics literal rewrite (short tokens like SET→GO would corrupt ASSET).
+          const applyLiterals = brand && brand.applyLiterals !== false;
+          if (applyLiterals) {
+            const reps = Array.isArray(brand && brand.replace) ? brand.replace.slice() : [];
+            reps.sort((a, b) => String((b && b.from) || '').length - String((a && a.from) || '').length);
+            for (const row of reps) {
+              const frm = row && row.from, to = row && row.to;
+              if (typeof frm !== 'string' || typeof to !== 'string' || !frm) continue;
+              if (code.includes(frm)) { code = code.split(frm).join(to); brandApplied = true; }
+            }
+            const ticks = brand && brand.hudTicks;
+            if (Number.isFinite(ticks) && ticks >= 1) {
+              const n = Math.floor(ticks);
+              const denom = Math.max(n - 1, 1);
+              const before = code;
+              code = code.replace(/for \(let i = 1; i <= 43; i\+\+\)/, `for (let i = 1; i <= ${n}; i++)`);
+              code = code.replace(/\(i - 1\) \/ 42/g, `(i - 1) / ${denom}`);
+              if (code !== before) brandApplied = true;
+            }
+          } else {
+            brandApplied = false;
+            window.__BRAND_FIELDS_ONLY = true;
+          }
         }
       } catch (_) { /* brand optional */ }
       (0, eval)(code);
       window.__EDL_RUNTIME_APPLIED = true;
       window.__BRAND_STRINGS_APPLIED = brandApplied;
-      return { ok: true, brand: brandApplied };
+      return { ok: true, brand: brandApplied, brandFields: !!window.__BRAND_FIELDS_ONLY };
     });
     if (applied && applied.ok) {
       console.error('[edl_runtime] applied content EDL overlay (edl.js hash untouched)' +
-        (applied.brand ? '; brand_strings rewrite on eval(scenes.js)' : ''));
+        (applied.brand ? '; brand_strings rewrite on eval(scenes.js)' :
+          (applied.brandFields ? '; __BRAND_STRINGS fields only (no literal rewrite)' : '')));
     }
   } catch (e) {
     console.error('[edl_runtime] bridge failed:', (e && e.message) ? e.message.split('\n')[0] : e);

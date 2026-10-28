@@ -707,6 +707,66 @@ else
 fi
 
 
+# 26) style-version finance-v001 unlocks scenes.js only; demo scaffold stays locked
+if python3 - <<'PY'
+import hashlib, json, shutil, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, "tools/deepseek-controller")
+from apply_pictogram_style_version import apply_style_version, default_lib
+from glue_pictogram import glue_pictogram
+
+lib = default_lib()
+demo_scenes = lib / "styles/pictogram-motion/demo/scenes.js"
+ver_scenes = lib / "styles/pictogram-motion/versions/finance-v001/scenes.js"
+assert demo_scenes.is_file() and ver_scenes.is_file()
+assert hashlib.sha256(demo_scenes.read_bytes()).digest() != hashlib.sha256(ver_scenes.read_bytes()).digest()
+
+td = Path(tempfile.mkdtemp(prefix="dc-picto-sv-"))
+try:
+    glue_pictogram(
+        Path("tools/deepseek-controller/fixtures/plan-pictogram-motion.json"),
+        td,
+        lib=lib,
+        force=True,
+    )
+    lock = json.loads((td / "content/engine.lock.json").read_text())
+    assert "scenes.js" in lock["protectedSha256"]
+    assert not lock.get("styleVersion")
+    h_demo = hashlib.sha256(demo_scenes.read_bytes()).hexdigest()
+    assert lock["protectedSha256"]["scenes.js"] == h_demo
+    assert hashlib.sha256((td / "scenes.js").read_bytes()).hexdigest() == h_demo
+
+    apply_style_version(td, "finance-v001", lib=lib)
+    lock2 = json.loads((td / "content/engine.lock.json").read_text())
+    assert lock2.get("styleVersion") == "finance-v001"
+    assert "scenes.js" in lock2.get("unlocked", [])
+    assert "scenes.js" not in lock2.get("protectedSha256", {})
+    assert "engine.js" in lock2["protectedSha256"]
+    assert "edl.js" in lock2["protectedSha256"]
+    h_ver = hashlib.sha256(ver_scenes.read_bytes()).hexdigest()
+    assert lock2["versionSha256"]["scenes.js"] == h_ver
+    assert hashlib.sha256((td / "scenes.js").read_bytes()).hexdigest() == h_ver
+    brand = td / "brand_strings.json"
+    if brand.is_file():
+        b = json.loads(brand.read_text())
+        assert b.get("applyLiterals") is False
+    assert (td / "content/STYLE_VERSION.md").is_file()
+    body = (td / "scenes.js").read_text(encoding="utf-8")
+    for bad in ("THE 20TH ASIAN GAMES", "ON YOUR MARKS", "AICHI-NAGOYA", "n: 469"):
+        assert bad not in body, bad
+    assert "READY" in body and "ALLOCATE" in body
+    assert "finaleGrid" in body and "TOTALN" in body
+finally:
+    shutil.rmtree(td, ignore_errors=True)
+print("ok")
+PY
+then
+  ok "pictogram style-version finance-v001 unlocks scenes only"
+else
+  bad "pictogram style-version finance-v001"
+fi
+
+
 echo
 echo "Results: $pass passed, $fail failed"
 test "$fail" -eq 0

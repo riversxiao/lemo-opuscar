@@ -84,6 +84,27 @@ Evidence: `evidence/quality-mux-delivery.json` (refreshed after brand remux).
 
 ## Remaining gaps
 
-- Intro/finale **animation structure** (five rings, 43-sport grid, heartbeat) stays Olympics-shaped; `brand_strings` only rewrites string literals + HUD tick count. Full structural rebrand needs a **maintainer style version** (externalize TEXTS / intro layout) or unlock `scenes.js` in a ds-v00x fork — **not done here** (engine hashes stay locked).
+- Intro/finale **animation structure** on the *locked demo* path stays Olympics-shaped (`brand_strings` literals only).
+- **Maintainer style version `finance-v001`** unlocks `scenes.js` structure for finance/diversify (see section below). Default scaffold untouched.
 - Demo `music/music.py` is Olympics-length / section-asserted — controller E2E uses **`mix_vo_only.py`** (VO bed + silence; mux loudnorm). Do not expect locked `music.py` to track content EDL.
 - Fonts are gitignored; scaffold / `fetch_fonts.py` now auto-fetch or copy from `$LEMO_FONT_CACHE`.
+
+## Style version `finance-v001` (intro/finale structure)
+
+Locked demo path unchanged. Opt-in overlay:
+
+```bash
+python3 tools/deepseek-controller/apply_pictogram_style_version.py \
+  --project /workspace/films/fensan-pictogram-finance-v001 --version finance-v001
+```
+
+- Copies `styles/pictogram-motion/versions/finance-v001/scenes.js` (content-driven intro/finale;
+  beat-scaled phases; stats from EDL; compact ALL-N grid; READY/ALLOCATE cue).
+- `engine.lock.json`: `styleVersion=finance-v001`, `scenes.js` → `versionSha256` + `unlocked`;
+  `engine.js`/`edl.js` stay demo-protected. `brand_strings.applyLiterals=false` so short
+  Olympics tokens (SET→GO) cannot corrupt `ASSET`.
+- Sibling deliverable: `/workspace/films/fensan-pictogram-finance-v001/fensan-pictogram-finance-v001.mp4`
+  · 32s · `--delivery` **PASS** (readcheck N/A: style-version note).
+- See `styles/pictogram-motion/versions/finance-v001/VERSION.md`.
+
+Default `scaffold` still locks demo `scenes.js` (test 26).

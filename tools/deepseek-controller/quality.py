@@ -342,8 +342,24 @@ def _caption_locked_main(project: Path, style: str) -> bool:
     return "main.js" in protected and (project / "main.js").is_file()
 
 
+def _pictogram_style_version(project: Path) -> str | None:
+    lock_p = project / "content" / "engine.lock.json"
+    if not lock_p.is_file():
+        return None
+    try:
+        lock = load_json(lock_p)
+    except (OSError, json.JSONDecodeError):
+        return None
+    ver = lock.get("styleVersion")
+    return str(ver) if ver else None
+
+
 def _pictogram_locked_edl(project: Path, style: str = "") -> bool:
-    """True when pictogram engine.lock protects edl.js (demo Olympics copy in scenes)."""
+    """True when pictogram still uses *demo* scenes.js (Olympics intro/finale structure).
+
+    styleVersion overlays (e.g. finance-v001) unlock scenes.js — return False so
+    quality does not claim Olympics structure is still locked.
+    """
     lock_p = project / "content" / "engine.lock.json"
     if not lock_p.is_file():
         return style == "pictogram-motion"
@@ -351,6 +367,11 @@ def _pictogram_locked_edl(project: Path, style: str = "") -> bool:
         lock = load_json(lock_p)
     except (OSError, json.JSONDecodeError):
         return style == "pictogram-motion"
+    if lock.get("styleVersion"):
+        return False
+    unlocked = lock.get("unlocked") or []
+    if "scenes.js" in unlocked:
+        return False
     if lock.get("style") == "pictogram-motion":
         return True
     protected = lock.get("protectedSha256") or {}
@@ -399,6 +420,19 @@ def run_readcheck(project: Path, *, style: str = "") -> dict[str, Any]:
                 "future style version to enable readcheck.",
                 required=False,
             )
+
+    # Pictogram style-version: intro/finale structure unlocked, but box-accurate
+    # window.TEXTS(t) is not fully instrumented yet — N/A until a later pass.
+    ver = _pictogram_style_version(project)
+    if ver:
+        return check(
+            "readcheck",
+            "NOT_APPLICABLE",
+            f"pictogram-style-version({ver}): scenes.js overlay replaces Olympics "
+            "intro/finale structure (content-driven). Box-accurate window.TEXTS(t) "
+            "not yet instrumented — not a delivery block.",
+            required=False,
+        )
 
     # Pictogram: no TEXTS registry; intro/finale/HUD structure stays in locked scenes.js.
     # brand_strings.json may rewrite Olympics literals at eval time (disk hash intact).

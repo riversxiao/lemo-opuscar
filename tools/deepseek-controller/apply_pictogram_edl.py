@@ -273,13 +273,22 @@ def build_brand_strings(
     return {
         "note": (
             "Runtime rewrite of Olympics literals inside eval(scenes.js) by "
-            "core/render/page.mjs. Disk scenes.js / edl.js hashes stay locked. "
-            "Intro animation structure (rings, sport-grid) remains demo-shaped."
+            "core/render/page.mjs when demo scenes.js is locked. "
+            "Also supplies titleEn/titleZh/slogan*/credit for style-version "
+            "finance-v001 (content-driven intro/finale). Disk edl.js stays locked."
         ),
         "topic": topic,
         "titleEn": en,
         "titleZh": zh,
         "year": year,
+        "sloganEn": tagline_en,
+        "sloganZh": (
+            "鸡蛋不要放进同一个篮子"
+            if ("分散" in topic or "分散" in title)
+            else tagline_zh
+        ),
+        "sloganJp": "分散投資" if ("分散" in topic or "DIVERS" in en) else en[:12],
+        "credit": credit_line[:40],
         "hudTicks": ticks,
         "cardCount": card_n,
         "chapterCount": chap_n,
