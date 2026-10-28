@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DeepSeek controller CLI: validate | adapt | scaffold | tts | schedule | mix | quality | handoff."""
+"""DeepSeek controller CLI: validate | adapt | scaffold | tts | schedule | mix | quality | handoff | matrix."""
 from __future__ import annotations
 
 import argparse
@@ -232,10 +232,35 @@ def cmd_handoff(args: argparse.Namespace) -> int:
     return 0
 
 
+
+def cmd_matrix(args: argparse.Namespace) -> int:
+    """List 12-film comparison matrix status (tracker JSON; no render)."""
+    import json
+    from matrix import cell_by_id, format_table, load_matrix, summary
+
+    tracker = Path(args.tracker) if args.tracker else None
+    data = load_matrix(tracker)
+    if args.id:
+        cell = cell_by_id(args.id, data)
+        if not cell:
+            print(f"ERROR: unknown cell id {args.id}", file=sys.stderr)
+            return 1
+        if args.json:
+            print(json.dumps(cell, ensure_ascii=False, indent=2))
+        else:
+            print(format_table(data, cell_id=args.id))
+        return 0
+    if args.json:
+        print(json.dumps(summary(data), ensure_ascii=False, indent=2))
+        return 0
+    print(format_table(data, filled_only=args.filled))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="deepseek-controller",
-        description="Minimal DeepSeek film controller (plan → adapt → scaffold → tts → schedule → mix → quality → handoff)",
+        description="Minimal DeepSeek film controller (plan → adapt → scaffold → tts → schedule → mix → quality → handoff → matrix)",
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -368,6 +393,21 @@ def build_parser() -> argparse.ArgumentParser:
     ho.add_argument("--json", action="store_true")
     ho.set_defaults(func=cmd_handoff)
 
+
+
+    mx = sub.add_parser(
+        "matrix",
+        help="list 12-film comparison matrix status (docs/MATRIX-12.md)",
+    )
+    mx.add_argument(
+        "--tracker",
+        default=None,
+        help="override fixtures/matrix-12.json",
+    )
+    mx.add_argument("--json", action="store_true", help="JSON summary or single cell")
+    mx.add_argument("--filled", action="store_true", help="hide empty cells")
+    mx.add_argument("--id", help="show one cell (e.g. M01)")
+    mx.set_defaults(func=cmd_matrix)
 
     return p
 

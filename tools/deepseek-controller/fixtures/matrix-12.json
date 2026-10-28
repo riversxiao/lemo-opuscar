@@ -1,0 +1,216 @@
+{
+  "schemaVersion": 1,
+  "title": "12-film comparison matrix",
+  "updated": "2026-10-29T01:15:00+08:00",
+  "filmRoot": "/workspace/films",
+  "pathConvention": "/workspace/films/matrix-{topic}-{style}-{path}",
+  "dimensions": {
+    "topic": [
+      "fuli",
+      "fensan",
+      "liudong"
+    ],
+    "style": [
+      "swiss",
+      "pictogram",
+      "caption"
+    ],
+    "path": [
+      "controller",
+      "flash"
+    ]
+  },
+  "nativeStyle": {
+    "fuli": "swiss",
+    "fensan": "pictogram",
+    "liudong": "caption"
+  },
+  "topicLabels": {
+    "fuli": "复利",
+    "fensan": "分散投资",
+    "liudong": "流动性"
+  },
+  "statusEnum": [
+    "empty",
+    "scaffold",
+    "muxed",
+    "delivery-pass",
+    "blocked"
+  ],
+  "cells": [
+    {
+      "id": "M01",
+      "topic": "fuli",
+      "style": "swiss",
+      "path": "controller",
+      "role": "native",
+      "status": "delivery-pass",
+      "canonical": "/workspace/films/matrix-fuli-swiss-controller",
+      "alias": "/workspace/films/fuli-controller-e2e",
+      "mp4": "/workspace/films/fuli-controller-e2e/fuli-controller-e2e.mp4",
+      "evidence": "/workspace/films/fuli-controller-e2e/evidence/quality-mux-delivery.json",
+      "notes": "Controller e2e; --delivery PASS; locked DUR=44s"
+    },
+    {
+      "id": "M02",
+      "topic": "fuli",
+      "style": "swiss",
+      "path": "flash",
+      "role": "native",
+      "status": "muxed",
+      "canonical": "/workspace/films/matrix-fuli-swiss-flash",
+      "alias": "/workspace/films/fuli-swiss-ds-v001",
+      "mp4": "/workspace/films/fuli-swiss-ds-v001/fuli-swiss-ds-v001.mp4",
+      "evidence": null,
+      "notes": "OpenCode DeepSeek Flash; no plan.json / --delivery yet"
+    },
+    {
+      "id": "M03",
+      "topic": "fuli",
+      "style": "pictogram",
+      "path": "controller",
+      "role": "cross",
+      "status": "empty",
+      "canonical": "/workspace/films/matrix-fuli-pictogram-controller",
+      "alias": null,
+      "mp4": null,
+      "evidence": null,
+      "notes": "Next knife #1: same 复利 card on Pictogram"
+    },
+    {
+      "id": "M04",
+      "topic": "fuli",
+      "style": "caption",
+      "path": "controller",
+      "role": "cross",
+      "status": "empty",
+      "canonical": "/workspace/films/matrix-fuli-caption-controller",
+      "alias": null,
+      "mp4": null,
+      "evidence": null,
+      "notes": "Next knife #2"
+    },
+    {
+      "id": "M05",
+      "topic": "fensan",
+      "style": "pictogram",
+      "path": "controller",
+      "role": "native",
+      "status": "delivery-pass",
+      "canonical": "/workspace/films/matrix-fensan-pictogram-controller",
+      "alias": "/workspace/films/fensan-controller-e2e",
+      "mp4": "/workspace/films/fensan-controller-e2e/fensan-controller-e2e.mp4",
+      "evidence": "/workspace/films/fensan-controller-e2e/evidence/quality-mux-delivery.json",
+      "notes": "Locked baseline; sibling finance-v001 is style-unlock upgrade"
+    },
+    {
+      "id": "M06",
+      "topic": "fensan",
+      "style": "pictogram",
+      "path": "flash",
+      "role": "native",
+      "status": "muxed",
+      "canonical": "/workspace/films/matrix-fensan-pictogram-flash",
+      "alias": "/workspace/films/fensan-pictogram-ds-v001",
+      "mp4": "/workspace/films/fensan-pictogram-ds-v001/fensan-pictogram-ds-v001.mp4",
+      "evidence": null,
+      "notes": "Flash pictogram; optional VO"
+    },
+    {
+      "id": "M07",
+      "topic": "fensan",
+      "style": "swiss",
+      "path": "controller",
+      "role": "cross",
+      "status": "empty",
+      "canonical": "/workspace/films/matrix-fensan-swiss-controller",
+      "alias": null,
+      "mp4": null,
+      "evidence": null,
+      "notes": "Next knife #3"
+    },
+    {
+      "id": "M08",
+      "topic": "fensan",
+      "style": "caption",
+      "path": "controller",
+      "role": "cross",
+      "status": "empty",
+      "canonical": "/workspace/films/matrix-fensan-caption-controller",
+      "alias": null,
+      "mp4": null,
+      "evidence": null,
+      "notes": ""
+    },
+    {
+      "id": "M09",
+      "topic": "liudong",
+      "style": "caption",
+      "path": "controller",
+      "role": "native",
+      "status": "delivery-pass",
+      "canonical": "/workspace/films/matrix-liudong-caption-controller",
+      "alias": "/workspace/films/liudong-controller-e2e",
+      "mp4": "/workspace/films/liudong-controller-e2e/liudong-controller-e2e.mp4",
+      "evidence": "/workspace/films/liudong-controller-e2e/evidence/quality-mux-delivery-real-assets.json",
+      "notes": "Bee assets vs 流动性 VO mismatch on e2e; sibling liquidity-v001 aligned"
+    },
+    {
+      "id": "M10",
+      "topic": "liudong",
+      "style": "caption",
+      "path": "flash",
+      "role": "native",
+      "status": "muxed",
+      "canonical": "/workspace/films/matrix-liudong-caption-flash",
+      "alias": "/workspace/films/liudong-caption-ds-v001",
+      "mp4": "/workspace/films/liudong-caption-ds-v001/liudong-caption-ds-v001.mp4",
+      "evidence": null,
+      "notes": "Flash caption news"
+    },
+    {
+      "id": "M11",
+      "topic": "liudong",
+      "style": "swiss",
+      "path": "controller",
+      "role": "cross",
+      "status": "empty",
+      "canonical": "/workspace/films/matrix-liudong-swiss-controller",
+      "alias": null,
+      "mp4": null,
+      "evidence": null,
+      "notes": ""
+    },
+    {
+      "id": "M12",
+      "topic": "liudong",
+      "style": "pictogram",
+      "path": "controller",
+      "role": "cross",
+      "status": "empty",
+      "canonical": "/workspace/films/matrix-liudong-pictogram-controller",
+      "alias": null,
+      "mp4": null,
+      "evidence": null,
+      "notes": ""
+    }
+  ],
+  "siblings": [
+    {
+      "path": "/workspace/films/fensan-pictogram-finance-v001",
+      "relatedCell": "M05",
+      "note": "style-unlock intro; delivery-pass"
+    },
+    {
+      "path": "/workspace/films/liudong-caption-liquidity-v001",
+      "relatedCell": "M09",
+      "note": "VO↔picture aligned; delivery-pass"
+    }
+  ],
+  "nextKnife": [
+    "M03",
+    "M04",
+    "M07"
+  ],
+  "proofNote": "Registered M01/M02/M05/M06/M09/M10 via existing films + /workspace/films/matrix-* stub dirs (symlink mp4). No remux. Cross cells empty."
+}

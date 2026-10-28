@@ -1051,6 +1051,39 @@ else
   bad "hyperframes missing needsUser"
 fi
 
+# --- matrix tracker (12-film epic; no remux) ---
+if "${CLI[@]}" matrix >/tmp/dc-matrix.out 2>/tmp/dc-matrix.err \
+  && grep -q 'filled 6/12' /tmp/dc-matrix.out \
+  && grep -q 'M01' /tmp/dc-matrix.out \
+  && grep -q 'delivery-pass' /tmp/dc-matrix.out; then
+  ok "matrix lists 6/12 with delivery-pass"
+else
+  bad "matrix list: $(cat /tmp/dc-matrix.err /tmp/dc-matrix.out)"
+fi
+
+if "${CLI[@]}" matrix --id M01 --json >/tmp/dc-matrix-m01.json 2>/tmp/dc-matrix-m01.err \
+  && python3 -c "import json;d=json.load(open('/tmp/dc-matrix-m01.json')); assert d['id']=='M01' and d['status']=='delivery-pass' and d['mp4Exists']"; then
+  ok "matrix --id M01 --json"
+else
+  bad "matrix M01 json: $(cat /tmp/dc-matrix-m01.err /tmp/dc-matrix-m01.json)"
+fi
+
+if "${CLI[@]}" matrix --filled >/tmp/dc-matrix-f.out 2>/tmp/dc-matrix-f.err \
+  && grep -q 'M05' /tmp/dc-matrix-f.out \
+  && ! grep -E '^M0[0-9].* empty ' /tmp/dc-matrix-f.out \
+  && ! grep -E '^M1[0-2].* empty ' /tmp/dc-matrix-f.out; then
+  ok "matrix --filled hides empty"
+else
+  bad "matrix --filled: $(cat /tmp/dc-matrix-f.err /tmp/dc-matrix-f.out)"
+fi
+
+if test -f "$CTL/docs/MATRIX-12.md" && test -f "$CTL/fixtures/matrix-12.json"; then
+  ok "MATRIX-12.md + matrix-12.json present"
+else
+  bad "matrix docs/fixture missing"
+fi
+
 echo
 echo "Results: $pass passed, $fail failed"
+
 test "$fail" -eq 0
