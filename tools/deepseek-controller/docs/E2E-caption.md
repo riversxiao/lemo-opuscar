@@ -18,8 +18,8 @@ P=/workspace/films/liudong-controller-e2e
 LIB=$PWD
 python3 tools/deepseek-controller/cli.py scaffold \
   tools/deepseek-controller/fixtures/plan-caption-news.json -o $P --lib "$LIB"
-# fonts: demo fonts.sh only subsets main.js glyphs — re-fetch with timeline/lines charset
-FORCE=1 sh $P/tools/fonts.sh   # then extend text=… to include timeline.json / lines (see run notes)
+# scaffold auto-fills fonts/*.woff2 via fetch_fonts (cache/sibling/fonts.sh)
+# glyph subset may miss new CJK: FORCE=1 sh $P/tools/fonts.sh  # optionally extend text=
 python3 $LIB/core/tts/tts_zh.py $P/audio/lines.json $P/voices --voice zh-CN-YunxiNeural
 mkdir -p $P/audio/vo && cp -f $P/voices/*.wav $P/voices/dur.json $P/audio/vo/
 python3 tools/deepseek-controller/post_tts.py --project $P
@@ -92,3 +92,7 @@ Evidence: `evidence/quality-mux-delivery.json`.
 - **Pictogram**: see `E2E-pictogram.md` (`edl_runtime` overlay; intro/finale/HUD still Olympics under lock).
 - Fonts.sh subsets `main.js` only — extend charset to timeline/lines for full CJK glyphs.
 
+
+## Audio note
+
+Locked demo score packs are bee-demo length. Controller E2E uses **`mix_vo_only.py`** (timeline VO → `out/mix.wav`) rather than regenerating locked music.

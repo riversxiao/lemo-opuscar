@@ -400,14 +400,18 @@ def run_readcheck(project: Path, *, style: str = "") -> dict[str, Any]:
                 required=False,
             )
 
-    # Pictogram: no TEXTS registry; intro/finale/HUD stay Olympics in locked scenes.js.
+    # Pictogram: no TEXTS registry; intro/finale/HUD structure stays in locked scenes.js.
+    # brand_strings.json may rewrite Olympics literals at eval time (disk hash intact).
     if _pictogram_locked_edl(project, style):
+        brand = (project / "brand_strings.json").is_file()
         return check(
             "readcheck",
             "NOT_APPLICABLE",
             "pictogram-locked-demo-texts: no window.TEXTS(t); protected scenes.js "
-            "keeps Olympics intro/finale/HUD. edl_runtime overlays card/chapter copy only. "
-            "Not a delivery block until a style version externalizes those strings.",
+            "keeps Olympics intro/finale/HUD structure. edl_runtime overlays card/chapter "
+            "copy"
+            + ("; brand_strings.json rewrites literals in eval(scenes.js)" if brand else "")
+            + ". Full readcheck needs a style version that externalizes TEXTS.",
             required=False,
         )
 
@@ -459,13 +463,14 @@ def run_readcheck(project: Path, *, style: str = "") -> dict[str, Any]:
             required=False,
         )
     if _pictogram_locked_edl(project, style):
+        brand = (project / "brand_strings.json").is_file()
         return check(
             "readcheck",
             "NOT_APPLICABLE",
-            "pictogram-locked-demo-texts: protected scenes.js still paints Olympics "
-            "intro/finale/HUD (AICHI-NAGOYA / 43 ticks); edl_runtime overlays card/"
-            "chapter copy only. Not a delivery block until a style version externalizes "
-            "those strings. " + (detail or f"exit {proc.returncode}"),
+            "pictogram-locked-demo-texts: protected scenes.js keeps Olympics "
+            "intro/finale/HUD structure; edl_runtime overlays card/chapter copy"
+            + ("; brand_strings.json may rewrite literals at eval time" if brand else "")
+            + ". " + (detail or f"exit {proc.returncode}"),
             required=False,
         )
     return check("readcheck", "FAIL", detail or f"exit {proc.returncode}")

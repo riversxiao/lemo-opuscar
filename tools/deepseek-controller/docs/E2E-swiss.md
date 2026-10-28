@@ -155,3 +155,7 @@ Gaps (updated): Caption + Pictogram full mux docs landed; intro/finale/HUD Olymp
 ## Caption mux follow-up (2026-10-28 night)
 
 See [`E2E-caption.md`](./E2E-caption.md) and [`E2E-pictogram.md`](./E2E-pictogram.md) for Caption + Pictogram mux PASS paths.
+
+## Audio note
+
+Swiss E2E mux uses project mix / VO path; when a style score pack is unavailable, **`mix_vo_only.py`** builds a VO+silence bed for mux loudnorm.

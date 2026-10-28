@@ -59,7 +59,8 @@ export async function openDemo(dir, { w = 1920, h = 1080, q = '', warnings = fal
   await warnIfSoftwareGL(page);
   // Pictogram controller bridge: touchable edl_runtime.json replaces window.EDL after READY,
   // then re-evals scenes.js so its SH/CARDS closures rebuild. Protected edl.js/scenes.js hashes unchanged.
-  // Other styles ignore this (no edl_runtime.json / no window.EDL).
+  // Optional brand_strings.json rewrites Olympics HUD/intro/finale *literals* in the eval'd
+  // source only (disk scenes.js untouched). Other styles ignore (no edl_runtime.json / no window.EDL).
   try {
     const applied = await page.evaluate(async () => {
       const r = await fetch('edl_runtime.json', { cache: 'no-store' });
@@ -71,12 +72,40 @@ export async function openDemo(dir, { w = 1920, h = 1080, q = '', warnings = fal
       if (typeof runtime.DUR === 'number' && runtime.DUR > 0) window.DUR = runtime.DUR;
       const sr = await fetch('scenes.js', { cache: 'no-store' });
       if (!sr.ok) throw new Error('scenes.js fetch ' + sr.status);
-      const code = await sr.text();
+      let code = await sr.text();
+      let brandApplied = false;
+      try {
+        const br = await fetch('brand_strings.json', { cache: 'no-store' });
+        if (br.ok) {
+          const brand = await br.json();
+          const reps = Array.isArray(brand && brand.replace) ? brand.replace.slice() : [];
+          reps.sort((a, b) => String((b && b.from) || '').length - String((a && a.from) || '').length);
+          for (const row of reps) {
+            const frm = row && row.from, to = row && row.to;
+            if (typeof frm !== 'string' || typeof to !== 'string' || !frm) continue;
+            if (code.includes(frm)) { code = code.split(frm).join(to); brandApplied = true; }
+          }
+          const ticks = brand && brand.hudTicks;
+          if (Number.isFinite(ticks) && ticks >= 1) {
+            const n = Math.floor(ticks);
+            const denom = Math.max(n - 1, 1);
+            const before = code;
+            code = code.replace(/for \(let i = 1; i <= 43; i\+\+\)/, `for (let i = 1; i <= ${n}; i++)`);
+            code = code.replace(/\(i - 1\) \/ 42/g, `(i - 1) / ${denom}`);
+            if (code !== before) brandApplied = true;
+          }
+          window.__BRAND_STRINGS = brand;
+        }
+      } catch (_) { /* brand optional */ }
       (0, eval)(code);
       window.__EDL_RUNTIME_APPLIED = true;
-      return true;
+      window.__BRAND_STRINGS_APPLIED = brandApplied;
+      return { ok: true, brand: brandApplied };
     });
-    if (applied) console.error('[edl_runtime] applied content EDL overlay (edl.js hash untouched)');
+    if (applied && applied.ok) {
+      console.error('[edl_runtime] applied content EDL overlay (edl.js hash untouched)' +
+        (applied.brand ? '; brand_strings rewrite on eval(scenes.js)' : ''));
+    }
   } catch (e) {
     console.error('[edl_runtime] bridge failed:', (e && e.message) ? e.message.split('\n')[0] : e);
     process.exit(1);

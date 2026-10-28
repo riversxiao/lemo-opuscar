@@ -6,9 +6,13 @@ core/render/page.mjs, after window.READY, fetches edl_runtime.json (if present),
 replaces window.EDL / window.DUR, and re-evals scenes.js so card/chapter copy + timing
 come from this touchable — protected file hashes stay intact.
 
-Intro/finale/HUD strings inside scenes.js remain Olympics demo text (readcheck N/A).
+Also writes brand_strings.json: literal replacements applied by page.mjs to the
+*eval'd* scenes.js source (disk scenes.js hash untouched) so HUD/intro/finale
+Olympics labels can track the plan topic. Complex intro animation structure
+(rings / 43-sport grid) stays demo-shaped — full rebrand needs a style version.
 
 Also writes timeline.json vo{id→t} + dur for mix_vo_only.py (picture engine ignores it).
+Demo music/music.py is Olympics-length / section-asserted; controller E2E uses mix_vo_only.
 
 Usage:
   python3 tools/deepseek-controller/apply_pictogram_edl.py --project /path/to/film
@@ -200,6 +204,89 @@ def _compile_shots(
     return out
 
 
+
+def build_brand_strings(
+    plan: dict[str, Any] | None,
+    compiled: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Olympics literal → content brand map for page.mjs scenes.js source rewrite."""
+    plan = plan or {}
+    credits = plan.get("credits") if isinstance(plan.get("credits"), dict) else {}
+    topic = str(plan.get("topic") or credits.get("title") or "FILM").strip() or "FILM"
+    title = str(credits.get("title") or topic).strip() or topic
+    year = str(credits.get("year") or "2026").strip() or "2026"
+    author = str(credits.get("author") or "").strip()
+    en = _en_title(title, title)
+    zh = title if any("\u4e00" <= c <= "\u9fff" for c in title) else topic
+    if topic in EN_GLOSS:
+        en = EN_GLOSS[topic]
+    card_n = sum(1 for s in compiled if s.get("kind") == "card")
+    chap_n = sum(1 for s in compiled if s.get("kind") == "chapter")
+    ticks = max(card_n, 1)
+    hud_line = en[:22]
+    tagline_en = "STAY DIVERSIFIED" if ("DIVERS" in en or "\u5206\u6563" in topic) else en[:22]
+    tagline_zh = (
+        "\u7559\u4f59\u5730\uff0c\u4e0d\u8d4c\u4e00\u628a"
+        if ("\u5206\u6563" in topic or "\u5206\u6563" in title)
+        else zh[:16]
+    )
+    credit_line = f"{author} \u00b7 {year}" if author else f"LemoLab \u00b7 {year}"
+
+    pairs = [
+        ("THE 20TH ASIAN GAMES", hud_line),
+        ("AICHI-NAGOYA 2026", f"{en[:14]} {year}"[:22]),
+        ("2026  \u00b7  AICHI \u2013 NAGOYA  \u00b7  JAPAN", f"{year}  \u00b7  {en}  \u00b7  ZH"[:42]),
+        ("\u7b2c20\u56de\u30a2\u30b8\u30a2\u7af6\u6280\u5927\u4f1a  \u00b7  \u611b\u77e5\u30fb\u540d\u53e4\u5c4b", f"{zh}  \u00b7  {year}"[:36]),
+        ("\u7b2c20\u5c4a\u4e9a\u6d32\u8fd0\u52a8\u4f1a  \u00b7  \u7231\u77e5 \u00b7 \u540d\u53e4\u5c4b", f"{zh}  \u00b7  {year}"[:36]),
+        ("\u7b2c20\u56de\u30a2\u30b8\u30a2\u7af6\u6280\u5927\u4f1a\uff082026 / \u611b\u77e5\u30fb\u540d\u53e4\u5c4b\uff09", f"{zh}\uff08{year}\uff09"[:40]),
+        ("SEPTEMBER 19 \u2014 OCTOBER 4, 2026", f"CONTROLLER E2E  \u00b7  {year}"),
+        ("THE 20TH ASIAN GAMES   \u00b7   2026.9.19 \u2014 10.4", f"{hud_line}   \u00b7   {year}"),
+        ("IMAGINE ONE ASIA", tagline_en),
+        ("\u3053\u3053\u3067\u3001\u3072\u3068\u3064\u306b\u3002", tagline_zh),
+        ("\u5728\u8fd9\u91cc\uff0c\u5408\u800c\u4e3a\u4e00", tagline_zh),
+        ("9.19 \u2014 10.4", year),
+        ("ON YOUR MARKS", "READY"),
+        ("SET", "GO"),
+        ("\u5404\u5c31\u5404\u4f4d", "\u51c6\u5907"),
+        ("\u9884\u5907", "\u5f00\u59cb"),
+        ("\u4f4d\u7f6e\u306b\u3064\u3044\u3066", "\u51c6\u5907"),
+        ("\u3088\u30fc\u3044", "\u5f00\u59cb"),
+        ("SPORTS", "CARDS" if card_n else "BEATS"),
+        ("EVENTS", "CHAPTERS" if chap_n else "SHOTS"),
+        ("DAYS", "SECS"),
+        ("LemoLab \u00d7 Claude Opus 5.5", credit_line[:36]),
+        # Card meta "01 / 43" — scenes.js uses string literal ' / 43'
+        (" / 43", f" / {ticks}"),
+        ("{ n: 43,", f"{{ n: {ticks},"),
+    ]
+    # Prefer longer Olympics phrases before short tokens (SET/DAYS)
+    pairs.sort(key=lambda x: len(x[0]), reverse=True)
+    seen: set[str] = set()
+    replace: list[dict[str, str]] = []
+    for frm, to in pairs:
+        if frm in seen:
+            continue
+        seen.add(frm)
+        if to and to != frm:
+            replace.append({"from": frm, "to": str(to)})
+
+    return {
+        "note": (
+            "Runtime rewrite of Olympics literals inside eval(scenes.js) by "
+            "core/render/page.mjs. Disk scenes.js / edl.js hashes stay locked. "
+            "Intro animation structure (rings, sport-grid) remains demo-shaped."
+        ),
+        "topic": topic,
+        "titleEn": en,
+        "titleZh": zh,
+        "year": year,
+        "hudTicks": ticks,
+        "cardCount": card_n,
+        "chapterCount": chap_n,
+        "replace": replace,
+    }
+
+
 def apply_pictogram_edl(
     project: Path,
     *,
@@ -304,8 +391,23 @@ def apply_pictogram_edl(
         if changed:
             dump_json(lp, raw)
 
+    plan = None
+    for plan_rel in ("content/plan.json", "plan.json"):
+        pp = project / plan_rel
+        if pp.is_file():
+            try:
+                plan = load_json(pp)
+            except (OSError, ValueError):
+                plan = None
+            break
+    brand = build_brand_strings(plan if isinstance(plan, dict) else None, compiled)
+    brand_path = project / "brand_strings.json"
+    dump_json(brand_path, brand)
+
     return {
         "runtimePath": str(runtime_path),
+        "brandPath": str(brand_path),
+        "hudTicks": brand.get("hudTicks"),
         "shotCount": len(compiled),
         "dur": round(dur, 6),
         "voCount": len(vo),

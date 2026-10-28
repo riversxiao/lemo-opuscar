@@ -10,10 +10,12 @@ Scope: scaffold → Yunxi TTS → schedule (pad) → `apply_pictogram_edl` → m
 |---|---|
 | `content/edl_content.json` | Adapt output (plan shots → pictogram kinds/poses) |
 | `apply_pictogram_edl.py` | Compiles schedule → **`edl_runtime.json`** + `timeline.json` (VO bed) |
-| `core/render/page.mjs` | After `window.READY`, if `edl_runtime.json` exists: replace `window.EDL` / `window.DUR`, **re-eval `scenes.js`** so `SH`/`CARDS` rebuild |
-| Locked `edl.js` / `scenes.js` | Byte-identical to demo; Olympics intro/finale/HUD strings remain |
+| `core/render/page.mjs` | After `window.READY`, if `edl_runtime.json` exists: replace `window.EDL` / `window.DUR`, **re-eval `scenes.js`** so `SH`/`CARDS` rebuild; optional `brand_strings.json` rewrites Olympics *literals* in the eval'd source |
+| `brand_strings.json` | Touchable map from apply_pictogram_edl (topic → HUD/intro/finale labels + hudTicks) |
+| Locked `edl.js` / `scenes.js` | Byte-identical to demo; animation structure (rings / sport-grid) remains Olympics-shaped |
 
-Card/chapter copy and timing come from the plan (e.g. still `k_9.0.jpg` = **STOCKS / 股票**). Intro/finale/HUD still say AICHI-NAGOYA / 43 ticks — readcheck **NOT_APPLICABLE** (`pictogram-locked-demo-texts`).
+Card/chapter copy and timing come from the plan (e.g. still `k_9.0.jpg` = **STOCKS / 股票**).
+`brand_strings.json` rewrites HUD/intro/finale Olympics *literals* at eval time (e.g. AICHI-NAGOYA → DIVERSIFY); hudTicks follows card count. Animation structure stays demo-shaped — readcheck **NOT_APPLICABLE** (`pictogram-locked-demo-texts`).
 
 Pose aliases: `stand→golf`, `point→fencing`, `group→relay` (manifest allowlist names that are not in `poses/*`).
 
@@ -24,7 +26,8 @@ P=/workspace/films/fensan-controller-e2e
 LIB=$PWD
 python3 tools/deepseek-controller/cli.py scaffold \
   tools/deepseek-controller/fixtures/plan-pictogram-motion.json -o $P --lib "$LIB" --force
-# fonts: copy demo/fensan .ttf into $P/fonts if gitignored empties
+# scaffold auto-fetches OFL .ttf (or copies $LEMO_FONT_CACHE / sibling films)
+# manual: python3 tools/deepseek-controller/fetch_fonts.py --project $P --style pictogram-motion
 python3 core/tts/tts_zh.py $P/lines.json $P/voices --voice zh-CN-YunxiNeural
 python3 tools/deepseek-controller/post_tts.py --project $P
 python3 tools/deepseek-controller/cli.py schedule --project $P --require-vo
@@ -78,7 +81,6 @@ Evidence: `evidence/quality-mux-delivery.json`.
 
 ## Remaining gaps
 
-- Locked `scenes.js` intro/finale/HUD still Olympics-branded; full rebrand needs a **maintainer style version** (externalize strings) or an unlock path like `fensan-pictogram-ds-v001` (edit `edl.js` + `scenes.js` text only).
-- Demo `music/music.py` is Olympics-length / section-asserted — E2E uses `mix_vo_only.py`.
-- `/ 43` HUD tick count stays demo; runtime card `n` is correct on cards but progress bar still loops 43.
-- Fonts often gitignored — copy `.ttf` after scaffold.
+- Intro/finale **animation structure** (five rings, 43-sport grid, heartbeat) stays Olympics-shaped; `brand_strings` only rewrites string literals + HUD tick count. Full structural rebrand needs a **maintainer style version** (externalize TEXTS / intro layout) or unlock `scenes.js` in a ds-v00x fork — **not done here** (engine hashes stay locked).
+- Demo `music/music.py` is Olympics-length / section-asserted — controller E2E uses **`mix_vo_only.py`** (VO bed + silence; mux loudnorm). Do not expect locked `music.py` to track content EDL.
+- Fonts are gitignored; scaffold / `fetch_fonts.py` now auto-fetch or copy from `$LEMO_FONT_CACHE`.

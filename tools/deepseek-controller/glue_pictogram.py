@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from common import dump_json, load_json
+from fetch_fonts import ensure_pictogram_fonts
 from glue_base import (
     engine_lines_from_content,
     finalize,
@@ -60,6 +61,7 @@ def glue_pictogram(
     plan, lib_root, demo, out, locks, written_adapt = prepare_project(
         plan_path, out, style="pictogram-motion", lib=lib, force=force
     )
+    font_actions = ensure_pictogram_fonts(out / "fonts", project=out)
     written_touch = apply_touchables(out, plan)
     proj_md = write_project_md(
         out,
@@ -72,8 +74,11 @@ def glue_pictogram(
             "- Root `edl_content.json` / `lines.json` / `palette.json` / `CREDITS` are synced touchables.\n"
             "- After schedule: `apply_pictogram_edl.py` writes `edl_runtime.json` + `timeline.json` (VO).\n"
             "- `core/render/page.mjs` loads `edl_runtime.json` after READY and re-evals `scenes.js` — "
-            "`edl.js` / `scenes.js` hashes stay locked. Intro/finale/HUD demo strings remain Olympics "
-            "(readcheck N/A)."
+            "`edl.js` / `scenes.js` hashes stay locked.\n"
+            "- Scaffold fetches OFL `.ttf` into `fonts/` via `fetch_fonts.py` (or `$LEMO_FONT_CACHE`).\n"
+            "- Optional `brand_strings.json` (from apply_pictogram_edl) rewrites Olympics HUD/intro/"
+            "finale *literals* in the eval'd scenes.js source only — disk hash untouched.\n"
+            "- Locked music.py is Olympics-length; E2E uses `mix_vo_only.py` (VO + silence)."
         ),
         tts_lines=f"{out}/lines.json",
         extra_steps="\n".join(
@@ -97,4 +102,5 @@ def glue_pictogram(
         mode="pictogram-glue",
     )
     info["project_md"] = str(proj_md)
+    info["fonts"] = font_actions
     return info

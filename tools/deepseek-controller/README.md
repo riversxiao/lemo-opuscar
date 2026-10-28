@@ -125,7 +125,8 @@ python3 tools/deepseek-controller/cli.py quality --project "$P" --require-vo \
 - Bare default without `--delivery` / `--asr-mode` remains **strict**.
 - `schedule` pads under-target by **hold-last-beat** (extends last shot to `targetDurationSec`). Metadata keeps `contentDurationSec` / `padSec` / `underTargetBeforePad`. Use `--no-pad` for raw content length. Over-target still hard-fails (no silent K-scale).
 - `schedule` writes `ok` / `errors` on `timeline.parsed.json`. Quality fails if `ok` is false or VO durs are missing when the plan has voice lines.
-- Swiss scaffold fetches OFL `.ttf` via `fetch_fonts.py` and writes `voices/words_rel.json` for zh (`zh_words_rel.py` / `post_tts.py`). Do **not** run English `tools/words.py` on CJK.
+- Scaffold fetches OFL fonts via `fetch_fonts.py` for **all three styles** (Swiss `.ttf`, Pictogram `.ttf`, Caption `.woff2` subsets via cache/sibling/`tools/fonts.sh`). Override with `$LEMO_FONT_CACHE`. Swiss also writes `voices/words_rel.json` for zh (`zh_words_rel.py` / `post_tts.py`). Do **not** run English `tools/words.py` on CJK.
+- Pictogram: `edl_runtime.json` + optional `brand_strings.json` (HUD/intro/finale literal rewrite at eval time). Disk `edl.js`/`scenes.js` hashes stay locked. Audio E2E: `mix_vo_only.py` (locked `music.py` is Olympics-length).
 - Swiss readcheck without `window.TEXTS(t)` → `NOT_APPLICABLE` (`swiss-demo-without-registry`), not a forever-blocking `NOT_CHECKED`.
 - When `content/engine.lock.json` protects `film.js`, `media_duration` uses **`style_locked_duration`**: compare mux length to engine `DUR` (±1s). Plan `targetDurationSec` stays the schedule budget.
 - `--asr-mode=zh-homophone-tolerant` uses `asr_homophones.json` v2 (`members` + optional `short` truncations, longest-match).

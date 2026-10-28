@@ -638,6 +638,9 @@ dump_json(td / "content" / "engine.lock.json", {
 })
 assert quality._engine_locked_dur(td, "pictogram-motion") == 12.0
 assert quality._pictogram_locked_edl(td, "pictogram-motion") is True
+brand = json.loads((td / "brand_strings.json").read_text())
+assert brand["hudTicks"] == 1  # one card in this fixture
+assert any(r["from"] == "THE 20TH ASIAN GAMES" for r in brand["replace"])
 print("ok")
 PY
 then
@@ -645,6 +648,64 @@ then
 else
   bad "pictogram edl_runtime apply"
 fi
+
+# 24) scaffold pictogram + caption fetch/copy fonts (via LEMO_FONT_CACHE)
+if python3 - <<'PY'
+import os, sys, shutil
+from pathlib import Path
+sys.path.insert(0, "tools/deepseek-controller")
+from fetch_fonts import ensure_fonts
+
+td = Path("/tmp/dc-font-pictogram")
+shutil.rmtree(td, ignore_errors=True)
+(td / "fonts").mkdir(parents=True)
+os.environ["LEMO_FONT_CACHE"] = "/workspace/films/fensan-controller-e2e/fonts"
+acts = ensure_fonts(td / "fonts", "pictogram-motion", project=td)
+assert (td / "fonts" / "InterTightwght.ttf").is_file()
+assert (td / "fonts" / "DMMono-Medium.ttf").is_file()
+assert (td / "fonts" / "NotoSansSCwght.ttf").is_file()
+assert any(("copied-fallback" in a) or a.startswith("ok ") or a.startswith("fetched ") for a in acts)
+
+td2 = Path("/tmp/dc-font-caption")
+shutil.rmtree(td2, ignore_errors=True)
+(td2 / "fonts").mkdir(parents=True)
+os.environ["LEMO_FONT_CACHE"] = "/workspace/films/liudong-controller-e2e/fonts"
+acts2 = ensure_fonts(td2 / "fonts", "caption-news", project=td2)
+for name in ("it500.woff2", "it800.woff2", "sc900.woff2"):
+    assert (td2 / "fonts" / name).is_file(), name
+print("ok")
+PY
+then
+  ok "fetch_fonts pictogram+caption via LEMO_FONT_CACHE"
+else
+  bad "fetch_fonts pictogram/caption"
+fi
+
+# 25) brand_strings builder maps topic + hudTicks from cards
+if python3 - <<'PY'
+import json, sys
+from pathlib import Path
+sys.path.insert(0, "tools/deepseek-controller")
+from apply_pictogram_edl import build_brand_strings
+plan = json.loads(Path("tools/deepseek-controller/fixtures/plan-pictogram-motion.json").read_text())
+compiled = [
+  {"kind": "intro"}, {"kind": "chapter"},
+  {"kind": "card"}, {"kind": "card"}, {"kind": "card"}, {"kind": "card"},
+  {"kind": "finale"},
+]
+b = build_brand_strings(plan, compiled)
+assert b["titleEn"] == "DIVERSIFY"
+assert b["hudTicks"] == 4
+assert any(r["to"] == "DIVERSIFY" for r in b["replace"] if r["from"] == "THE 20TH ASIAN GAMES")
+assert any(r["from"] == "SET" for r in b["replace"])
+print("ok")
+PY
+then
+  ok "brand_strings maps DIVERSIFY + hudTicks=card count"
+else
+  bad "brand_strings builder"
+fi
+
 
 echo
 echo "Results: $pass passed, $fail failed"

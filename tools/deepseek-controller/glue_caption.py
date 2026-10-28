@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from common import dump_json, load_json
+from fetch_fonts import ensure_caption_fonts
 from glue_base import (
     engine_lines_from_content,
     finalize,
@@ -152,6 +153,7 @@ def glue_caption(
     plan, lib_root, demo, out, locks, written_adapt = prepare_project(
         plan_path, out, style="caption-news", lib=lib, force=force
     )
+    font_actions = ensure_caption_fonts(out / "fonts", project=out)
     written_touch = apply_touchables(out, plan)
     proj_md = write_project_md(
         out,
@@ -162,7 +164,9 @@ def glue_caption(
         content_blurb=(
             "- `content/plan.json`, `content/timeline_content.json`, `content/facts.json`, `content/lines.json`\n"
             "- Root `timeline.json` / `lines.json` / `audio/lines.json` / `FACTS.md` / `palette.json` / `CREDITS` are synced touchables.\n"
-            "- `main.js` (including hardcoded SHOTS) stays byte-locked; caption/VO content rides on `timeline.json`."
+            "- `main.js` (including hardcoded SHOTS) stays byte-locked; caption/VO content rides on `timeline.json`.\n"
+            "- Scaffold fills `fonts/*.woff2` via `fetch_fonts.py` (copy cache / sibling / `tools/fonts.sh`).\n"
+            "- Locked bee score/music path unused in controller E2E — use `mix_vo_only.py`."
         ),
         tts_lines=f"{out}/audio/lines.json",
     )
@@ -178,4 +182,5 @@ def glue_caption(
         mode="caption-glue",
     )
     info["project_md"] = str(proj_md)
+    info["fonts"] = font_actions
     return info
