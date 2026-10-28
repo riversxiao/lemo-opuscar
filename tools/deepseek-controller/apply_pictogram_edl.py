@@ -51,7 +51,15 @@ EN_GLOSS: dict[str, str] = {
     "波动": "VOLATILITY",
     "长期": "LONG TERM",
     "为何分散": "WHY DIVERSIFY",
+    "流动性": "LIQUIDITY",
+    "账上": "ON BOOKS",
+    "周转": "TURNOVER",
+    "随时能用": "READY CASH",
+    "留现金": "KEEP CASH",
+    "时机": "TIMING",
+    "紧张": "STRESS",
 }
+
 
 # Palette keys that exist on G.PAL in engine.js
 PAL_OK = {"red", "purple", "green", "gold", "ochre", "ink", "multi"}

@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "topic": "流动性",
+  "style": "swiss-motion",
+  "language": "zh",
+  "targetDurationSec": 32,
+  "palette": {
+    "page": "#EAE9E5",
+    "paper": "#FFFFFF",
+    "ink": "#111111",
+    "signal": "#E30613"
+  },
+  "shots": [
+    {
+      "id": "s1",
+      "role": "hook",
+      "text": "钱在账上，不等于随时能用。",
+      "onScreenText": "账上",
+      "motionPreset": "numeral-climb",
+      "data": { "buckets": 2 }
+    },
+    {
+      "id": "s2",
+      "role": "explain",
+      "text": "现金最快，房产最慢。",
+      "onScreenText": "快慢",
+      "motionPreset": "grid-build",
+      "data": { "nAssets": 2 }
+    },
+    {
+      "id": "s3",
+      "role": "evidence",
+      "text": "市场紧张时，先缺的是周转。",
+      "onScreenText": "周转",
+      "motionPreset": "locked-spread",
+      "data": { "concentrated": true }
+    },
+    {
+      "id": "s4",
+      "role": "contrast",
+      "text": "同一资产，不同时机流动性差很远。",
+      "onScreenText": "时机",
+      "motionPreset": "knife",
+      "data": { "addClass": true }
+    },
+    {
+      "id": "s5",
+      "role": "payoff",
+      "text": "留一点随时能用的钱，是保护自己。",
+      "onScreenText": "留现金",
+      "motionPreset": "snap"
+    },
+    {
+      "id": "s6",
+      "role": "end",
+      "text": "流动性",
+      "onScreenText": "流动性",
+      "motionPreset": "pull-out"
+    }
+  ],
+  "voice": {
+    "provider": "edge",
+    "voiceId": "zh-CN-YunxiNeural",
+    "lines": [
+      { "id": "l1", "text": "钱在账上，不等于随时能用。", "shotId": "s1" },
+      { "id": "l2", "text": "现金最快，房产最慢。", "shotId": "s2" },
+      { "id": "l3", "text": "市场紧张时，先缺的是周转。", "shotId": "s3" },
+      { "id": "l4", "text": "同一资产，不同时机流动性差很远。", "shotId": "s4" },
+      { "id": "l5", "text": "留一点随时能用的钱，是保护自己。", "shotId": "s5" }
+    ]
+  },
+  "credits": {
+    "title": "流动性",
+    "author": "riversxiao",
+    "year": "2026",
+    "license": "CC BY 4.0"
+  }
+}

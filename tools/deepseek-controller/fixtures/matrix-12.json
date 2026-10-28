@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "title": "12-film comparison matrix",
-  "updated": "2026-10-29T01:18:36+08:00",
+  "updated": "2026-10-29T01:30:33+08:00",
   "filmRoot": "/workspace/films",
   "pathConvention": "/workspace/films/matrix-{topic}-{style}-{path}",
   "dimensions": {
@@ -135,12 +135,12 @@
       "style": "caption",
       "path": "controller",
       "role": "cross",
-      "status": "empty",
+      "status": "delivery-pass",
       "canonical": "/workspace/films/matrix-fensan-caption-controller",
       "alias": null,
-      "mp4": null,
-      "evidence": null,
-      "notes": ""
+      "mp4": "/workspace/films/matrix-fensan-caption-controller/matrix-fensan-caption-controller.mp4",
+      "evidence": "/workspace/films/matrix-fensan-caption-controller/evidence/quality-mux-delivery.json",
+      "notes": "Cross: 分散 on Caption; diversify-v001; DUR=32; soft-pulse; --delivery PASS"
     },
     {
       "id": "M09",
@@ -174,12 +174,12 @@
       "style": "swiss",
       "path": "controller",
       "role": "cross",
-      "status": "empty",
+      "status": "delivery-pass",
       "canonical": "/workspace/films/matrix-liudong-swiss-controller",
       "alias": null,
-      "mp4": null,
-      "evidence": null,
-      "notes": ""
+      "mp4": "/workspace/films/matrix-liudong-swiss-controller/matrix-liudong-swiss-controller.mp4",
+      "evidence": "/workspace/films/matrix-liudong-swiss-controller/evidence/quality-mux-delivery.json",
+      "notes": "Cross: 流动性 on Swiss; texts_runtime; locked DUR=44; soft-pulse; --delivery PASS"
     },
     {
       "id": "M12",
@@ -187,12 +187,12 @@
       "style": "pictogram",
       "path": "controller",
       "role": "cross",
-      "status": "empty",
+      "status": "delivery-pass",
       "canonical": "/workspace/films/matrix-liudong-pictogram-controller",
       "alias": null,
-      "mp4": null,
-      "evidence": null,
-      "notes": ""
+      "mp4": "/workspace/films/matrix-liudong-pictogram-controller/matrix-liudong-pictogram-controller.mp4",
+      "evidence": "/workspace/films/matrix-liudong-pictogram-controller/evidence/quality-mux-delivery.json",
+      "notes": "Cross: 流动性 on Pictogram; finance-v001 unlock; soft-pulse; --delivery PASS"
     }
   ],
   "siblings": [
@@ -207,10 +207,6 @@
       "note": "VO↔picture aligned; delivery-pass"
     }
   ],
-  "nextKnife": [
-    "M08",
-    "M11",
-    "M12"
-  ],
-  "proofNote": "M01/M02/M05/M06/M09/M10 from prior scaffold. M03/M04/M07 cross-style controller filled 2026-10-29 (Asia/Shanghai) with full still→video→mux + --delivery PASS. Remaining empty: M08/M11/M12."
+  "nextKnife": [],
+  "proofNote": "M01/M02/M05/M06/M09/M10 from prior scaffold. M03/M04/M07 cross-style controller filled 2026-10-29. M08/M11/M12 filled 2026-10-29 (Asia/Shanghai) — matrix controller cells 12/12 complete for this epic."
 }

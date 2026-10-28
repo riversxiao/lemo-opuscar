@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "topic": "流动性",
+  "style": "pictogram-motion",
+  "language": "zh",
+  "targetDurationSec": 32,
+  "palette": {
+    "page": "#0B0B0B",
+    "ink": "#F5F0E8",
+    "signal": "#E30613",
+    "accent": "#C9A227"
+  },
+  "shots": [
+    {
+      "id": "p0",
+      "role": "hook",
+      "text": "流动性",
+      "onScreenText": "流动性",
+      "motionPreset": "intro",
+      "beats": 4
+    },
+    {
+      "id": "p1",
+      "role": "chapter",
+      "text": "账上",
+      "onScreenText": "账上",
+      "motionPreset": "chapter",
+      "beats": 4
+    },
+    {
+      "id": "p2",
+      "role": "card",
+      "text": "现金",
+      "onScreenText": "现金",
+      "motionPreset": "card",
+      "pose": "sprint",
+      "beats": 4
+    },
+    {
+      "id": "p3",
+      "role": "card",
+      "text": "房产",
+      "onScreenText": "房产",
+      "motionPreset": "card",
+      "pose": "walk",
+      "beats": 4
+    },
+    {
+      "id": "p4",
+      "role": "card",
+      "text": "周转",
+      "onScreenText": "周转",
+      "motionPreset": "card",
+      "pose": "golf",
+      "beats": 4
+    },
+    {
+      "id": "p5",
+      "role": "explain",
+      "text": "时机不同，流动性差很远。",
+      "onScreenText": "时机",
+      "motionPreset": "hard-cut",
+      "pose": "fencing",
+      "beats": 4
+    },
+    {
+      "id": "p6",
+      "role": "payoff",
+      "text": "留一点随时能用的钱。",
+      "onScreenText": "留现金",
+      "motionPreset": "finale",
+      "pose": "relay",
+      "beats": 8
+    },
+    {
+      "id": "p7",
+      "role": "end",
+      "text": "流动性",
+      "onScreenText": "流动性",
+      "motionPreset": "finale",
+      "beats": 4
+    }
+  ],
+  "voice": {
+    "provider": "edge",
+    "voiceId": "zh-CN-YunxiNeural",
+    "lines": [
+      { "id": "L01", "text": "钱在账上，不等于随时能用。", "shotId": "p0" },
+      { "id": "L02", "text": "现金最快，房产最慢。", "shotId": "p1" },
+      { "id": "L03", "text": "市场紧张时，先缺的是周转。", "shotId": "p2" },
+      { "id": "L04", "text": "同一资产，不同时机流动性差很远。", "shotId": "p3" },
+      { "id": "L05", "text": "留一点随时能用的钱，是保护自己。", "shotId": "p4" }
+    ]
+  },
+  "credits": {
+    "title": "流动性",
+    "author": "riversxiao",
+    "year": "2026",
+    "license": "CC BY 4.0"
+  }
+}

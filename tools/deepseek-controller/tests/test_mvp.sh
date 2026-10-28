@@ -1053,10 +1053,12 @@ fi
 
 # --- matrix tracker (12-film epic; no remux) ---
 if "${CLI[@]}" matrix >/tmp/dc-matrix.out 2>/tmp/dc-matrix.err \
-  && grep -q 'filled 9/12' /tmp/dc-matrix.out \
+  && grep -q 'filled 12/12' /tmp/dc-matrix.out \
   && grep -q 'M01' /tmp/dc-matrix.out \
+  && grep -q 'M08' /tmp/dc-matrix.out \
+  && grep -q 'M12' /tmp/dc-matrix.out \
   && grep -q 'delivery-pass' /tmp/dc-matrix.out; then
-  ok "matrix lists 9/12 with delivery-pass"
+  ok "matrix lists 12/12 with delivery-pass"
 else
   bad "matrix list: $(cat /tmp/dc-matrix.err /tmp/dc-matrix.out)"
 fi
