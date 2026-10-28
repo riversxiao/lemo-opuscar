@@ -23,7 +23,7 @@ export/<film-id>/
   manifest.json            # 素材与时间码索引
 ```
 
-已有最小手递：`tools/openfilm_handoff.sh`（把成片 MP4 包成单镜 `film.html` 工程，**不是**把 lemo 引擎迁成 frame(t)）。
+已有最小手递：`bash tools/openfilm_handoff.sh <film_dir>`（把成片 MP4 包成单镜 `film.html` 工程，**不是**把 lemo 引擎迁成 frame(t)）。请用 **bash** 跑（Debian/Ubuntu 上 `sh` 多为 dash，HEAD 旧脚本的 `[[` 会挂）。
 
 ## TODO
 
