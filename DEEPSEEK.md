@@ -52,6 +52,10 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 
 若你之后用 Claude Code 跑出了更好的引擎，把项目目录或 `film.js` / `index.html` 丢回本仓库的 `reference-engines/<slug>/`，并在 PR 说明来源与许可即可。
 
+## 实测调教（写入 Skill）
+
+详见 [`AGENTS.deepseek.md`](AGENTS.deepseek.md)「实测调教」五条：内容层 + `K` 压缩、BRIEF 附 still、中文拆句、TTS 回修上限 2 次、`$LIB` 路径与 OpenRouter 回退 / ASCII session id。
+
 ## 安全提示
 
 - 默认 `setup.sh` 在 managed clone 上会拉远端；本 DeepSeek 技能默认指向 **本 fork**，并支持 `LEMO_OPUSCAR_PIN`。

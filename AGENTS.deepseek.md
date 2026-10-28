@@ -50,3 +50,14 @@ write TREATMENT.md
 ## 与上游 AGENTS.md 的关系
 
 冲突时以本文件为准（提问方式、引擎锁定、模型分工）。其余章节按 `AGENTS.md` / `DIRECTOR.md` / `TECHNIQUE.md` 执行。
+
+## 实测调教（2026-10-28 · 复利 Swiss 对照）
+
+对照 DeepSeek Flash 与人工引擎锁定版后，Flash 侧强制遵守：
+
+1. **只改内容层**；允许用全局时间缩放 `K = targetDur/demoDur` 压轴；**禁止改** `ease.js` 与刀切/网格/缓动核心。
+2. **BRIEF 附参考**：至少 2 张官方 demo still（或 `still.mjs` 关键帧）+ `STYLE.md` 不变式清单（单信号色、巨号、刀切/该风格 native moves）。
+3. **中文约定**：旁白按 `。` 拆句；版式与朗读可分离（如 `say` / `text`）；画面与字幕默认全中文（除非 brief 要求双语）。
+4. **TTS↔时间轴最多回修 2 次**，然后强制 `still.mjs` → 成片，禁止为抠时长无限改短句。
+5. **路径与额度**：在 `films/` 工程里调用工具一律用 `$LIB` 绝对路径；缺 librosa 时用 ffmpeg `atempo` 压乐床；OpenCode 官方 DeepSeek 额度不足时改用 `openrouter/deepseek/deepseek-v4.1-flash`。OpenCode `-s` session id **只能 ASCII**（如 `ses_fuli_swiss`），中文放 `--title`。
+
