@@ -2,7 +2,7 @@
 
 # Lemo-DeepSeek · riversxiao
 
-**DeepSeek Flash + locked Opus demo engines → finance “one-word, one-picture” code films (no video models)**
+**DeepSeek Flash + locked Opus demo engines → code-made short films (no video models)**
 
 <a href="DEEPSEEK.md"><img alt="DEEPSEEK" src="https://img.shields.io/badge/DEEPSEEK.md-workflow-111?style=for-the-badge"></a>
 <a href="AGENTS.deepseek.md"><img alt="AGENTS" src="https://img.shields.io/badge/AGENTS.deepseek-rules-333?style=for-the-badge"></a>
@@ -19,7 +19,7 @@ Upstream is [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar).
 
 ## My films
 
-Four finance vocab shorts. MP4s on the Release; stills in-repo.
+These four are **sample topics** (finance vocab used to demo multiple styles). Swap in any story — product, pets, travel, tutorials. MP4s on the Release; stills in-repo.
 
 | Topic | Style | Stills | Film |
 |---|---|---|---|
@@ -29,6 +29,49 @@ Four finance vocab shorts. MP4s on the Release; stills in-repo.
 | What is hedging | Whiteboard | [stills](showcase/stills/duichong-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/duichong-whiteboard-ds-v001.mp4) |
 
 Details → [`showcase/README.md`](showcase/README.md) · rules → [`AGENTS.deepseek.md`](AGENTS.deepseek.md) · how-to → [`DEEPSEEK.md`](DEEPSEEK.md)
+
+## How to use (this fork · DeepSeek)
+
+Use this path day-to-day. Do **not** install the upstream Claude Code plugin.
+
+### 1. Clone this repo
+
+```sh
+git clone https://github.com/riversxiao/lemo-opuscar.git
+cd lemo-opuscar
+
+# Optional: pin an audited commit
+export LEMO_OPUSCAR_PIN=413a6bd
+
+sh plugin/skills/lemo-deepseek/scripts/setup.sh
+sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
+# Voice:
+# sh plugin/skills/lemo-deepseek/scripts/setup.sh deps voice
+# Plucked score:
+# sh plugin/skills/lemo-deepseek/scripts/setup.sh deps music
+```
+
+### 2. Point your host at the DeepSeek skill
+
+Point OpenCode / Cursor / your agent at:
+
+`plugin/skills/lemo-deepseek/SKILL.md`
+
+Have the agent read first: `AGENTS.deepseek.md` → `AGENTS.md` → `DIRECTOR.md` → `TECHNIQUE.md` → chosen `styles/<slug>/STYLE.md`.
+
+### 3. One-line start (any topic)
+
+> Make a 30-second Swiss Motion film about compound interest — or any topic you want.
+
+> Make a 30-second Caption News film about liquidity / an orange cat / a product launch.
+
+Loop: TREATMENT → `setup.sh demo <slug>` → content layer only → still → TTS → video → mix → mux. See [`DEEPSEEK.md`](DEEPSEEK.md).
+
+### Prerequisites
+
+- Node 20+, ffmpeg, Python 3.11+
+- Network (edge-tts Chinese VO; or offline Kokoro)
+- DeepSeek Flash via OpenCode / OpenRouter (recommended: `openrouter/deepseek/deepseek-v4.1-flash`)
 
 ---
 
@@ -50,9 +93,9 @@ Every frame, every note and every cut was written in code by Claude Opus 5.5.<br
 
 </div>
 
-## 👋 About me
+## 👋 About the upstream author (Lemomo)
 
-I'm **Lemomo** ([@lemomo-ai](https://github.com/lemomo-ai)). More about me on my profile.
+Upstream author: **Lemomo** ([@lemomo-ai](https://github.com/lemomo-ai)). This fork is maintained by [riversxiao](https://github.com/riversxiao) (DeepSeek workflow + own films).
 
 > **Not an awesome list.** Every film here was made by me, with Claude Opus 5.5.<br>
 > The styles are tuned for Opus 5.5; other models may not reproduce them.
@@ -67,119 +110,9 @@ Every film was directed, drawn, scored and mixed by an AI agent writing code:
 
 No video generation, no stock footage.
 
-## How to use
+## How to use (upstream Claude · reference only)
 
-Two ways in; the skill is the easiest.
-
-### Option 1: install the skill (recommended)
-
-In your terminal:
-
-```sh
-claude plugin marketplace add lemomo-ai/lemo-opuscar
-claude plugin install lemo-opuscar@lemolab
-```
-
-Then use it from any folder.
-
-- On first use it downloads the guides, tools and style prompts to `~/lemo-opuscar`, shared by all your films.
-- Each film's project, from source to finished video, goes in the folder you started from.
-- For other agents, copy [`plugin/skills/lemo-opuscar/`](plugin/skills/lemo-opuscar/) into their skills folder.
-
-### Option 2: clone the repo
-
-```sh
-git clone https://github.com/lemomo-ai/lemo-opuscar.git
-cd lemo-opuscar
-claude
-```
-
-Films go into `films/<name>/` inside the repo.
-
-### Then just say what you want
-
-> Make a 45-second film in the **watercolor** style about the coffee farm my family runs. Warm female narrator.
-
-> Make a 40-second **LiDAR Survey** film about the old quarry in the hills behind our town, from public laser-scan data.
-
-Name the style in English or Chinese; the [style index](styles/README.md) lists them all.
-
-Not sure yet? With the skill installed, type `/lemo-opuscar:lemo-opuscar` and nothing else. It asks which language to use, then what you'd like to do: a film in a library style, [make a style your own](#make-a-style-your-own), or a film in a style you've saved.
-
-It asks you once, up front:
-
-- anything it can't decide about your topic;
-- whether you have your own **voice, music or other material**;
-- whether you want to see a **storyboard** first. Say yes and it stops once to show you the key shots in the real style; otherwise it goes straight to the finished film.
-
-The agent reads three guides and works like a small studio:
-
-| File | What it gives the agent |
-|---|---|
-| [`DIRECTOR.md`](DIRECTOR.md) | how to direct: story, sound, rhythm, camera, performance, self-checks |
-| [`TECHNIQUE.md`](TECHNIQUE.md) | how to build: frame-by-frame rendering, voice, music, mixing |
-| `styles/<style>/STYLE.md` | what the style looks and sounds like; the story is yours |
-
-### Make a style your own
-
-Everyone wants something different: their own brand colours, logo, characters, the tone of their channel. Now you can change a library style into one that's only yours, or make one from a blank page that the library doesn't have. It's the same process I use to add a new style to the library.
-
-<table><tr>
-<td width="50%" valign="top"><a href="https://github.com/lemomo-ai/lemo-opuscar/releases/download/films/swiss-motion.mp4"><img src="docs/my-style-before.jpg" alt="A library style: Swiss Motion Graphics"></a><br><b>A library style</b> · Swiss Motion Graphics<br><sub>A flat grid, one signal colour, every move on the beat.</sub></td>
-<td width="50%" valign="top"><a href="https://github.com/lemomo-ai/lemo-opuscar/releases/download/films/my-style-material-grid.mp4"><img src="docs/my-style-after.jpg" alt="My style: Material Grid"></a><br><b>My style</b> · Material Grid · ▶ 31 s demo film<br><sub>The Swiss grid, beat and type kept, the shapes made of clay, plastic, felt, glass and chrome: from above it reads as a poster, one tilt and it's a table of objects.</sub></td>
-</tr></table>
-
-**Two ways in.** Pick one after starting the skill, or say it in one line:
-
-> I want to change the **Ukiyo-e** style into my own version.
-
-> Start from a blank page: a chalk-on-blackboard style, warm and slow.
-
-- **Change a library style**: it lists all 59 with the gallery link, and you type the one to change.
-- **Start from a blank page**: describe the look in your own words, or share a picture or a film you like. Claude picks the closest library style as the technique base, tells you why, and you agree or pick another.
-
-**Then five steps:**
-
-1. **Plan it one question at a time.** Each question has a few options, the recommended one first, with the reason. Roughly:
-   - what it's for: what kind of films, which platform (vertical feeds want 1080×1920 or 1080×1440), any brand colours, logo, fonts or recurring characters;
-   - what to change: for a library style it first sorts the style into three groups, **safe to change** (palette, type, pace, sound, signature moves), **changes its character** (materials and rendering, the colour logic, camera grammar) and **can't change** (the style's essence: change that and it's a different style);
-   - which way to take each part, and last, a name.
-
-   Vague is fine: say "more premium" or "livelier" and it turns that into concrete changes to pick from. Too slow? Choose "free conversation", the last option on every question, and just talk it through; say "you decide" at any point and it fills in the rest with its recommendations. At most five changes a round when changing a library style; everything is drawn in code, no image generation.
-2. **Review the summary.** Each part before, after, and what it costs. Nothing is written until you agree.
-3. **See one style frame first**, drawn with the real code. When you changed a library style, the same frame is rendered in the original too, side by side: original left, yours right. Say what's off; if it still isn't right after two rounds, it says so and suggests a closer base.
-4. **A 15–30 second demo film.** Every change is on screen, with music and sound effects. It checks the film and fixes it once before handing it over.
-5. **Keep it when you're happy.** It asks: keep it as my style, another round, or not now. Until you say yes, everything stays in that project's folder.
-
-Once kept, the style lives in `~/lemo-my-styles/<name>/`, shaped like a library style: the style prompt, what changed, the demo film and its source, so later films can reuse the techniques. Then name it like any other style: *"Make a 30-second film in my **Night Ukiyo-e** style about…"*. When you pick a style, your own are listed first.
-
-Library updates and reinstalling never touch them. When the base style is updated later, Claude mentions it once and asks whether to bring the useful fixes into your copy. The steps Claude follows are in [`MY-STYLES.md`](MY-STYLES.md).
-
-### Before you start
-
-- A film takes an agent about 30–60 minutes and a fair amount of tokens.
-- You need Node 20+, ffmpeg and Python 3.11+ (or [uv](https://docs.astral.sh/uv/)); the agent installs the rest.
-- Default output 1920×1080, 24 fps; other sizes on request.
-
-### Update or uninstall
-
-Update, then restart Claude Code (the library in `~/lemo-opuscar` updates itself on the next film):
-
-```sh
-claude plugin marketplace update lemolab && claude plugin update lemo-opuscar@lemolab
-```
-
-After an update, ask for a film as usual; to make a style your own, see [above](#make-a-style-your-own).
-
-Uninstall, then delete `~/lemo-opuscar`:
-
-```sh
-claude plugin uninstall lemo-opuscar@lemolab
-```
-
-Your own styles in `~/lemo-my-styles/` stay through updates and uninstalls; delete that folder yourself if you don't want them.
-
-If a step stays stuck, [open an issue](https://github.com/lemomo-ai/lemo-opuscar/issues).
+> ⚠️ Below is the upstream lemomo Claude Code plugin install. **This fork: use “How to use (this fork · DeepSeek)” above.** For the native Claude Opus skill, go to the official repo: [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar).
 
 ## The styles
 

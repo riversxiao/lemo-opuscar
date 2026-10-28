@@ -57,7 +57,7 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 详见 [`AGENTS.deepseek.md`](AGENTS.deepseek.md)：
 
 - **「实测调教」五条**：内容层 + `K` 压缩、BRIEF 附 still、中文拆句、TTS 回修上限 2 次、`$LIB` 路径与 OpenRouter 回退 / ASCII session id。
-- **「多风格 BRIEF 硬规则」**：BRIEF 白名单、无实拍替代镜头、中文×绝对秒、字体/mix 预置、旁白与画面同句、词卡优先 Swiss / Pictogram / Caption。
+- **「多风格 BRIEF 硬规则」**：BRIEF 白名单、无实拍替代镜头、中文×绝对秒、字体/mix 预置、旁白与画面同句、信息图样片优先 Swiss / Pictogram / Caption。
 
 试片与对照见 [`showcase/`](showcase/README.md)。
 

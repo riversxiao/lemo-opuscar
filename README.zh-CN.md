@@ -2,7 +2,7 @@
 
 # Lemo-DeepSeek · riversxiao
 
-**用 DeepSeek Flash + 锁定引擎底座，做金融「一词一图」代码短片（不用视频大模型）**
+**用 DeepSeek Flash + 锁定引擎底座，做纯代码短片（不用视频大模型）**
 
 <a href="DEEPSEEK.md"><img alt="DEEPSEEK" src="https://img.shields.io/badge/DEEPSEEK.md-工作流-111?style=for-the-badge"></a>
 <a href="AGENTS.deepseek.md"><img alt="AGENTS" src="https://img.shields.io/badge/AGENTS.deepseek-规程-333?style=for-the-badge"></a>
@@ -19,7 +19,7 @@
 
 ## 我的试片
 
-四支金融词卡，DeepSeek Flash 编排、官方 demo 引擎锁定。成片在 Release，静帧在仓库。
+下面四支是**样片题材示例**（当前用金融词卡演示多风格）。题材可换成任意故事——产品、宠物、旅行、教程都行。DeepSeek Flash 编排、官方 demo 引擎锁定；成片在 Release，静帧在仓库。
 
 | 主题 | 风格 | 静帧 | 成片 |
 |---|---|---|---|
@@ -29,6 +29,49 @@
 | 对冲是什么 | Whiteboard | [stills](showcase/stills/duichong-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/duichong-whiteboard-ds-v001.mp4) |
 
 完整说明与对照 → [`showcase/README.md`](showcase/README.md) · 规程 → [`AGENTS.deepseek.md`](AGENTS.deepseek.md) · 用法 → [`DEEPSEEK.md`](DEEPSEEK.md)
+
+## 怎么用（本 fork · DeepSeek）
+
+日常请走这条路径。不要装上游的 Claude Code 插件。
+
+### 1. Clone 本仓库
+
+```sh
+git clone https://github.com/riversxiao/lemo-opuscar.git
+cd lemo-opuscar
+
+# 可选：钉死已审计提交
+export LEMO_OPUSCAR_PIN=413a6bd
+
+sh plugin/skills/lemo-deepseek/scripts/setup.sh
+sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
+# 需要旁白：
+# sh plugin/skills/lemo-deepseek/scripts/setup.sh deps voice
+# 需要拨弦：
+# sh plugin/skills/lemo-deepseek/scripts/setup.sh deps music
+```
+
+### 2. 挂上 DeepSeek 技能
+
+把宿主（OpenCode / Cursor / 自建 Agent）的技能指向：
+
+`plugin/skills/lemo-deepseek/SKILL.md`
+
+并让 agent 先读：`AGENTS.deepseek.md` → `AGENTS.md` → `DIRECTOR.md` → `TECHNIQUE.md` → 所选 `styles/<slug>/STYLE.md`。
+
+### 3. 开工一句话（任意题材）
+
+> 用 Swiss Motion 做一支 30 秒片子，讲「复利」——或换成你的任何主题。
+
+> 用 Caption News 做一支 30 秒片子，讲流动性 / 橘猫 / 产品发布均可。
+
+规程摘要：TREATMENT → `setup.sh demo <slug>` → 只改内容层 → still → TTS → video → mix → mux。详见 [`DEEPSEEK.md`](DEEPSEEK.md)。
+
+### 前提
+
+- Node 20+、ffmpeg、Python 3.11+
+- 出网（edge-tts 中文旁白；或改离线 Kokoro）
+- OpenCode / OpenRouter 等可用的 DeepSeek Flash（推荐 `openrouter/deepseek/deepseek-v4.1-flash`）
 
 ---
 
@@ -50,9 +93,9 @@
 
 </div>
 
-## 👋 关于我
+## 👋 关于上游作者（Lemomo）
 
-我是 **Lemomo**，更多信息见我的 [GitHub 主页](https://github.com/lemomo-ai)。
+上游作者是 **Lemomo**（[GitHub](https://github.com/lemomo-ai)）。本 fork 由 [riversxiao](https://github.com/riversxiao) 维护（DeepSeek 工作流 + 自有试片）。
 
 > **这不是一个 awesome 合集。** 这里所有的片子都是我自己用 Claude Opus 5.5 做的。<br>
 > 风格是按 Opus 5.5 调出来的，换成其他模型不保证能做出同样的效果。
@@ -67,120 +110,9 @@
 
 不用视频生成，也不用素材库画面。
 
-## 怎么用
+## 怎么用（上游 Claude 原文 · 仅作参考）
 
-两种用法，推荐装 skill，最省事。
-
-### 方式一：装成 skill（推荐）
-
-在终端里：
-
-```sh
-claude plugin marketplace add lemomo-ai/lemo-opuscar
-claude plugin install lemo-opuscar@lemolab
-```
-
-之后在任何目录都能用。
-
-- 第一次使用时，它会把指南、工具和风格提示词下载到 `~/lemo-opuscar`，所有片子共用这一份。
-- 每支片子的工程，从源码到成片，都放在你发起时所在的文件夹里。
-- 其他 agent 可以把 [`plugin/skills/lemo-opuscar/`](plugin/skills/lemo-opuscar/) 复制到它们的 skills 目录。
-
-### 方式二：clone 仓库
-
-```sh
-git clone https://github.com/lemomo-ai/lemo-opuscar.git
-cd lemo-opuscar
-claude
-```
-
-片子做到仓库里的 `films/<名字>/`。
-
-### 然后直接说
-
-> 用**油画厚涂**风格做一支 30 秒的片子，讲我家那只每天在窗台等我下班的橘猫。
-
-> 用**点云测绘**风格做一支 40 秒的片子，讲我们镇后山那座废弃的采石场，数据用公开的激光扫描。
-
-风格用中文名、英文名或文件夹名都行，全部风格见[风格索引](styles/README.md)。
-
-还没想好也没关系：装成 skill 的，输入 `/lemo-opuscar:lemo-opuscar` 直接启动。它先问你用什么语言，再问这次想做什么：用库里的风格做片、[把风格改成你自己的](#改成你自己的风格)，或者用你存过的风格。
-
-它开工前只问你一次：
-
-- 主题里它定不了的事；
-- 你有没有自己的**配音、音乐或其他素材**；
-- 要不要先看**分镜故事板**。要看的话，它会停一次，给你看用真实风格画出来的关键镜头；不看就直接做完成片。
-
-agent 会读三份指南，像一个小工作室一样开工。<br>
-指南是英文写给 agent 看的，你用中文跟它说就行，片子的配音和字幕默认跟你用的语言一致。
-
-| 文件 | 给 agent 的东西 |
-|---|---|
-| [`DIRECTOR.md`](DIRECTOR.md) | 怎么导：故事、声音、节奏、镜头、表演、自检 |
-| [`TECHNIQUE.md`](TECHNIQUE.md) | 怎么做：逐帧渲染、配音、配乐、混音 |
-| `styles/<风格>/STYLE.md` | 这个风格长什么样、听起来什么样；故事由你定 |
-
-### 改成你自己的风格
-
-每个人想要的都不一样：有自己的品牌色、logo、IP 和账号调性。现在你可以把库里的风格改成只属于你的，或者从空白做一个库里没有的。走的就是我自己往库里加新风格的流程。
-
-<table><tr>
-<td width="50%" valign="top"><a href="https://github.com/lemomo-ai/lemo-opuscar/releases/download/films/swiss-motion.mp4"><img src="docs/my-style-before.jpg" alt="库里的风格：瑞士动态排版"></a><br><b>库里的风格</b> · 瑞士动态排版<br><sub>平面网格、一个信号色、动作卡着节拍。</sub></td>
-<td width="50%" valign="top"><a href="https://github.com/lemomo-ai/lemo-opuscar/releases/download/films/my-style-material-grid.mp4"><img src="docs/my-style-after.jpg" alt="我的风格：材质网格"></a><br><b>我的风格</b> · 材质网格 · ▶ 31 秒 demo 片<br><sub>留下瑞士排版的网格、节拍和字体，换成陶土、塑料、绒布、玻璃和铬的实物：俯视是一张海报，镜头一倾全是实物。</sub></td>
-</tr></table>
-
-**两个入口。** 启动 skill 后在入口里选，或者一句话直接说：
-
-> 我想把**浮世绘**风格改成我自己的版本。
-
-> 从空白开始，做一个黑板粉笔画的风格，暖一点、慢一点。
-
-- **改库里的风格**：它列出全部 59 种和画廊链接，你打字说改哪一个。
-- **从空白开始**：用你自己的话描述想要的样子，也可以给一张喜欢的图或一支片。Claude 从库里挑一个最接近的风格当技法底子，说清楚为什么选它，你点头或者换一个。
-
-**接下来五步：**
-
-1. **一个问题一个问题定方案。** 每个问题都带几个选项，推荐的排第一，附上理由。大概会问：
-   - 拿来做什么：做什么片、发在哪个平台（竖屏就用 1080×1920 或 1080×1440），有没有品牌色、logo、字体或固定角色；
-   - 想改哪里：改库里风格时，它先把风格分成三组讲给你听，**放心改**（配色、字体、动作快慢、声音、标志镜头）、**一改就变味**（材质和画法、配色的逻辑、镜头语法）、**不能改**（风格的本质，改了就是另一个风格）；
-   - 每一项往哪个方向改，最后起名字。
-
-   说得模糊也行，比如「高级一点」「活泼一点」，它会翻译成具体的改法让你挑。嫌慢就选每题最后的「自由对话」，直接聊；随时说「你定」，剩下的它按推荐填好。改库里风格时一轮最多改五处；全部用代码画，不用生图。
-2. **看汇总，点头。** 每一项改前是什么、改后是什么、代价是什么，你点头了它才写下来。
-3. **先看一张风格图。** 用真实的绘制代码画出来。改库里风格的，同一个画面用原风格再出一张，左边原版、右边你的并排放。不满意就说，两轮还不对它会直说，建议换一个更接近的底子。
-4. **一支 15–30 秒的 demo 片。** 每一处改动都在画面里出现，配音乐和音效。它自己检查、修一轮再交给你。
-5. **满意了再固化。** 它问你：固化、再改一轮，还是先不固化。你点头之前，一切都只在这次的项目文件夹里。
-
-固化以后，风格存在 `~/lemo-my-styles/<名字>/`，和库里的风格同一个结构：风格说明、改了什么、demo 片和它的源码，以后做片能接着用这些技法。之后像用库里的风格一样叫它的名字：“用我的**夜浮世绘**风格做一支 30 秒的片子，讲……”。挑风格时，你自己的风格排在最前面。
-
-库更新、重装 skill 都不会动它们。底子风格以后更新了，它会提一句，问你要不要把有用的修复同步过来。Claude 照着 [`MY-STYLES.md`](MY-STYLES.md) 一步步做。
-
-### 开始之前
-
-- 一支片子 agent 大约要做 30–60 分钟，token 用量不小。
-- 需要 Node 20+、ffmpeg 和 Python 3.11+（或 [uv](https://docs.astral.sh/uv/)），其余由 agent 安装。
-- 默认输出 1920×1080、24 fps，其他尺寸可以指定。
-
-### 更新和卸载
-
-更新，然后重启 Claude Code（`~/lemo-opuscar` 里的库会在下一次做片时自动更新）：
-
-```sh
-claude plugin marketplace update lemolab && claude plugin update lemo-opuscar@lemolab
-```
-
-更新后照常说要做什么片；想把风格改成自己的，看[上面](#改成你自己的风格)。
-
-卸载，然后删除 `~/lemo-opuscar`：
-
-```sh
-claude plugin uninstall lemo-opuscar@lemolab
-```
-
-你自己的风格存在 `~/lemo-my-styles/`，更新和卸载都不会删；不要了就自己删掉这个文件夹。
-
-一直卡住就[提个 issue](https://github.com/lemomo-ai/lemo-opuscar/issues)。
+> ⚠️ 下面是上游 lemomo 的 Claude Code 插件装法，**本 fork 请用上方「怎么用（本 fork · DeepSeek）」**。若你坚持用 Claude Opus 原生技能，请去官方仓：[lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar)。
 
 ## 风格
 

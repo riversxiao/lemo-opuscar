@@ -1,30 +1,32 @@
-# Showcase · riversxiao 的 DeepSeek 金融词卡试片
+# Showcase · riversxiao’s DeepSeek code-made shorts
 
-本目录是 [riversxiao/lemo-opuscar](https://github.com/riversxiao/lemo-opuscar) 的自有成片墙：用 **DeepSeek Flash**（`openrouter/deepseek/deepseek-v4.1-flash`）+ 上游 Opus demo **引擎锁定**，做「一词一图」金融短片。**不用** Seedance / Kling / Runway / Sora 等视频大模型。
+This folder is the film wall for [riversxiao/lemo-opuscar](https://github.com/riversxiao/lemo-opuscar): **DeepSeek Flash** (`openrouter/deepseek/deepseek-v4.1-flash`) + upstream Opus demo **engine lock**. Pure code films — **no** Seedance / Kling / Runway / Sora.
 
-成片 MP4 不进 git 主树，统一挂在 Release：**[showcase-v001](https://github.com/riversxiao/lemo-opuscar/releases/tag/showcase-v001)**。
+Finance vocab is only the **first sample set**. Any topic works (product, pets, travel, tutorials…).
 
-规程：[`AGENTS.deepseek.md`](../AGENTS.deepseek.md)（实测调教 + 多风格 BRIEF 硬规则）· [`DEEPSEEK.md`](../DEEPSEEK.md)  
-对照笔记：[`COMPARE.md`](COMPARE.md)
+Finished MP4s stay off the main tree — Release **[showcase-v001](https://github.com/riversxiao/lemo-opuscar/releases/tag/showcase-v001)**.
 
-## 方法（一句话）
+Rules: [`AGENTS.deepseek.md`](../AGENTS.deepseek.md) · [`DEEPSEEK.md`](../DEEPSEEK.md)  
+Compare notes: [`COMPARE.md`](COMPARE.md)
+
+## Method (one line)
 
 ```
-TREATMENT → setup.sh demo <slug> → 只改内容层 → still → TTS/乐 → video → mix → mux → 自检
+TREATMENT → setup.sh demo <slug> → content layer only → still → TTS/score → video → mix → mux → self-check
 ```
 
-Flash 改 timeline / 文案 / 配色；禁止改 shader、缓动核心、`core/`、库内 `styles/`。词卡优先 **Swiss Motion · Pictogram Motion · Caption News（纯图形）**；Whiteboard 慎用。
+Flash edits timeline / copy / palette; never shaders, easing cores, `core/`, or in-library `styles/`. Styles that ran best in these samples: **Swiss Motion · Pictogram Motion · Caption News (graphics-only)**; use Whiteboard with care.
 
-## 四支试片
+## Four sample films
 
-| # | 主题 | 风格 | 时长 | 旁白 | 静帧 | 下载 |
+| # | Topic | Style | Length | VO | Stills | Download |
 |---|---|---|---|---|---|---|
-| 1 | 复利 | Swiss Motion | ~31 s | 中文云希 | [01](stills/fuli-01.jpg) · [02](stills/fuli-02.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/fuli-swiss-ds-v001.mp4) |
-| 2 | 分散投资 | Pictogram Motion | ~31 s | 无 VO（鼓点） | [01](stills/fensan-01.jpg) · [02](stills/fensan-02.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/fensan-pictogram-ds-v001.mp4) |
-| 3 | 流动性 | Caption News | ~30 s | 中文云希 | [01](stills/liudong-01.jpg) · [02](stills/liudong-02.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/liudong-caption-ds-v001.mp4) |
-| 4 | 对冲是什么 | Whiteboard | ~32 s | 中文云希 | [01](stills/duichong-01.jpg) · [02](stills/duichong-02.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/duichong-whiteboard-ds-v001.mp4) |
+| 1 | Compound interest | Swiss Motion | ~31 s | Yunxi (zh) | [01](stills/fuli-01.jpg) · [02](stills/fuli-02.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/fuli-swiss-ds-v001.mp4) |
+| 2 | Diversification | Pictogram Motion | ~31 s | none (drums) | [01](stills/fensan-01.jpg) · [02](stills/fensan-02.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/fensan-pictogram-ds-v001.mp4) |
+| 3 | Liquidity | Caption News | ~30 s | Yunxi (zh) | [01](stills/liudong-01.jpg) · [02](stills/liudong-02.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/liudong-caption-ds-v001.mp4) |
+| 4 | What is hedging | Whiteboard | ~32 s | Yunxi (zh) | [01](stills/duichong-01.jpg) · [02](stills/duichong-02.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/duichong-whiteboard-ds-v001.mp4) |
 
-### 静帧预览
+### Still previews
 
 <table>
 <tr>
@@ -41,14 +43,14 @@ Flash 改 timeline / 文案 / 配色；禁止改 shader、缓动核心、`core/`
 </tr>
 </table>
 
-## 观感摘要
+## Takeaways
 
-- **最稳**：Pictogram、Caption（纯图形）——内容层边界清楚，Flash 很少碰引擎。
-- **可用**：Swiss —— `K` 压轴 + 中文拆句即可。
-- **最难**：Whiteboard —— 单线字体无汉字 → 「板上拉丁、嘴里中文」；必须绝对秒，跳过 ASR 词对齐。
+- **Most stable**: Pictogram, Caption (graphics-only) — clear content-layer boundary; Flash rarely touches the engine.
+- **Solid**: Swiss — `K` time-scale + Chinese sentence split.
+- **Hardest**: Whiteboard — single-line font has no CJK → Latin on the board, Chinese VO; absolute seconds, skip ASR word align.
 
-旁白「中文云希」= 微软 Azure / edge-tts 女声 Yunxi，非真人。
+「中文云希」= Microsoft Azure / edge-tts Yunxi, not a human VO.
 
-## 上游
+## Upstream
 
-引擎与 59 种风格来自 [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar)（Opus 5.5 demo）。本 showcase 仅展示本 fork 的 DeepSeek 工作流与自制片。
+Engines and 59 styles from [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar) (Opus 5.5 demos). This showcase only shows this fork’s DeepSeek workflow and films.
