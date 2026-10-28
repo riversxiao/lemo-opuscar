@@ -36,18 +36,18 @@ Native style per topic (historical showcase diagonal):
 |---|---|---|---|---|---|---|
 | M01 | fuli | swiss | controller | native | **delivery-pass** | `/workspace/films/fuli-controller-e2e` → target `matrix-fuli-swiss-controller` |
 | M02 | fuli | swiss | flash | native | **muxed** | `/workspace/films/fuli-swiss-ds-v001` (no `--delivery` gate yet) |
-| M03 | fuli | pictogram | controller | cross | empty | `matrix-fuli-pictogram-controller` |
-| M04 | fuli | caption | controller | cross | empty | `matrix-fuli-caption-controller` |
+| M03 | fuli | pictogram | controller | cross | **delivery-pass** | `/workspace/films/matrix-fuli-pictogram-controller` (finance-v001) |
+| M04 | fuli | caption | controller | cross | **delivery-pass** | `/workspace/films/matrix-fuli-caption-controller` (compound-v001) |
 | M05 | fensan | pictogram | controller | native | **delivery-pass** | `/workspace/films/fensan-controller-e2e` |
 | M06 | fensan | pictogram | flash | native | **muxed** | `/workspace/films/fensan-pictogram-ds-v001` |
-| M07 | fensan | swiss | controller | cross | empty | `matrix-fensan-swiss-controller` |
+| M07 | fensan | swiss | controller | cross | **delivery-pass** | `/workspace/films/matrix-fensan-swiss-controller` |
 | M08 | fensan | caption | controller | cross | empty | `matrix-fensan-caption-controller` |
 | M09 | liudong | caption | controller | native | **delivery-pass** | `/workspace/films/liudong-controller-e2e` |
 | M10 | liudong | caption | flash | native | **muxed** | `/workspace/films/liudong-caption-ds-v001` |
 | M11 | liudong | swiss | controller | cross | empty | `matrix-liudong-swiss-controller` |
 | M12 | liudong | pictogram | controller | cross | empty | `matrix-liudong-pictogram-controller` |
 
-**Filled tonight (proof, no remux):** M01, M05, M09 (controller `--delivery` PASS) + M02, M06, M10 (legacy Flash muxes). **6/12.**
+**Filled:** M01/M05/M09 + M03/M04/M07 (controller `--delivery` PASS) + M02/M06/M10 (Flash muxed). **9/12.** Remaining cross: **M08 / M11 / M12**.
 
 ### Improved siblings (not separate matrix cells)
 

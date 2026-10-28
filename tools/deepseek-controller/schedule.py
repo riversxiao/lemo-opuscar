@@ -382,6 +382,47 @@ def main(argv: list[str] | None = None) -> int:
             )
         except Exception as e:
             print(f"WARN: swiss texts_runtime apply failed: {e}", file=sys.stderr)
+
+    # Swiss: emit timeline.json for music_bed / mix_vo_only (DUR from film.js when locked).
+    if style == "swiss-motion" and timeline.get("ok"):
+        try:
+            from quality import _engine_locked_dur
+            import re as _re
+
+            dur = _engine_locked_dur(project, "swiss-motion")
+            if not dur:
+                film = project / "film.js"
+                if film.is_file():
+                    m = _re.search(r"\bDUR\s*=\s*([0-9.]+)", film.read_text(encoding="utf-8"))
+                    dur = float(m.group(1)) if m else None
+            if not dur:
+                dur = float(timeline.get("scheduledDurationSec") or 0)
+            vo = {}
+            for cue in timeline.get("cues") or []:
+                lid = cue.get("id") or cue.get("lineId")
+                t0 = cue.get("t0", cue.get("start"))
+                if lid is not None and t0 is not None:
+                    vo[str(lid)] = float(t0)
+            if not vo:
+                for sh in timeline.get("shots") or []:
+                    for lid in sh.get("voIds") or []:
+                        vo[str(lid)] = float(sh["t0"])
+            if dur and vo:
+                tl_out = {
+                    "schemaVersion": 1,
+                    "dur": float(dur),
+                    "bpm": 100,
+                    "scheduleBudgetSec": timeline.get("scheduledDurationSec"),
+                    "vo": vo,
+                    "source": "schedule-swiss",
+                }
+                dump_json(project / "timeline.json", tl_out)
+                print(
+                    f"OK wrote swiss timeline.json vo={len(vo)} dur={dur} "
+                    f"(for mix / music_bed)"
+                )
+        except Exception as e:
+            print(f"WARN: swiss timeline.json emit failed: {e}", file=sys.stderr)
     return 0
 
 

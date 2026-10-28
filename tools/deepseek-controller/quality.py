@@ -136,13 +136,45 @@ def _homophone_tolerant_match(
     *,
     min_ratio: float = 0.88,
 ) -> tuple[bool, str, str, float]:
-    """Return (ok, tokenized_want, tokenized_got, ratio)."""
+    """Return (ok, tokenized_want, tokenized_got, ratio).
+
+    Full-string compare uses ``min_ratio``. Whisper *leading clip* is handled
+    separately: drop ≤10 tokenized chars from the reference and ≤2 particle
+    chars (是/的/了/…) from the hypothesis, but only accept when the remainders
+    are equal or ≥0.97 similar — so a shared suffix cannot turn 蝙蝠 into 复利.
+    """
     import difflib
 
     a = _homophone_tokenize(want, classes)
     b = _homophone_tokenize(got, classes)
-    ratio = difflib.SequenceMatcher(None, a, b).ratio() if (a or b) else 1.0
-    return (a == b or ratio >= min_ratio, a, b, ratio)
+    if not (a or b):
+        return (True, a, b, 1.0)
+    sm = difflib.SequenceMatcher
+    ratio = sm(None, a, b).ratio()
+    if a == b or ratio >= min_ratio:
+        return (True, a, b, ratio)
+
+    best = ratio
+    _got_noise = set("是的了吗呢啊吧嘛")
+    if len(b) >= 6:
+        max_want_drop = min(10, max(0, len(a) - 5))
+        max_got_drop = min(2, max(0, len(b) - 5))
+        for i in range(0, max_want_drop + 1):
+            for j in range(0, max_got_drop + 1):
+                if i == 0 and j == 0:
+                    continue
+                if j and any(ch not in _got_noise for ch in b[:j]):
+                    continue
+                aa, bb = a[i:], b[j:]
+                if not aa or not bb:
+                    continue
+                r = sm(None, aa, bb).ratio()
+                if r > best:
+                    best = r
+                if aa == bb or r >= 0.97:
+                    return (True, a, b, r)
+    return (False, a, b, best)
+
 
 
 def _engine_locked_dur(project: Path, style: str) -> float | None:

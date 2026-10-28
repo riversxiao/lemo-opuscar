@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "topic": "分散投资",
+  "style": "swiss-motion",
+  "language": "zh",
+  "targetDurationSec": 32,
+  "palette": {
+    "page": "#EAE9E5",
+    "paper": "#FFFFFF",
+    "ink": "#111111",
+    "signal": "#E30613"
+  },
+  "shots": [
+    {
+      "id": "s1",
+      "role": "hook",
+      "text": "分散投资，不是把鸡蛋随便一撒。",
+      "onScreenText": "分散",
+      "motionPreset": "numeral-climb",
+      "data": {
+        "buckets": 3
+      }
+    },
+    {
+      "id": "s2",
+      "role": "explain",
+      "text": "股票、债券、现金，涨跌不同步。",
+      "onScreenText": "三类",
+      "motionPreset": "grid-build",
+      "data": {
+        "nAssets": 3
+      }
+    },
+    {
+      "id": "s3",
+      "role": "evidence",
+      "text": "单一押注，风险会堆在一起。",
+      "onScreenText": "集中",
+      "motionPreset": "locked-spread",
+      "data": {
+        "concentrated": true
+      }
+    },
+    {
+      "id": "s4",
+      "role": "contrast",
+      "text": "多一类资产，就少一次踩坑。",
+      "onScreenText": "对冲",
+      "motionPreset": "knife",
+      "data": {
+        "addClass": true
+      }
+    },
+    {
+      "id": "s5",
+      "role": "payoff",
+      "text": "分散，靠的是留下余地，不是赌一把。",
+      "onScreenText": "余地",
+      "motionPreset": "snap"
+    },
+    {
+      "id": "s6",
+      "role": "end",
+      "text": "分散投资",
+      "onScreenText": "分散投资",
+      "motionPreset": "pull-out"
+    }
+  ],
+  "voice": {
+    "provider": "edge",
+    "voiceId": "zh-CN-YunxiNeural",
+    "lines": [
+      {
+        "id": "l1",
+        "text": "分散投资，不是把鸡蛋随便一撒。",
+        "shotId": "s1"
+      },
+      {
+        "id": "l2",
+        "text": "股票、债券、现金，涨跌不同步。",
+        "shotId": "s2"
+      },
+      {
+        "id": "l3",
+        "text": "单一押注，风险会堆在一起。",
+        "shotId": "s3"
+      },
+      {
+        "id": "l4",
+        "text": "多一类资产，就少一次踩坑。",
+        "shotId": "s4"
+      },
+      {
+        "id": "l5",
+        "text": "分散，靠的是留下余地，不是赌一把。",
+        "shotId": "s5"
+      }
+    ]
+  },
+  "credits": {
+    "title": "分散投资",
+    "author": "riversxiao",
+    "year": "2026",
+    "license": "CC BY 4.0"
+  }
+}
