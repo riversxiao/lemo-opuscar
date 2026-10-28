@@ -76,7 +76,7 @@ python3 $CTL/cli.py scaffold $CTL/fixtures/plan-caption-news.json \
 | 风格 | 可触同步 | 绝不改 |
 |---|---|---|
 | swiss-motion | `lines.json`, `palette.json`, `CREDITS` | `ease.js` / `film.js` / `main.js` / `mix.py` |
-| pictogram-motion | `edl_content.json`, `lines.json`, `palette.json`, `CREDITS` | `engine.js` / `edl.js` / `scenes.js` / `poses/**` |
+| pictogram-motion | `edl_content.json` → `edl_runtime.json` (page.mjs overlay), `lines.json`, `timeline.json`, `palette.json`, `CREDITS` | `engine.js` / `edl.js` / `scenes.js` / `poses/**` |
 | caption-news | `timeline.json`, `lines.json`, `audio/lines.json`, `FACTS.md`, `palette.json`, `CREDITS` | `main.js` / `build.sh` / `assets/**` |
 
 ### 逐步命令

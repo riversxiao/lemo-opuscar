@@ -147,7 +147,9 @@
     "lines.json",
     "palette.json",
     "CREDITS",
-    "PROJECT.md"
+    "PROJECT.md",
+    "edl_runtime.json",
+    "timeline.json"
   ],
-  "notes": "Chinese should be primary on-screen title for zh films. Pose must be in allowlist."
+  "notes": "Chinese should be primary on-screen title for zh films. Pose must be in allowlist (stand/point/group aliases → golf/fencing/relay). Content bridge: edl_content.json → edl_runtime.json via apply_pictogram_edl; core/render/page.mjs overlays window.EDL without editing locked edl.js/scenes.js."
 }

@@ -4,6 +4,13 @@ from pathlib import Path
 from typing import Any
 from common import dump_json, load_manifest
 
+POSE_ALIASES = {"stand": "golf", "point": "fencing", "group": "relay"}
+EN_GLOSS = {
+    "分散投资": "DIVERSIFY", "资产": "ASSETS", "股票": "STOCKS",
+    "债券": "BONDS", "现金": "CASH", "别押一把": "NO SINGLE BET",
+    "组合": "PORTFOLIO", "资产类别": "ASSET CLASSES", "为何分散": "WHY DIVERSIFY",
+}
+
 
 def adapt_pictogram_motion(plan: dict[str, Any], out_dir: Path) -> list[Path]:
     man = load_manifest("pictogram-motion")
@@ -25,16 +32,29 @@ def adapt_pictogram_motion(plan: dict[str, Any], out_dir: Path) -> list[Path]:
             kind = "finale" if sh["motionPreset"] == "finale" else sh["role"]
         elif sh["motionPreset"] in ("intro", "chapter", "card", "finale"):
             kind = sh["motionPreset"]
+        zh = sh.get("onScreenText") or sh["text"]
+        pose = sh.get("pose")
+        if pose in POSE_ALIASES:
+            pose = POSE_ALIASES[pose]
+        # Chapters: multi (catalogue); cards inherit; explain/risk cards: red
+        if kind == "chapter":
+            pal = "multi"
+        elif sh.get("role") in ("explain",):
+            pal = "red"
+        else:
+            pal = "multi"
         entry = {
             "id": sh["id"],
             "kind": kind,
             "role": sh["role"],
-            "zh": sh.get("onScreenText") or sh["text"],
-            "en": sh["text"] if plan.get("language") != "zh" else sh.get("onScreenText") or sh["text"],
-            "pose": sh.get("pose"),
+            "zh": zh,
+            "en": EN_GLOSS.get(zh) or (
+                sh["text"] if plan.get("language") != "zh" else zh
+            ),
+            "pose": pose,
             "beats": sh.get("beats") or (8 if kind == "chapter" else 4),
             "motionPreset": sh["motionPreset"],
-            "pal": (plan.get("palette") or {}).get("signal") and "signal" or "multi",
+            "pal": pal,
             "data": sh.get("data") or {},
         }
         edl_shots.append(entry)

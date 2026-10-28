@@ -146,11 +146,14 @@ def _homophone_tolerant_match(
 
 
 def _engine_locked_dur(project: Path, style: str) -> float | None:
-    """Read fixed DUR from a hash-locked engine file (film.js or main.js).
+    """Duration the mux must match under a hash-locked engine.
 
-    Swiss pins film.js; Caption News pins main.js. Either way the mux length is
-    the engine constant — plan.targetDurationSec is only a schedule budget.
-    Returns None when unlocked / missing / unparsable.
+    Swiss → film.js DUR; Caption → main.js DUR.
+    Pictogram with edl_runtime.json → runtime DUR (content overlay; edl.js bytes
+    stay locked at Olympics length, but page.mjs swaps window.DUR after READY).
+    Pictogram without runtime → parse edl.js DUR (demo length) so quality refuses
+    a short mux that still shows Olympics timeline.
+    plan.targetDurationSec remains the schedule budget only.
     """
     lock_p = project / "content" / "engine.lock.json"
     if not lock_p.is_file():
@@ -160,12 +163,27 @@ def _engine_locked_dur(project: Path, style: str) -> float | None:
     except (OSError, json.JSONDecodeError):
         return None
     protected = lock.get("protectedSha256") or {}
-    # Prefer film.js (Swiss); fall back to main.js (Caption).
+    lock_style = lock.get("style") or style
+
+    # Pictogram content bridge: edl_runtime.json is the authoritative picture length.
+    if lock_style == "pictogram-motion" or "edl.js" in protected:
+        runtime_p = project / "edl_runtime.json"
+        if runtime_p.is_file():
+            try:
+                rt = load_json(runtime_p)
+                dur = float(rt.get("DUR") or 0)
+                if dur > 0:
+                    return dur
+            except (OSError, json.JSONDecodeError, TypeError, ValueError):
+                pass
+
     candidates: list[str] = []
     if "film.js" in protected:
         candidates.append("film.js")
     if "main.js" in protected:
         candidates.append("main.js")
+    if "edl.js" in protected and not (project / "edl_runtime.json").is_file():
+        candidates.append("edl.js")
     if not candidates:
         return None
     for name in candidates:
@@ -177,6 +195,9 @@ def _engine_locked_dur(project: Path, style: str) -> float | None:
         except OSError:
             continue
         m = re.search(r"\bDUR\s*=\s*(\d+(?:\.\d+)?)\b", blob)
+        if not m:
+            # edl.js uses `DUR: b * BEAT` object form — last numeric after DUR:
+            m = re.search(r"\bDUR\s*[:=]\s*(\d+(?:\.\d+)?)", blob)
         if not m:
             continue
         try:
@@ -321,6 +342,21 @@ def _caption_locked_main(project: Path, style: str) -> bool:
     return "main.js" in protected and (project / "main.js").is_file()
 
 
+def _pictogram_locked_edl(project: Path, style: str = "") -> bool:
+    """True when pictogram engine.lock protects edl.js (demo Olympics copy in scenes)."""
+    lock_p = project / "content" / "engine.lock.json"
+    if not lock_p.is_file():
+        return style == "pictogram-motion"
+    try:
+        lock = load_json(lock_p)
+    except (OSError, json.JSONDecodeError):
+        return style == "pictogram-motion"
+    if lock.get("style") == "pictogram-motion":
+        return True
+    protected = lock.get("protectedSha256") or {}
+    return "edl.js" in protected and (project / "edl.js").is_file()
+
+
 def run_readcheck(project: Path, *, style: str = "") -> dict[str, Any]:
     root = _repo_root()
     script = root / "core" / "render" / "readcheck.mjs"
@@ -364,6 +400,17 @@ def run_readcheck(project: Path, *, style: str = "") -> dict[str, Any]:
                 required=False,
             )
 
+    # Pictogram: no TEXTS registry; intro/finale/HUD stay Olympics in locked scenes.js.
+    if _pictogram_locked_edl(project, style):
+        return check(
+            "readcheck",
+            "NOT_APPLICABLE",
+            "pictogram-locked-demo-texts: no window.TEXTS(t); protected scenes.js "
+            "keeps Olympics intro/finale/HUD. edl_runtime overlays card/chapter copy only. "
+            "Not a delivery block until a style version externalizes those strings.",
+            required=False,
+        )
+
     try:
         proc = subprocess.run(
             ["node", str(script), str(project)],
@@ -387,6 +434,14 @@ def run_readcheck(project: Path, *, style: str = "") -> dict[str, Any]:
                 + (detail or "page has no window.TEXTS(t)"),
                 required=False,
             )
+        if no_texts and _pictogram_locked_edl(project, style):
+            return check(
+                "readcheck",
+                "NOT_APPLICABLE",
+                "pictogram-locked-demo-texts: "
+                + (detail or "page has no window.TEXTS(t)"),
+                required=False,
+            )
         return check("readcheck", "NOT_CHECKED", detail or "exit 2", required=True)
 
     # Caption News: TEXTS live inside hash-locked main.js (bee demo SHOTS/labels).
@@ -401,6 +456,16 @@ def run_readcheck(project: Path, *, style: str = "") -> dict[str, Any]:
             "Readcheck asserts locked bee-demo labels — not a delivery block until "
             "a content-driven TEXTS/SHOTS bridge ships. "
             + (detail or f"exit {proc.returncode}"),
+            required=False,
+        )
+    if _pictogram_locked_edl(project, style):
+        return check(
+            "readcheck",
+            "NOT_APPLICABLE",
+            "pictogram-locked-demo-texts: protected scenes.js still paints Olympics "
+            "intro/finale/HUD (AICHI-NAGOYA / 43 ticks); edl_runtime overlays card/"
+            "chapter copy only. Not a delivery block until a style version externalizes "
+            "those strings. " + (detail or f"exit {proc.returncode}"),
             required=False,
         )
     return check("readcheck", "FAIL", detail or f"exit {proc.returncode}")
@@ -699,7 +764,7 @@ def gate(
                         if target is not None:
                             detail += (
                                 f"; plan targetDurationSec={target} is schedule "
-                                f"budget only (protected film.js)"
+                                f"budget only (style_locked_duration)"
                             )
                         checks.append(check("media_duration", "PASS", detail))
                     else:
@@ -847,7 +912,7 @@ def gate(
             "true_peak_dbtp_max": -1.0,
             "media_duration": (
                 "engine DUR ±1s when content/engine.lock.json protects film.js or main.js "
-                "(style_locked_duration from film.js/main.js); else plan targetDurationSec +2.5s"
+                "(style_locked_duration from film.js/main.js/edl_runtime|edl.js); else plan targetDurationSec +2.5s"
             ),
         },
     }

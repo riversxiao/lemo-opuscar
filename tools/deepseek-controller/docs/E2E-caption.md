@@ -9,7 +9,7 @@ Engine cores stayed locked (`main.js` / `index.html` / `build.sh` hashes unchang
 | style | VO in fixture | Engine content bridge under lock |
 |---|---|---|
 | **caption-news** | edge / Yunxi 5 lines | `timeline.json` is touchable (VO starts + caps). `SHOTS` / `DUR=59.5` stay in locked `main.js`. |
-| pictogram-motion | now has Yunxi lines (fixture updated) | **blocked**: `edl.js` / `scenes.js` hash-locked; glue only writes `edl_content.json` sidecar — **no published bridge** into `edl.js`. Still/video would render the Olympics demo, not plan copy. |
+| pictogram-motion | Yunxi lines | **bridged**: `edl_runtime.json` + `page.mjs` overlay (see `E2E-pictogram.md`). |
 
 ## Steps
 
@@ -89,6 +89,6 @@ Evidence: `evidence/quality-mux-delivery.json`.
 - Locked `SHOTS` still bee-demo kinds (`vid`/`map`/…); pure-graphic liquidity film needs a maintainer style version or unlocked `main.js` (as `liudong-caption-ds-v001` did).
 - Stub `assets/fr` / `assets/img` → gray footage; real Commons via `tools/fetch_sources.sh` + `prep.sh` for production look.
 - Demo `audio/mix.py` needs freepats/swarm — E2E uses `mix_vo_only.py`.
-- **Pictogram**: content bridge `edl_content.json` → `edl.js` not shipped; cannot mux plan copy without unlocking `edl.js`/`scenes.js`.
+- **Pictogram**: see `E2E-pictogram.md` (`edl_runtime` overlay; intro/finale/HUD still Olympics under lock).
 - Fonts.sh subsets `main.js` only — extend charset to timeline/lines for full CJK glyphs.
 

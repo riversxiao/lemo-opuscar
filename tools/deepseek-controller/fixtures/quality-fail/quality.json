@@ -70,6 +70,6 @@
       "tol": 1.0
     },
     "true_peak_dbtp_max": -1.0,
-    "media_duration": "engine DUR ±1s when content/engine.lock.json protects film.js (style_locked_duration); else plan targetDurationSec +2.5s"
+    "media_duration": "engine DUR ±1s when content/engine.lock.json protects film.js or main.js (style_locked_duration from film.js/main.js/edl_runtime|edl.js); else plan targetDurationSec +2.5s"
   }
 }

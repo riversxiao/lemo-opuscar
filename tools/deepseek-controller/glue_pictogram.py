@@ -23,7 +23,7 @@ def apply_touchables(project: Path, plan: dict[str, Any]) -> list[Path]:
     edl_src = content / "edl_content.json"
     if not edl_src.is_file():
         raise FileNotFoundError(f"missing {edl_src} (run adapt first)")
-    # Root sidecar for tooling / future bridge — does NOT rewrite protected edl.js
+    # Root sidecar — schedule/apply compile this into edl_runtime.json (page.mjs bridge)
     dump_json(project / "edl_content.json", load_json(edl_src))
     written.append(project / "edl_content.json")
 
@@ -70,9 +70,20 @@ def glue_pictogram(
         content_blurb=(
             "- `content/plan.json`, `content/edl_content.json`, `content/lines.json`, `content/palette.json`\n"
             "- Root `edl_content.json` / `lines.json` / `palette.json` / `CREDITS` are synced touchables.\n"
-            "- `edl.js` stays byte-locked; use `edl_content.json` as the content EDL until a published bridge lands."
+            "- After schedule: `apply_pictogram_edl.py` writes `edl_runtime.json` + `timeline.json` (VO).\n"
+            "- `core/render/page.mjs` loads `edl_runtime.json` after READY and re-evals `scenes.js` — "
+            "`edl.js` / `scenes.js` hashes stay locked. Intro/finale/HUD demo strings remain Olympics "
+            "(readcheck N/A)."
         ),
         tts_lines=f"{out}/lines.json",
+        extra_steps="\n".join(
+            [
+                "# After TTS + schedule, compile runtime EDL (auto-run by schedule for pictogram)",
+                f"python3 tools/deepseek-controller/apply_pictogram_edl.py --project {out}",
+                "",
+                f"python3 tools/deepseek-controller/cli.py quality --project {out} --delivery",
+            ]
+        ),
     )
     info = finalize(
         plan=plan,

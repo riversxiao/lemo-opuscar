@@ -51,7 +51,7 @@
       "text": "现金",
       "onScreenText": "现金",
       "motionPreset": "card",
-      "pose": "stand",
+      "pose": "golf",
       "beats": 4
     },
     {
@@ -60,7 +60,7 @@
       "text": "单一押注，风险集中。",
       "onScreenText": "别押一把",
       "motionPreset": "hard-cut",
-      "pose": "point",
+      "pose": "fencing",
       "beats": 4
     },
     {
@@ -69,7 +69,7 @@
       "text": "分散是让风险彼此对冲。",
       "onScreenText": "组合",
       "motionPreset": "finale",
-      "pose": "group",
+      "pose": "relay",
       "beats": 8
     },
     {

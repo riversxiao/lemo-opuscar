@@ -241,6 +241,7 @@ def _load_shots_from_project(project: Path) -> list[dict[str, Any]]:
                     "motionPreset": s.get("motionPreset"),
                     "role": s.get("role"),
                     "beats": s.get("beats"),
+                    "pose": s.get("pose"),
                 }
                 for s in data["shots"]
             ]
@@ -350,6 +351,22 @@ def main(argv: list[str] | None = None) -> int:
             )
         except Exception as e:
             print(f"WARN: caption timeline apply failed: {e}", file=sys.stderr)
+
+    # Pictogram: compile edl_runtime.json (page.mjs overlay) + timeline.json for mix_vo_only.
+    if style == "pictogram-motion" and (
+        (project / "content" / "edl_content.json").is_file()
+        or (project / "edl_content.json").is_file()
+    ):
+        try:
+            from apply_pictogram_edl import apply_pictogram_edl
+
+            info = apply_pictogram_edl(project, parsed=timeline)
+            print(
+                f"OK applied pictogram edl_runtime shots={info['shotCount']} "
+                f"dur={info['dur']} vo={info['voCount']}"
+            )
+        except Exception as e:
+            print(f"WARN: pictogram edl apply failed: {e}", file=sys.stderr)
     return 0
 
 

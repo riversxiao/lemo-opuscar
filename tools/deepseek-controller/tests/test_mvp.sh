@@ -588,6 +588,64 @@ else
   bad "caption locked-main helper"
 fi
 
+
+# 23) pictogram edl_runtime apply + style_locked_duration reads runtime DUR
+if python3 - <<'PY'
+import json, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, "tools/deepseek-controller")
+from apply_pictogram_edl import apply_pictogram_edl
+import quality
+from common import dump_json
+
+td = Path(tempfile.mkdtemp(prefix="dc-picto-edl-"))
+(td / "content").mkdir()
+dump_json(td / "content" / "edl_content.json", {
+    "style": "pictogram-motion", "bpm": 150, "beatSec": 0.4,
+    "shots": [
+        {"id": "p0", "kind": "intro", "role": "hook", "zh": "分散投资", "en": "DIVERSIFY", "beats": 4, "pal": "red"},
+        {"id": "p1", "kind": "chapter", "role": "chapter", "zh": "资产", "en": "ASSETS", "beats": 4, "pal": "multi"},
+        {"id": "p2", "kind": "card", "role": "card", "zh": "股票", "en": "STOCKS", "pose": "stand", "beats": 4, "pal": "multi"},
+        {"id": "p3", "kind": "finale", "role": "end", "zh": "组合", "en": "PORTFOLIO", "beats": 8, "pal": "red"},
+    ],
+})
+dump_json(td / "timeline.parsed.json", {
+    "scheduledDurationSec": 12.0,
+    "targetDurationSec": 12.0,
+    "shots": [
+        {"id": "p0", "t0": 0.0, "t1": 1.6, "voIds": ["L01"]},
+        {"id": "p1", "t0": 1.6, "t1": 3.2, "voIds": []},
+        {"id": "p2", "t0": 3.2, "t1": 4.8, "voIds": ["L02"]},
+        {"id": "p3", "t0": 4.8, "t1": 12.0, "voIds": []},
+    ],
+    "cues": [
+        {"type": "voice", "id": "L01", "shotId": "p0", "t": 0.35},
+        {"type": "voice", "id": "L02", "shotId": "p2", "t": 3.55},
+    ],
+})
+info = apply_pictogram_edl(td)
+assert info["shotCount"] == 4 and abs(info["dur"] - 12.0) < 1e-6
+assert info["voCount"] == 2
+rt = json.loads((td / "edl_runtime.json").read_text())
+assert rt["DUR"] == 12.0 and rt["shots"][2]["pose"] == "golf"  # stand→golf
+assert rt["shots"][2]["title"] == "STOCKS"
+tl = json.loads((td / "timeline.json").read_text())
+assert tl["vo"]["L01"] == 0.35 and tl["dur"] == 12.0
+(td / "edl.js").write_text("const EDL = { DUR: 163.6 };\n", encoding="utf-8")
+dump_json(td / "content" / "engine.lock.json", {
+    "style": "pictogram-motion",
+    "protectedSha256": {"edl.js": "abc", "scenes.js": "def"},
+})
+assert quality._engine_locked_dur(td, "pictogram-motion") == 12.0
+assert quality._pictogram_locked_edl(td, "pictogram-motion") is True
+print("ok")
+PY
+then
+  ok "pictogram edl_runtime apply + locked dur from runtime"
+else
+  bad "pictogram edl_runtime apply"
+fi
+
 echo
 echo "Results: $pass passed, $fail failed"
 test "$fail" -eq 0

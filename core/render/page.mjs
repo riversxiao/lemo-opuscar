@@ -57,6 +57,30 @@ export async function openDemo(dir, { w = 1920, h = 1080, q = '', warnings = fal
   catch (e) { console.error(`window.READY never became true (waited ${((Date.now() - t0) / 1000).toFixed(0)} s, limit 180 s): ${e.message.split('\n')[0]}`); process.exit(1); }
   finally { clearTimeout(hint); }
   await warnIfSoftwareGL(page);
+  // Pictogram controller bridge: touchable edl_runtime.json replaces window.EDL after READY,
+  // then re-evals scenes.js so its SH/CARDS closures rebuild. Protected edl.js/scenes.js hashes unchanged.
+  // Other styles ignore this (no edl_runtime.json / no window.EDL).
+  try {
+    const applied = await page.evaluate(async () => {
+      const r = await fetch('edl_runtime.json', { cache: 'no-store' });
+      if (!r.ok) return false;
+      const runtime = await r.json();
+      if (!runtime || !Array.isArray(runtime.shots) || !runtime.shots.length) return false;
+      if (!window.EDL || typeof window.EDL !== 'object') return false;
+      window.EDL = runtime;
+      if (typeof runtime.DUR === 'number' && runtime.DUR > 0) window.DUR = runtime.DUR;
+      const sr = await fetch('scenes.js', { cache: 'no-store' });
+      if (!sr.ok) throw new Error('scenes.js fetch ' + sr.status);
+      const code = await sr.text();
+      (0, eval)(code);
+      window.__EDL_RUNTIME_APPLIED = true;
+      return true;
+    });
+    if (applied) console.error('[edl_runtime] applied content EDL overlay (edl.js hash untouched)');
+  } catch (e) {
+    console.error('[edl_runtime] bridge failed:', (e && e.message) ? e.message.split('\n')[0] : e);
+    process.exit(1);
+  }
   return { browser, page };
 }
 export function closeServer() { if (srv) srv.server.close(); }
