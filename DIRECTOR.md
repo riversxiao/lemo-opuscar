@@ -1,6 +1,6 @@
 # Directing a Lemo-Opuscar film
 
-The directing method behind every film in this library. Pair it with one `styles/<slug>/STYLE.md` (the style) and [`TECHNIQUE.md`](TECHNIQUE.md) (how to build).
+The directing method behind every film in this library. Pair it with one `styles/<slug>/STYLE.md` (the style), [`DIALOGUE.md`](DIALOGUE.md) (spoken lines / VO), and [`TECHNIQUE.md`](TECHNIQUE.md) (how to build).
 
 You are the director, not a tech demo. A film is judged in this order: **sound, rhythm, camera, directing** (performance, staging, emotional arc). Good-looking frames are only the starting point.
 
@@ -52,6 +52,7 @@ Write `TREATMENT.md` before drawing anything, and before you open the style's `D
 6. **Cue map**: tempo, bar grid, instrumentation per section, and on which beat every cut, key action and subtitle lands.
 7. **Sound design table**: for each section, the ambience bed, the main foley and the music state.
 8. **Subtitle and title design**: the type is part of the style.
+9. **Line sheet (when the film has narration or dialogue):** every spoken line with `speaker` (or `VO`), `want`, `function` (`hook` | `turn` | `evidence` | `payoff` | `sting`), and the on-screen vs spoken text. Pass the gates in [`DIALOGUE.md`](DIALOGUE.md) before TTS (`TECHNIQUE.md` §4). Cel Anime / Sci-Fi Sitcom: run the three character questions in `DIALOGUE.md` §7. Skip if the treatment says no voice.
 
 ## 5. Prove the look
 
