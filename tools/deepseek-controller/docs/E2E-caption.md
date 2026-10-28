@@ -25,7 +25,8 @@ mkdir -p $P/audio/vo && cp -f $P/voices/*.wav $P/voices/dur.json $P/audio/vo/
 python3 tools/deepseek-controller/post_tts.py --project $P
 python3 tools/deepseek-controller/cli.py schedule --project $P --require-vo
 # schedule auto-applies cues → timeline.json (dur = engine 59.5; scheduleBudget = 30)
-# Locked SHOTS need assets/img + assets/fr. Without Commons packs, stub JPEGs unblock READY.
+# Locked SHOTS need assets/img + assets/fr. Stub JPEGs unblock READY; for production look:
+#   sh $P/tools/fetch_sources.sh && sh $P/tools/prep.sh
 python3 tools/deepseek-controller/mix_vo_only.py --project $P
 node core/render/events.mjs $P
 node core/render/still.mjs $P 1.0 5.0 18.0 35.0 56.0 --out $P/out/still --prefix k_
@@ -84,14 +85,54 @@ Evidence: `evidence/quality-mux-delivery.json`.
 | 5 | `asr_homophones.json` liquidity short-forms |
 | 6 | Pictogram fixture `voice.provider=edge` + 6 Yunxi lines (for next knife) |
 
+## Real Commons assets remux (2026-10-29)
+
+```bash
+P=/workspace/films/liudong-controller-e2e
+cd $P && sh tools/fetch_sources.sh   # ~406 MB raw/ from Wikimedia (+ NASS PDF, Natural Earth)
+# prep.sh: mkdir -p raw/report before pdftoppm (patched in styles/caption-news/demo/tools/prep.sh)
+sh tools/prep.sh                     # assets/fr 1164 frames @ 1920×1080 (~162 MB) + img photos
+LIB=/workspace/lemo-opuscar-deepseek
+cd $LIB
+node core/render/events.mjs $P
+node core/render/still.mjs $P 1.0 5.0 18.0 35.0 56.0 --out $P/out/still --prefix k_
+node core/render/video.mjs $P --fps 30 --workers 3 --out $P/out/video.mp4
+sh core/render/mux.sh $P/out/video.mp4 $P/out/mix.wav $P/liudong-controller-e2e.mp4 30 0
+python3 tools/deepseek-controller/cli.py quality --project $P \
+  --media $P/liudong-controller-e2e.mp4 --delivery
+```
+
+| artifact | path | notes |
+|---|---|---|
+| raw | `…/raw/` | box-local; ~406 MB Commons bee footage (not in Git) |
+| frames | `…/assets/fr/` | 1164 real JPEGs; `h1_001` = 1920×1080 |
+| stills | `…/out/still/k_*.jpg` | real hive/bee plates (k_1.0 ≈ 410 KB, lum σ≈45) |
+| video | `…/out/video.mp4` | 1785 frames, ~68 MB, ~98 s wall (3 workers, llvmpipe) |
+| **mux MP4** | `…/liudong-controller-e2e.mp4` | **59.50 s**, **~32 MB**, 1080p30, **I=−14.2 / TP=−1.2** |
+
+### quality `--delivery` after real assets — **PASS**, deliveryAllowed=true
+
+Evidence: `evidence/quality-mux-delivery-real-assets.json`.
+
+| check | status | note |
+|---|---|---|
+| plan_present | PASS | |
+| schedule_fits_target | PASS | 30 ≤ 30; pad 9.5 s |
+| ffprobe_media | PASS | |
+| media_duration | PASS (`style_locked_duration`) | 59.50 ≈ DUR 59.5 |
+| loudness_ebur128 | PASS | I=−14.2 / TP=−1.2 |
+| readcheck | **PASS** | real frames make bee-demo holds readable (was N/A / fail on stubs) |
+| asr_check | PASS (tolerant) | zh-homophone-tolerant |
+
+`main.js` SHA256 unchanged vs style demo (`541038bc…`).
+
 ## Remaining gaps
 
-- Locked `SHOTS` still bee-demo kinds (`vid`/`map`/…); pure-graphic liquidity film needs a maintainer style version or unlocked `main.js` (as `liudong-caption-ds-v001` did).
-- Stub `assets/fr` / `assets/img` → gray footage; real Commons via `tools/fetch_sources.sh` + `prep.sh` for production look.
-- Demo `audio/mix.py` needs freepats/swarm — E2E uses `mix_vo_only.py`.
-- **Pictogram**: see `E2E-pictogram.md` (`edl_runtime` overlay; intro/finale/HUD still Olympics under lock).
+- Locked `SHOTS` still bee-demo kinds (`vid`/`map`/…); Chinese VO is liquidity-themed — picture/story mismatch until unlocked `main.js` or a liquidity shot pack.
+- Demo `audio/mix.py` needs freepats/swarm — E2E still uses `mix_vo_only.py` (no music bed).
+- **Pictogram**: intro/finale animation skeleton still Olympics under lock (brand_strings only overlays HUD text).
 - Fonts.sh subsets `main.js` only — extend charset to timeline/lines for full CJK glyphs.
-
+- Style unlock / HyperFrames / multi-route TTS / 12-film matrix still open.
 
 ## Audio note
 

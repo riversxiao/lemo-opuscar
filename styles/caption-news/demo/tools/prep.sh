@@ -28,6 +28,7 @@ seg rb  v_apiary.webm  104.0 3.6 1280:720:0:0     1920 1080                     
 seg vd  v_flight.webm   14.0 4.1 1920:1080:0:0    1920 1080                       # 1.00x  verdict
 seg ed  v_entrance.mp4 20.0 5.1 1280:720:0:0      1920 1080                       # 1.50x  end card background (blurred in page)
 # report pages at 220 dpi (1 pt = 3.0556 px)
+mkdir -p raw/report
 [ -s raw/report/page-01.png ] || pdftoppm -r 220 -f 1 -l 1 -png raw/doc_nass.pdf raw/report/page
 ffmpeg -v error -y -i raw/report/page-01.png -q:v 2 assets/img/doc1.jpg
 # photos: scaled to the largest size they are shown at (never above 1:1)
