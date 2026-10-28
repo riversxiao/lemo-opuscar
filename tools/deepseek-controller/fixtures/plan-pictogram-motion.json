@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "topic": "分散投资",
+  "style": "pictogram-motion",
+  "language": "zh",
+  "targetDurationSec": 32,
+  "palette": {
+    "page": "#0B0B0B",
+    "ink": "#F5F0E8",
+    "signal": "#E30613",
+    "accent": "#C9A227"
+  },
+  "shots": [
+    {
+      "id": "p0",
+      "role": "hook",
+      "text": "分散投资",
+      "onScreenText": "分散投资",
+      "motionPreset": "intro",
+      "beats": 4
+    },
+    {
+      "id": "p1",
+      "role": "chapter",
+      "text": "资产",
+      "onScreenText": "资产",
+      "motionPreset": "chapter",
+      "beats": 4
+    },
+    {
+      "id": "p2",
+      "role": "card",
+      "text": "股票",
+      "onScreenText": "股票",
+      "motionPreset": "card",
+      "pose": "sprint",
+      "beats": 4
+    },
+    {
+      "id": "p3",
+      "role": "card",
+      "text": "债券",
+      "onScreenText": "债券",
+      "motionPreset": "card",
+      "pose": "walk",
+      "beats": 4
+    },
+    {
+      "id": "p4",
+      "role": "card",
+      "text": "现金",
+      "onScreenText": "现金",
+      "motionPreset": "card",
+      "pose": "stand",
+      "beats": 4
+    },
+    {
+      "id": "p5",
+      "role": "explain",
+      "text": "单一押注，风险集中。",
+      "onScreenText": "别押一把",
+      "motionPreset": "hard-cut",
+      "pose": "point",
+      "beats": 4
+    },
+    {
+      "id": "p6",
+      "role": "payoff",
+      "text": "分散是让风险彼此对冲。",
+      "onScreenText": "组合",
+      "motionPreset": "finale",
+      "pose": "group",
+      "beats": 8
+    },
+    {
+      "id": "p7",
+      "role": "end",
+      "text": "分散投资",
+      "onScreenText": "分散投资",
+      "motionPreset": "finale",
+      "beats": 4
+    }
+  ],
+  "voice": {
+    "provider": "none",
+    "lines": []
+  },
+  "credits": {
+    "title": "分散投资",
+    "author": "riversxiao",
+    "year": "2026",
+    "license": "CC BY 4.0"
+  }
+}

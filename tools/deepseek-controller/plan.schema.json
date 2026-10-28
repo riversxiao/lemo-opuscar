@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/riversxiao/lemo-opuscar/tools/deepseek-controller/plan.schema.json",
+  "title": "Lemo-DeepSeek film plan (content only)",
+  "description": "Strict JSON plan for Flash. No JS, shaders, expressions, or arbitrary paths. Validated in code by validate.py (jsonschema optional).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["topic", "style", "language", "targetDurationSec", "shots"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "topic": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "style": {
+      "type": "string",
+      "enum": ["swiss-motion", "pictogram-motion", "caption-news"]
+    },
+    "language": { "type": "string", "enum": ["zh", "en", "zh-en"] },
+    "targetDurationSec": { "type": "number", "minimum": 15, "maximum": 90 },
+    "palette": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "page": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "ink": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "signal": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "paper": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "accent": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
+      }
+    },
+    "shots": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "role", "text", "motionPreset"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,31}$" },
+          "role": {
+            "type": "string",
+            "enum": ["hook", "setup", "explain", "evidence", "contrast", "payoff", "chapter", "card", "end", "credits"]
+          },
+          "text": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "onScreenText": { "type": "string", "maxLength": 120 },
+          "data": {
+            "type": "object",
+            "description": "Numeric/facts only; no code strings",
+            "additionalProperties": {
+              "oneOf": [
+                { "type": "number" },
+                { "type": "string", "maxLength": 80 },
+                { "type": "boolean" },
+                { "type": "array", "items": { "type": "number" }, "maxItems": 32 }
+              ]
+            }
+          },
+          "motionPreset": { "type": "string", "minLength": 1, "maxLength": 40 },
+          "pose": { "type": "string", "minLength": 1, "maxLength": 40 },
+          "beats": { "type": "number", "minimum": 1, "maximum": 64 },
+          "allowDarkOpen": { "type": "boolean" }
+        }
+      }
+    },
+    "voice": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": ["none", "edge", "kokoro", "qwen3", "omnivoice"]
+        },
+        "voiceId": { "type": "string", "maxLength": 64 },
+        "lines": {
+          "type": "array",
+          "maxItems": 40,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "text"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,31}$" },
+              "text": { "type": "string", "minLength": 1, "maxLength": 200 },
+              "shotId": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,31}$" }
+            }
+          }
+        }
+      }
+    },
+    "credits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string", "maxLength": 80 },
+        "author": { "type": "string", "maxLength": 80 },
+        "year": { "type": "string", "maxLength": 12 },
+        "license": { "type": "string", "maxLength": 40 }
+      }
+    }
+  }
+}

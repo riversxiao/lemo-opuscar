@@ -62,7 +62,7 @@ write TREATMENT.md
 1. **只改内容层**；允许用全局时间缩放 `K = targetDur/demoDur` 压轴；**禁止改** `ease.js` 与刀切/网格/缓动核心。
 2. **BRIEF 附参考**：至少 2 张官方 demo still（或 `still.mjs` 关键帧）+ `STYLE.md` 不变式清单（单信号色、巨号、刀切/该风格 native moves）。
 3. **中文约定**：旁白按 `。` 拆句；版式与朗读可分离（如 `say` / `text`）；画面与字幕默认全中文（除非 brief 要求双语）。
-4. **TTS↔时间轴最多回修 2 次**，然后强制 `still.mjs` → 成片，禁止为抠时长无限改短句。
+4. **TTS↔时间轴最多回修 2 次**，然后输出当前预览 + 失败证据（`quality` / 日志）；**验收未过不得标为正式交付**。禁止为抠时长无限改短句。
 5. **路径与额度**：在 `films/` 工程里调用工具一律用 `$LIB` 绝对路径；缺 librosa 时用 ffmpeg `atempo` 压乐床；模型优先走 DeepSeek 官方 API（OpenCode `/connect` → `deepseek`，`DEEPSEEK_API_KEY`，模型 `deepseek-flash`）；没有官方 Key 或被限流时改用 OpenRouter `openrouter/deepseek/deepseek-v4.1-flash`；OpenCode 免费档 `opencode/deepseek-v4.1-flash-free` 可能没额度。OpenCode `-s` session id **只能 ASCII**（如 `ses_fuli_swiss`），中文放 `--title`。
 
 
@@ -72,8 +72,20 @@ write TREATMENT.md
 
 1. **BRIEF 白名单优于整份 STYLE**：每个项目 BRIEF 必须写死「允许改的文件名」「禁止改的文件」「可用 pose / 镜头 k 白名单」「精确 still/video/mux 命令」。不要只扔 STYLE.md 全文。
 2. **无实拍风格先声明替代路径**：Caption News 等只允许 `stock|loss|stress|end`（或该风格等价纯图形镜头）；禁止 Flash 去拉 demo 实拍包。
-3. **中文 × 词级时间轴**：凡依赖 `words.json` / `at(id,word)` 的风格（如 Whiteboard），BRIEF 强制「绝对秒时间轴 + 跳过 ASR 词对齐」；板上可拉丁、旁白可中文时必须写明。
+3. **中文 × 词级时间轴**：凡依赖 `words.json` / `at(id,word)` 的风格（如 Whiteboard），BRIEF 强制「绝对秒时间轴 + 跳过 ASR 词对齐」；板上可拉丁、旁白可中文时必须写明。**跳过词对齐 ≠ 跳过语音完整性检查**：仍须核源 WAV 与最终混音（句级/绝对秒即可）。
 4. **字体与混音预置**：BRIEF 写明字体已就位（Inter/Noto 等）与 mix 降级路径（demo mix 绑旧时间轴时允许项目内自写 mix）。
 5. **旁白必须跟画面同句**：`audio/lines.json` 朗读文本与画面/字幕中文一致（可加标点），禁止缩短意译导致「没把字读全」；语速默认 `+0%`，勿默认 `+6%`。
 6. **优先风格**：信息图 / 讲解类样片优先 Swiss Motion、Pictogram Motion、Caption News（纯图形）；Whiteboard 慎用或接受英文字板。
 7. **台词门禁：** 有旁白时，BRIEF / TREATMENT 须指向 `$LIB/DIALOGUE.md`；`lines.json` 含 `function`（及可选 `want`/`speaker`）；TTS 前过句长 ≤35 字、钩子在前 3 拍、字速估时 ±15%、禁止金句升华与缩短意译。Cel Anime / Sci-Fi Sitcom 自动跑角色戏三问（见 `DIALOGUE.md` §7）。可选跑 `plugin/skills/lemo-dialogue`。
+
+## 下一轮
+
+控制器、真实 VO 排期、统一验收与能力补强见 [`docs/NEXT-ROUND.md`](docs/NEXT-ROUND.md)。
+MVP CLI：[`tools/deepseek-controller/README.md`](tools/deepseek-controller/README.md)（`validate` → `adapt` → `schedule` → `quality`）。Flash 输出严格 JSON 计划，不要直接改引擎核心。
+
+## VO / TTS（所有供应商）
+
+- 默认中文旁白：`python core/tts/tts_zh.py`（edge-tts 云希/晓晓）或 `python core/tts/tts_router.py … --provider edge`。
+- 路由与自托管计划见 [`tools/tts_router.md`](tools/tts_router.md)；`qwen3` / `omnivoice` 目前为 stub。
+- **「中文跳过 ASR 词对齐」只影响词级时间事件，不影响语音内容完整性检查。** 无论哪个 provider：`lines.json` 每句都要有非静音 WAV + `dur.json`；成片混音须保留这些语音；画面/字幕中文与朗读内容一致（可标点），禁止默默缩短意译。
+- 无旁白片可在质量报告里把 ASR 标为 `NOT_APPLICABLE`；有旁白片不得用「缺依赖」冒充通过。

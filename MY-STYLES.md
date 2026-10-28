@@ -6,6 +6,10 @@ Use this guide when the user wants to change a style or make their own ("I want 
 
 Talk to the user in their language. Write the files in English, like the library, with the style's name in both languages.
 
+## Candidate ideas (DeepSeek fork)
+
+- **Stickman explainer** — see [`docs/integrations/stickman-style.md`](docs/integrations/stickman-style.md). Build under `~/lemo-my-styles/`, do not add to library `styles/` until proven.
+
 ## Where it lives
 
 Until the user confirms it (§6), a style is a draft in the demo film's project folder. Confirmed styles live in **`~/lemo-my-styles/`**, outside the library, so library updates and uninstalling never touch them. `~/lemo-my-styles/README.md` lists every style, one row each (English and Chinese name, slug, base, one line on what it is, and the folder when it isn't in `~/lemo-my-styles/`): it's how a later session finds a style by name. If the user wants a style kept in another folder, keep it there and still add its row, with the full path, to `~/lemo-my-styles/README.md`.

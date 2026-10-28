@@ -1,0 +1,72 @@
+{
+  "style": "caption-news",
+  "fps": 30,
+  "targetDurationSec": 30,
+  "caps": [
+    {
+      "id": "c1",
+      "role": "hook",
+      "k": "hook",
+      "zh": "流动性|{是什么}",
+      "en": "钱在账上，不等于随时能用。",
+      "data": {},
+      "allowDarkOpen": true
+    },
+    {
+      "id": "c2",
+      "role": "explain",
+      "k": "compare",
+      "zh": "现金|{快}|房产|{慢}",
+      "en": "现金最快，房产最慢。",
+      "data": {
+        "cashDays": 0,
+        "houseDays": 90
+      },
+      "allowDarkOpen": false
+    },
+    {
+      "id": "c3",
+      "role": "evidence",
+      "k": "stress",
+      "zh": "周转|{先断}",
+      "en": "市场紧张时，先缺的是周转。",
+      "data": {
+        "series": [
+          12,
+          18,
+          27,
+          41
+        ]
+      },
+      "allowDarkOpen": false
+    },
+    {
+      "id": "c4",
+      "role": "contrast",
+      "k": "loss",
+      "zh": "时机|{改变价格}",
+      "en": "同一资产，不同时机流动性差很远。",
+      "data": {},
+      "allowDarkOpen": false
+    },
+    {
+      "id": "c5",
+      "role": "payoff",
+      "k": "stock",
+      "zh": "留一点|{活钱}",
+      "en": "留一点随时能用的钱，是保护自己。",
+      "data": {},
+      "allowDarkOpen": false
+    },
+    {
+      "id": "c6",
+      "role": "end",
+      "k": "end",
+      "zh": "流动性",
+      "en": "流动性",
+      "data": {},
+      "allowDarkOpen": false
+    }
+  ],
+  "note": "Times filled by schedule_from_voice / timeline.parsed.json; this file is content only."
+}

@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "topic": "复利",
+  "style": "swiss-motion",
+  "language": "zh",
+  "targetDurationSec": 32,
+  "palette": {
+    "page": "#EAE9E5",
+    "paper": "#FFFFFF",
+    "ink": "#111111",
+    "signal": "#E30613"
+  },
+  "shots": [
+    {
+      "id": "s1",
+      "role": "hook",
+      "text": "一块钱，放着不动会怎样？",
+      "onScreenText": "复利",
+      "motionPreset": "numeral-climb",
+      "data": {
+        "principal": 1
+      }
+    },
+    {
+      "id": "s2",
+      "role": "explain",
+      "text": "每年多出利息，利息再生利息。",
+      "onScreenText": "利滚利",
+      "motionPreset": "grid-build",
+      "data": {
+        "rate": 0.07
+      }
+    },
+    {
+      "id": "s3",
+      "role": "evidence",
+      "text": "同样本金，时间越长差距越大。",
+      "onScreenText": "时间",
+      "motionPreset": "locked-spread",
+      "data": {
+        "years": [
+          1,
+          10,
+          30
+        ]
+      }
+    },
+    {
+      "id": "s4",
+      "role": "contrast",
+      "text": "中途取出，后面的雪球就停了。",
+      "onScreenText": "取出",
+      "motionPreset": "knife",
+      "data": {
+        "withdraw": true
+      }
+    },
+    {
+      "id": "s5",
+      "role": "payoff",
+      "text": "复利靠的是留下，而不是赌一把。",
+      "onScreenText": "留下",
+      "motionPreset": "snap"
+    },
+    {
+      "id": "s6",
+      "role": "end",
+      "text": "复利",
+      "onScreenText": "复利",
+      "motionPreset": "pull-out"
+    }
+  ],
+  "voice": {
+    "provider": "edge",
+    "voiceId": "zh-CN-YunxiNeural",
+    "lines": [
+      {
+        "id": "l1",
+        "text": "一块钱，放着不动会怎样？",
+        "shotId": "s1"
+      },
+      {
+        "id": "l2",
+        "text": "每年多出利息，利息再生利息。",
+        "shotId": "s2"
+      },
+      {
+        "id": "l3",
+        "text": "同样本金，时间越长差距越大。",
+        "shotId": "s3"
+      },
+      {
+        "id": "l4",
+        "text": "中途取出，后面的雪球就停了。",
+        "shotId": "s4"
+      },
+      {
+        "id": "l5",
+        "text": "复利靠的是留下，而不是赌一把。",
+        "shotId": "s5"
+      }
+    ]
+  },
+  "credits": {
+    "title": "复利",
+    "author": "riversxiao",
+    "year": "2026",
+    "license": "CC BY 4.0"
+  }
+}

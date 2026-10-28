@@ -1,0 +1,27 @@
+{
+  "topic": "bad",
+  "style": "swiss-motion",
+  "language": "zh",
+  "targetDurationSec": 30,
+  "shots": [
+    {
+      "id": "s1",
+      "role": "hook",
+      "text": "hi",
+      "motionPreset": "not-a-real-preset",
+      "shader": "void main(){}",
+      "path": "../../core/secret.js"
+    }
+  ],
+  "film.js": "export function hack(){}",
+  "voice": {
+    "provider": "edge",
+    "lines": [
+      {
+        "id": "l1",
+        "text": "import fs from 'fs'",
+        "shotId": "s1"
+      }
+    ]
+  }
+}

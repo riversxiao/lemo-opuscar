@@ -40,8 +40,8 @@ Use this path day-to-day. Do **not** install the upstream Claude Code plugin.
 git clone https://github.com/riversxiao/lemo-opuscar.git
 cd lemo-opuscar
 
-# Optional: pin an audited commit
-export LEMO_OPUSCAR_PIN=413a6bd
+# Optional: pin a DeepSeek control-layer commit (full 40-char SHA; not bare upstream 413a6bd)
+export LEMO_OPUSCAR_PIN=f3d2e1c934be18ac4cb816ecaa5e9d27176afaae
 
 sh plugin/skills/lemo-deepseek/scripts/setup.sh
 sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
@@ -66,6 +66,8 @@ Have the agent read first: `AGENTS.deepseek.md` → `AGENTS.md` → `DIRECTOR.md
 > Make a 30-second Caption News film about liquidity / an orange cat / a product launch.
 
 Loop: TREATMENT → `setup.sh demo <slug>` → content layer only → still → TTS → video → mix → mux. See [`DEEPSEEK.md`](DEEPSEEK.md).
+
+> `setup.sh` now refuses libraries/pins without the DeepSeek overlay; prefer a full SHA (see [`DEEPSEEK.md`](DEEPSEEK.md) / [`docs/NEXT-ROUND.md`](docs/NEXT-ROUND.md)).
 
 ### Prerequisites
 

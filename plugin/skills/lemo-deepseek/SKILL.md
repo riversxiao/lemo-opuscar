@@ -11,7 +11,7 @@ description: Direct and produce a short film made entirely in code with DeepSeek
 
 ## 启动步骤
 
-1. **拿库。** 运行 `sh "<skill base directory>/scripts/setup.sh"`。默认仓库是 fork：`https://github.com/riversxiao/lemo-opuscar`。最后一行打印 `LIB=<path>`。若要钉死版本：`export LEMO_OPUSCAR_PIN=<commit>`。
+1. **拿库。** 运行 `sh "<skill base directory>/scripts/setup.sh"`。默认仓库是 fork：`https://github.com/riversxiao/lemo-opuscar`。最后一行打印 `LIB=<path>`。若要钉死版本：`export LEMO_OPUSCAR_PIN=<full-sha-or-tag>`（完整 SHA 优先；钉到无 DeepSeek 覆盖层的提交会失败）。
 2. **装依赖。** 立刻后台跑 `sh "<skill base directory>/scripts/setup.sh" deps`。需要旁白再 `deps voice`，拨弦再 `deps music`。系统缺 Node 20+ / ffmpeg / Python 3.11+ 时在一轮提问里报告，不要擅自装系统包。
 3. **跟规程。** 先读 `$LIB/AGENTS.deepseek.md`（DeepSeek 覆盖层），再读 `$LIB/AGENTS.md`、`$LIB/DIRECTOR.md`、`$LIB/TECHNIQUE.md`，按 **Start → 一轮提问 → TREATMENT → 复制引擎 → 生产 → 自检** 执行。
 
@@ -28,3 +28,16 @@ description: Direct and produce a short film made entirely in code with DeepSeek
 | Demo | TREATMENT 写完后再 `setup.sh demo <slug>`；学技术、换故事，不抄样片剧情 |
 
 交付物严格按 `$LIB/DIRECTOR.md` §11，并告诉用户文件在哪。
+
+## 控制器（内容边界）
+
+写完 TREATMENT、选定风格后，优先走结构化计划而不是手改引擎：
+
+1. 按 `$LIB/tools/deepseek-controller/plan.schema.json` 写出计划 JSON（只含题材/镜头/文案/数字/调色/白名单运动）。
+2. `python3 "$LIB/tools/deepseek-controller/cli.py" validate <plan.json>`
+3. `… adapt <plan.json> -o "<project>"` → 只生成 `content/`（见 `content/TOUCHABLES.md`）。
+4. TTS 后写 `voices/dur.json`，再 `… schedule --project "<project>" --require-vo`。
+5. 成片后 `… quality --project "<project>" --media <out.mp4>`；`quality.json` 非 PASS 不得标正式交付。
+
+说明：`$LIB/tools/deepseek-controller/README.md` · 计划见 `$LIB/docs/NEXT-ROUND.md`。
+

@@ -1,0 +1,37 @@
+[
+  {
+    "id": "L01",
+    "text": "钱在账上，不等于随时能用。",
+    "shotId": "c1",
+    "voice": "zh-CN-YunxiNeural",
+    "speed": 1.0
+  },
+  {
+    "id": "L02",
+    "text": "现金最快，房产最慢。",
+    "shotId": "c2",
+    "voice": "zh-CN-YunxiNeural",
+    "speed": 1.0
+  },
+  {
+    "id": "L03",
+    "text": "市场紧张时，先缺的是周转。",
+    "shotId": "c3",
+    "voice": "zh-CN-YunxiNeural",
+    "speed": 1.0
+  },
+  {
+    "id": "L04",
+    "text": "同一资产，不同时机流动性差很远。",
+    "shotId": "c4",
+    "voice": "zh-CN-YunxiNeural",
+    "speed": 1.0
+  },
+  {
+    "id": "L05",
+    "text": "留一点随时能用的钱，是保护自己。",
+    "shotId": "c5",
+    "voice": "zh-CN-YunxiNeural",
+    "speed": 1.0
+  }
+]

@@ -8,13 +8,38 @@
 #   sh setup.sh demo <slug>        add one style's demo source and poster to the library (reference only)
 # The library is a sparse clone of the main branch: guides, core/ tools and every STYLE.md. Big assets: tools/fetch.sh.
 # LEMO_OPUSCAR_HOME = where the library lives (default: the clone you stand in, else ~/lemo-opuscar).
+#
+# DeepSeek overlay is REQUIRED on the returned LIB. Pins that land on pre-overlay
+# upstream (e.g. bare 413a6bd) fail. Prefer a full 40-char SHA or tag on this fork.
+# Dual pinning: engine/upstream baseline ≠ control-layer (DeepSeek fork) commit — see DEEPSEEK.md.
 set -e
 REPO=${LEMO_OPUSCAR_REPO:-https://github.com/riversxiao/lemo-opuscar.git}
-# Optional: pin to a commit/tag so auto-update does not float (e.g. export LEMO_OPUSCAR_PIN=413a6bd)
+# Optional: pin to a DeepSeek-era commit/tag (full 40-char SHA preferred)
 PIN=${LEMO_OPUSCAR_PIN:-}
+RESOLVED_PIN=
 
 # 1. Which library: $LEMO_OPUSCAR_HOME, else the clone we are standing in, else ~/lemo-opuscar
 is_lib() { [ -f "$1/AGENTS.md" ] && [ -d "$1/core/render" ]; }
+is_deepseek_lib() {
+  [ -f "$1/AGENTS.deepseek.md" ] &&
+  [ -f "$1/DEEPSEEK.md" ] &&
+  [ -f "$1/plugin/skills/lemo-deepseek/SKILL.md" ] &&
+  [ -f "$1/plugin/skills/lemo-deepseek/scripts/setup.sh" ]
+}
+require_deepseek_lib() {
+  if ! is_lib "$1"; then
+    echo "✗ $1 is not a Lemo-Opuscar library (need AGENTS.md + core/render)."
+    exit 1
+  fi
+  if ! is_deepseek_lib "$1"; then
+    echo "✗ $1 is missing the DeepSeek overlay (AGENTS.deepseek.md, DEEPSEEK.md, plugin/skills/lemo-deepseek/)."
+    echo "  This path is not a DeepSeek fork, or LEMO_OPUSCAR_PIN landed on a commit without the overlay"
+    echo "  (e.g. bare upstream 413a6bd). Set LEMO_OPUSCAR_REPO=https://github.com/riversxiao/lemo-opuscar.git"
+    echo "  and pin a DeepSeek-era commit (full 40-char SHA preferred), not the upstream-only baseline."
+    exit 1
+  fi
+}
+
 if [ -n "$LEMO_OPUSCAR_HOME" ]; then LIB=$LEMO_OPUSCAR_HOME
 elif top=$(git rev-parse --show-toplevel 2>/dev/null) && is_lib "$top"; then LIB=$top
 else LIB=$HOME/lemo-opuscar
@@ -29,15 +54,93 @@ apply_sparse() {
   git -C "$LIB" sparse-checkout set --no-cone "$@" 2>/dev/null || git -C "$LIB" sparse-checkout disable || true
 }
 
+# Resolve $PIN inside $LIB to a full commit SHA in RESOLVED_PIN. Non-empty PIN that
+# cannot be resolved → exit 1 (never soft-warn and continue).
+resolve_pin() {
+  pin=$1
+  RESOLVED_PIN=
+  [ -n "$pin" ] || return 0
+
+  # Already available locally (unique abbrev or full SHA / tag)
+  if full=$(git -C "$LIB" rev-parse --verify "${pin}^{commit}" 2>/dev/null); then
+    RESOLVED_PIN=$full
+    return 0
+  fi
+
+  # Fetch as ref or object id (GitHub accepts full SHA with --depth 1)
+  if git -C "$LIB" fetch --quiet --depth 1 origin "$pin" 2>/dev/null; then
+    if full=$(git -C "$LIB" rev-parse --verify "FETCH_HEAD^{commit}" 2>/dev/null); then
+      if echo "$pin" | grep -Eq '^[0-9a-fA-F]{4,40}$'; then
+        case "$full" in
+          "$pin"*) RESOLVED_PIN=$full; return 0 ;;
+        esac
+        # fetched something whose SHA does not match the requested hex pin
+        echo "✗ fetched object $full does not match PIN=$pin"
+        exit 1
+      fi
+      RESOLVED_PIN=$full
+      return 0
+    fi
+  fi
+
+  # Short hex: deepen main history and resolve uniquely
+  if echo "$pin" | grep -Eq '^[0-9a-fA-F]{4,39}$'; then
+    git -C "$LIB" fetch --quiet --deepen=300 origin main 2>/dev/null || \
+      git -C "$LIB" fetch --quiet origin main 2>/dev/null || true
+    if full=$(git -C "$LIB" rev-parse --verify "${pin}^{commit}" 2>/dev/null); then
+      RESOLVED_PIN=$full
+      return 0
+    fi
+    echo "✗ could not uniquely resolve short PIN=$pin to a commit after fetch."
+    echo "  Prefer a full 40-char SHA or an annotated tag on the DeepSeek fork."
+    exit 1
+  fi
+
+  echo "✗ could not pin $LIB to $PIN (fetch/resolve failed)."
+  echo "  Prefer a full 40-char SHA or tag on https://github.com/riversxiao/lemo-opuscar"
+  echo "  (DeepSeek-era). Do not use bare upstream 413a6bd as the DeepSeek control-layer pin."
+  exit 1
+}
+
+# Checkout resolved PIN and verify HEAD. Always fatal when PIN was set.
+apply_pin() {
+  resolve_pin "$PIN"
+  if ! git -C "$LIB" checkout --quiet --detach "$RESOLVED_PIN" 2>/dev/null \
+     && ! git -C "$LIB" reset --quiet --hard "$RESOLVED_PIN" 2>/dev/null; then
+    echo "✗ failed to check out resolved PIN $RESOLVED_PIN"
+    exit 1
+  fi
+  head=$(git -C "$LIB" rev-parse HEAD)
+  case "$head" in
+    "$RESOLVED_PIN") ;;
+    *)
+      echo "✗ HEAD ($head) does not match resolved PIN ($RESOLVED_PIN)"
+      exit 1
+      ;;
+  esac
+  # If the user passed a short SHA, also require prefix match on the original PIN
+  if echo "$PIN" | grep -Eq '^[0-9a-fA-F]{4,39}$'; then
+    case "$head" in
+      "$PIN"*) ;;
+      *)
+        echo "✗ HEAD $head does not start with short PIN $PIN"
+        exit 1
+        ;;
+    esac
+  fi
+  apply_sparse
+}
+
 if [ "$(git -C "$LIB" config --get lemo.managed 2>/dev/null)" = true ]; then
-  # our own clone (nothing of the user's lives in it): match main, whatever happened upstream
+  # our own clone (nothing of the user's lives in it): match main or PIN
   [ "$(git -C "$LIB" remote get-url origin 2>/dev/null)" = "$REPO" ] || git -C "$LIB" remote set-url origin "$REPO"
   if [ -n "$PIN" ]; then
-    if err=$(git -C "$LIB" fetch --quiet --depth 1 origin "$PIN" 2>&1 && git -C "$LIB" reset --quiet --hard FETCH_HEAD 2>&1); then apply_sparse
-    elif err=$(git -C "$LIB" fetch --quiet origin "$PIN" 2>&1 && git -C "$LIB" checkout --quiet --detach "$PIN" 2>&1); then apply_sparse
-    else echo "! could not pin $LIB to $PIN; using the local copy. git: $err" | head -3; fi
-  elif err=$(git -C "$LIB" fetch --quiet --depth 1 origin main 2>&1 && git -C "$LIB" reset --quiet --hard FETCH_HEAD 2>&1); then apply_sparse
-  else echo "! could not update $LIB (offline?); using the local copy. git: $err" | head -3; fi
+    apply_pin
+  elif err=$(git -C "$LIB" fetch --quiet --depth 1 origin main 2>&1 && git -C "$LIB" reset --quiet --hard FETCH_HEAD 2>&1); then
+    apply_sparse
+  else
+    echo "! could not update $LIB (offline?); using the local copy. git: $err" | head -3
+  fi
 elif ! is_lib "$LIB"; then
   [ -e "$LIB" ] && [ -n "$(ls -A "$LIB" 2>/dev/null)" ] && { echo "✗ $LIB exists but is not the Lemo-Opuscar library. Set LEMO_OPUSCAR_HOME to another folder."; exit 1; }
   command -v git >/dev/null || { echo "✗ git is needed to download the library"; exit 1; }
@@ -45,8 +148,26 @@ elif ! is_lib "$LIB"; then
   git clone --quiet --depth 1 --filter=blob:none --sparse --branch main "$REPO" "$LIB" || { rm -rf "$LIB"; echo "✗ download failed (offline?)"; exit 1; }
   apply_sparse
   git -C "$LIB" config lemo.managed true
+  if [ -n "$PIN" ]; then
+    apply_pin
+  fi
+else
+  # Existing user-owned library (lemo.managed != true).
+  # If PIN is set, try to honour it; refuse soft-success when pin cannot be applied.
+  if [ -n "$PIN" ]; then
+    if ! git -C "$LIB" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      echo "✗ LEMO_OPUSCAR_PIN=$PIN is set, but $LIB is not a git work tree; cannot apply pin safely."
+      exit 1
+    fi
+    [ "$(git -C "$LIB" remote get-url origin 2>/dev/null)" = "$REPO" ] || \
+      echo "! $LIB origin differs from LEMO_OPUSCAR_REPO; still attempting pin"
+    apply_pin
+  fi
 fi
 LIB=$(cd "$LIB" && pwd -P)
+
+# DeepSeek overlay must be present on every successful path (before LIB=).
+require_deepseek_lib "$LIB"
 
 # Installed packages are tracked by content: a marker holds a checksum of the files they came from (and the Python
 # version), so a changed package.json or requirements file triggers a reinstall.

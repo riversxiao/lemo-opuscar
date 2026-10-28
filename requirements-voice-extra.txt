@@ -1,0 +1,13 @@
+# Optional / future voice providers (NOT installed by setup.sh deps voice).
+# Default Chinese path remains edge-tts in requirements-voice.txt.
+# Enable only when you run a local Qwen3-TTS or OmniVoice server and finish the
+# HTTP client in core/tts/providers/{qwen3,omnivoice}.py (Sprint B).
+#
+# openai>=1.40          # convenient client for OpenAI-compatible /v1/audio/speech
+# httpx>=0.27           # if you prefer raw HTTP without the openai SDK
+# soundfile             # already pulled by requirements-voice / core stack
+# numpy
+#
+# Do not pip-install multi-GB model wheels into the lemo .venv by default.
+# Run those stacks in their own Docker / venv; point LEMO_TTS_QWEN3_BASE or
+# LEMO_TTS_OMNIVOICE_BASE at the speech API.
