@@ -2,6 +2,8 @@
 
 # Lemo-Opuscar
 
+> **DeepSeek edition (this fork):** see [`DEEPSEEK.md`](DEEPSEEK.md) and [`plugin/skills/lemo-deepseek/`](plugin/skills/lemo-deepseek/). Default workflow: Opus demo engine as locked base + DeepSeek Flash edits content only.
+
 **A toolbox of film styles made in code: <!--n-->59<!--/n--> ready to use, and your own.**<br>
 Pick a style or make one from scratch, bring your story, and let your coding agent direct.<br>
 <sub><!--n-->59<!--/n--> 种影片风格，每种都配一支完全用代码做出来的短片 · 🇨🇳 中文用户请看 <a href="README.zh-CN.md">简体中文说明</a></sub>

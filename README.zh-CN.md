@@ -2,6 +2,8 @@
 
 # Lemo-Opuscar
 
+> **DeepSeek 版（本 fork）：** 见 [`DEEPSEEK.md`](DEEPSEEK.md) 与技能 [`plugin/skills/lemo-deepseek/`](plugin/skills/lemo-deepseek/)。默认「Opus demo 引擎作底座 + DeepSeek Flash 改内容」。
+
 **一套用代码做片的风格工具箱：<!--n-->59<!--/n--> 种现成风格，也能做出你自己的。**<br>
 选一个风格，或者从头做一个，带上你的故事，让编程 agent 来当导演。
 
