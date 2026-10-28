@@ -125,3 +125,6 @@ Evidence (re-run after gate fix): `evidence/quality-mux-strict.json`, `evidence/
 - Schedule still does not pad under-target (20.75 → 32). Plan target remains a schedule budget when engine DUR is locked.
 - No `window.TEXTS(t)` without unlocking engine → readcheck stays NOT_APPLICABLE.
 - Strict ASR on short Yunxi remains flaky; delivery for this Swiss fixture uses `--asr-mode=zh-homophone-tolerant` (explicit, documented). Unrelated mishears (e.g. 蝙蝠) still block.
+
+## Fixed in `cda7a40`
+style_locked_duration + ASR short-form tokenize; tolerant mux quality PASS on fuli-controller-e2e.
