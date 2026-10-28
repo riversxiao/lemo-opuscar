@@ -60,14 +60,17 @@ python3 tools/deepseek-controller/cli.py quality --project $P \
 
 | artifact | path | notes |
 |---|---|---|
-| stills | `…/out/still/k_{1,9,12.5,16.5,20.5,28}.jpg` | Plan cards (STOCKS/BONDS/…) |
-| video | `…/out/video.mp4` | 768 frames, 32 s @ 24 fps |
-| mix | `…/out/mix.wav` | `mix_vo_only.py` |
-| **mux MP4** | `…/fensan-controller-e2e.mp4` | **32.00 s**, 1920×1080@24, **I=−14.3 LUFS / TP=−1.2 dBTP** |
+| stills | `…/out/still/k_{1,9,12.5,16.5,20.5,28}.jpg` | Plan cards; **HUD = DIVERSIFY** (brand_strings) |
+| brand spot | `…/out/still/k_9.0.jpg` (= `out/still-brand/brand_9.0.jpg`) | Top-left **DIVERSIFY / DIVERSIFY 2026**; ASSETS 01/4; STOCKS/股票 |
+| video | `…/out/video.mp4` | 768 frames, 32 s @ 24 fps; brand rewrite on every worker |
+| mix | `…/out/mix.wav` | `mix_vo_only.py` (reuse OK) |
+| **mux MP4** | `…/fensan-controller-e2e.mp4` | **Remuxed 2026-10-29** with brand HUD · **32.00 s**, 1920×1080@24, **I=−14.3 LUFS / TP=−1.2 dBTP** |
+
+Prior mux (pre-`eb40114` still→video) lacked brand overlay; remux after `brand_strings.json` + `page.mjs` rewrite so deliverable matches spot still.
 
 ## quality `--delivery` — overall **PASS**, deliveryAllowed=true
 
-Evidence: `evidence/quality-mux-delivery.json`.
+Evidence: `evidence/quality-mux-delivery.json` (refreshed after brand remux).
 
 | check | status | note |
 |---|---|---|
