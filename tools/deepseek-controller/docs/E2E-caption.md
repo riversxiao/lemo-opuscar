@@ -129,11 +129,11 @@ Evidence: `evidence/quality-mux-delivery-real-assets.json`.
 ## Remaining gaps
 
 - Locked `SHOTS` still bee-demo kinds (`vid`/`map`/…); Chinese VO is liquidity-themed — picture/story mismatch until unlocked `main.js` or a liquidity shot pack.
-- Demo `audio/mix.py` needs freepats/swarm — E2E still uses `mix_vo_only.py` (no music bed).
+- Demo `audio/mix.py` needs freepats/swarm — prefer **`cli mix` / `music_bed.py`** for a placeholder bed; `--vo-only` keeps silence. See `docs/MUSIC-BED.md`.
 - **Pictogram**: intro/finale animation skeleton still Olympics under lock (brand_strings only overlays HUD text).
 - Fonts.sh subsets `main.js` only — extend charset to timeline/lines for full CJK glyphs.
 - Style unlock / HyperFrames / multi-route TTS / 12-film matrix still open.
 
 ## Audio note
 
-Locked demo score packs are bee-demo length. Controller E2E uses **`mix_vo_only.py`** (timeline VO → `out/mix.wav`) rather than regenerating locked music.
+Locked demo score packs are bee-demo length. Prefer **`cli mix`** (placeholder bed + VO) or `--vo-only`; do not regenerate locked bee `audio/mix.py` for content length. See `docs/MUSIC-BED.md`.

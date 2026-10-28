@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DeepSeek controller CLI: validate | adapt | scaffold | schedule | quality."""
+"""DeepSeek controller CLI: validate | adapt | scaffold | schedule | mix | quality."""
 from __future__ import annotations
 
 import argparse
@@ -88,6 +88,41 @@ def cmd_schedule(args: argparse.Namespace) -> int:
     return schedule_main(argv)
 
 
+
+def cmd_mix(args: argparse.Namespace) -> int:
+    """Bed + VO mix (default) or VO-only; does not touch locked style music.py."""
+    if args.vo_only:
+        from mix_vo_only import mix_vo_only
+        try:
+            out = mix_vo_only(
+                Path(args.project),
+                out=Path(args.out) if args.out else None,
+            )
+        except Exception as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 1
+        print(f"OK mix_vo_only → {out}")
+        return 0
+    from music_bed import mix_bed_vo
+    try:
+        info = mix_bed_vo(
+            Path(args.project),
+            out=Path(args.out) if args.out else None,
+            bed_out=Path(args.bed_out) if args.bed_out else None,
+            bed_path=Path(args.bed) if args.bed else None,
+            preset=args.preset,
+            bpm=args.bpm,
+            seed=args.seed,
+            bed_gain=args.bed_gain,
+        )
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 1
+    print(f"OK music_bed → {info['mix']}")
+    print(f"   bed={info['bed']}  preset={info['metaObj'].get('preset')}")
+    return 0
+
+
 def cmd_quality(args: argparse.Namespace) -> int:
     argv = ["--project", args.project]
     if args.media:
@@ -112,7 +147,7 @@ def cmd_quality(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="deepseek-controller",
-        description="Minimal DeepSeek film controller (plan → adapt → scaffold → schedule → quality)",
+        description="Minimal DeepSeek film controller (plan → adapt → scaffold → schedule → mix → quality)",
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -177,6 +212,29 @@ def build_parser() -> argparse.ArgumentParser:
     )
     q.add_argument("-o", "--output")
     q.set_defaults(func=cmd_quality)
+
+    m = sub.add_parser(
+        "mix",
+        help="music bed + VO → out/mix.wav (placeholder softsynth; or --vo-only / --bed)",
+    )
+    m.add_argument("--project", required=True)
+    m.add_argument("--out", help="default: <project>/out/mix.wav")
+    m.add_argument("--bed-out", help="default: <project>/music/bed.wav")
+    m.add_argument("--bed", help="use existing bed WAV instead of synthesizing")
+    m.add_argument(
+        "--preset",
+        choices=("soft-pulse", "pad", "silence"),
+        default="soft-pulse",
+    )
+    m.add_argument("--bpm", type=float, default=None)
+    m.add_argument("--seed", type=int, default=20261029)
+    m.add_argument("--bed-gain", type=float, default=1.0)
+    m.add_argument(
+        "--vo-only",
+        action="store_true",
+        help="legacy mix_vo_only (VO + silence, no bed)",
+    )
+    m.set_defaults(func=cmd_mix)
 
     return p
 

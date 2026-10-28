@@ -767,6 +767,60 @@ else
 fi
 
 
+# 27) music_bed synthesizes placeholder + mixes VO; cli mix works
+if python3 - <<'PY'
+import json, sys, tempfile, shutil, subprocess
+from pathlib import Path
+import numpy as np, soundfile as sf
+sys.path.insert(0, "tools/deepseek-controller")
+from music_bed import synthesize_bed, mix_bed_vo, SR
+
+b = synthesize_bed(1.5, preset="soft-pulse", bpm=100, seed=1)
+assert b.shape[0] == int(1.5 * SR) and b.shape[1] == 2
+assert float(np.max(np.abs(b))) > 0.01
+assert float(np.max(np.abs(synthesize_bed(0.5, preset="silence")))) == 0.0
+
+td = Path(tempfile.mkdtemp(prefix="dc-bed-"))
+try:
+    (td / "voices").mkdir(); (td / "music").mkdir(); (td / "out").mkdir()
+    tt = np.arange(int(0.3 * SR)) / SR
+    sf.write(td / "voices" / "L01.wav", (0.25 * np.sin(2 * np.pi * 440 * tt)).astype(np.float32), SR)
+    (td / "timeline.json").write_text(json.dumps({"dur": 2.0, "bpm": 100, "vo": {"L01": 0.2}}))
+    info = mix_bed_vo(td, preset="soft-pulse", seed=7)
+    assert info["mix"].is_file() and info["bed"].is_file()
+    meta = json.loads(info["meta"].read_text())
+    assert "placeholder" in meta["label"]
+    assert meta["preset"] == "soft-pulse"
+    info2 = mix_bed_vo(td, bed_path=info["bed"], out=td / "out" / "mix2.wav")
+    assert json.loads(info2["meta"].read_text())["preset"] == "external"
+    # cli mix + --vo-only
+    r = subprocess.run(
+        [sys.executable, "tools/deepseek-controller/cli.py", "mix",
+         "--project", str(td), "--preset", "pad",
+         "--out", str(td / "out" / "cli-mix.wav")],
+        capture_output=True, text=True,
+    )
+    assert r.returncode == 0, r.stderr
+    assert (td / "out" / "cli-mix.wav").is_file()
+    r2 = subprocess.run(
+        [sys.executable, "tools/deepseek-controller/cli.py", "mix",
+         "--project", str(td), "--vo-only",
+         "--out", str(td / "out" / "cli-vo.wav")],
+        capture_output=True, text=True,
+    )
+    assert r2.returncode == 0, r2.stderr
+    assert (td / "out" / "cli-vo.wav").is_file()
+finally:
+    shutil.rmtree(td, ignore_errors=True)
+print("ok")
+PY
+then
+  ok "music_bed placeholder + cli mix / --vo-only"
+else
+  bad "music_bed / cli mix"
+fi
+
+
 echo
 echo "Results: $pass passed, $fail failed"
 test "$fail" -eq 0

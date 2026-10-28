@@ -11,8 +11,8 @@ Also writes brand_strings.json: literal replacements applied by page.mjs to the
 Olympics labels can track the plan topic. Complex intro animation structure
 (rings / 43-sport grid) stays demo-shaped — full rebrand needs a style version.
 
-Also writes timeline.json vo{id→t} + dur for mix_vo_only.py (picture engine ignores it).
-Demo music/music.py is Olympics-length / section-asserted; controller E2E uses mix_vo_only.
+Also writes timeline.json vo{id→t} + dur for music_bed / mix_vo_only (picture engine ignores it).
+Demo music/music.py is Olympics-length / section-asserted; controller E2E uses cli mix / music_bed.py (or mix_vo_only).
 
 Usage:
   python3 tools/deepseek-controller/apply_pictogram_edl.py --project /path/to/film

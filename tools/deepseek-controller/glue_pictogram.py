@@ -78,7 +78,7 @@ def glue_pictogram(
             "- Scaffold fetches OFL `.ttf` into `fonts/` via `fetch_fonts.py` (or `$LEMO_FONT_CACHE`).\n"
             "- Optional `brand_strings.json` (from apply_pictogram_edl) rewrites Olympics HUD/intro/"
             "finale *literals* in the eval'd scenes.js source only — disk hash untouched.\n"
-            "- Locked music.py is Olympics-length; E2E uses `mix_vo_only.py` (VO + silence)."
+            "- Locked music.py is Olympics-length; E2E uses `cli mix` / `music_bed.py` (placeholder bed + VO; or `--vo-only`)."
         ),
         tts_lines=f"{out}/lines.json",
         extra_steps="\n".join(

@@ -1,7 +1,7 @@
 # E2E full path — Pictogram Motion fixture (2026-10-28)
 
 Fixture: `fixtures/plan-pictogram-motion.json` · project: `/workspace/films/fensan-controller-e2e` (box, not in Git).
-Scope: scaffold → Yunxi TTS → schedule (pad) → `apply_pictogram_edl` → mix_vo_only → still → video → mux → `quality --delivery`.
+Scope: scaffold → Yunxi TTS → schedule (pad) → `apply_pictogram_edl` → **`cli mix` (music bed + VO)** → still → video → mux → `quality --delivery`.
 **Engine cores stayed locked** (`engine.js` / `edl.js` / `scenes.js` / `index.html` / `render.mjs` / `shot.mjs` hashes unchanged).
 
 ## Content bridge (no unlock)
@@ -32,7 +32,8 @@ python3 core/tts/tts_zh.py $P/lines.json $P/voices --voice zh-CN-YunxiNeural
 python3 tools/deepseek-controller/post_tts.py --project $P
 python3 tools/deepseek-controller/cli.py schedule --project $P --require-vo
 # schedule auto-runs apply_pictogram_edl → edl_runtime.json + timeline.json
-python3 tools/deepseek-controller/mix_vo_only.py --project $P
+python3 tools/deepseek-controller/cli.py mix --project $P --preset soft-pulse
+# legacy VO-only: python3 tools/deepseek-controller/mix_vo_only.py --project $P
 node core/render/still.mjs $P 1.0 9.0 12.5 16.5 20.5 28.0 --out $P/out/still --prefix k_
 node core/render/video.mjs $P --fps 24 --workers 3 --out $P/out/video.mp4
 sh core/render/mux.sh $P/out/video.mp4 $P/out/mix.wav $P/fensan-controller-e2e.mp4 24 0
@@ -63,7 +64,7 @@ python3 tools/deepseek-controller/cli.py quality --project $P \
 | stills | `…/out/still/k_{1,9,12.5,16.5,20.5,28}.jpg` | Plan cards; **HUD = DIVERSIFY** (brand_strings) |
 | brand spot | `…/out/still/k_9.0.jpg` (= `out/still-brand/brand_9.0.jpg`) | Top-left **DIVERSIFY / DIVERSIFY 2026**; ASSETS 01/4; STOCKS/股票 |
 | video | `…/out/video.mp4` | 768 frames, 32 s @ 24 fps; brand rewrite on every worker |
-| mix | `…/out/mix.wav` | `mix_vo_only.py` (reuse OK) |
+| mix | `…/out/mix.wav` + `music/bed.wav` | `cli mix` / `music_bed.py` (placeholder soft-pulse; or `--vo-only`) |
 | **mux MP4** | `…/fensan-controller-e2e.mp4` | **Remuxed 2026-10-29** with brand HUD · **32.00 s**, 1920×1080@24, **I=−14.3 LUFS / TP=−1.2 dBTP** |
 
 Prior mux (pre-`eb40114` still→video) lacked brand overlay; remux after `brand_strings.json` + `page.mjs` rewrite so deliverable matches spot still.
@@ -86,7 +87,7 @@ Evidence: `evidence/quality-mux-delivery.json` (refreshed after brand remux).
 
 - Intro/finale **animation structure** on the *locked demo* path stays Olympics-shaped (`brand_strings` literals only).
 - **Maintainer style version `finance-v001`** unlocks `scenes.js` structure for finance/diversify (see section below). Default scaffold untouched.
-- Demo `music/music.py` is Olympics-length / section-asserted — controller E2E uses **`mix_vo_only.py`** (VO bed + silence; mux loudnorm). Do not expect locked `music.py` to track content EDL.
+- Demo `music/music.py` is Olympics-length / section-asserted — **do not run it** for content EDL. Use **`cli mix` / `music_bed.py`** (placeholder bed + VO duck → `music/bed.wav` + `out/mix.wav`). See `docs/MUSIC-BED.md`.
 - Fonts are gitignored; scaffold / `fetch_fonts.py` now auto-fetch or copy from `$LEMO_FONT_CACHE`.
 
 ## Style version `finance-v001` (intro/finale structure)
@@ -108,3 +109,22 @@ python3 tools/deepseek-controller/apply_pictogram_style_version.py \
 - See `styles/pictogram-motion/versions/finance-v001/VERSION.md`.
 
 Default `scaffold` still locks demo `scenes.js` (test 26).
+
+## finance-v001 music-bed remux (2026-10-29)
+
+```bash
+P=/workspace/films/fensan-pictogram-finance-v001
+python3 tools/deepseek-controller/cli.py mix --project $P --preset soft-pulse
+sh core/render/mux.sh $P/out/video24.mp4 $P/out/mix.wav $P/fensan-pictogram-finance-v001.mp4 24 0
+python3 tools/deepseek-controller/cli.py quality --project $P --media $P/fensan-pictogram-finance-v001.mp4 --delivery \
+  -o $P/evidence/quality-music-bed-delivery.json
+```
+
+| artifact | notes |
+|---|---|
+| `music/bed.wav` | placeholder soft-pulse stem (FLOAT 48 kHz); `bed_meta.json` labels it |
+| mux MP4 | **32 s** · **I=−14.2 LUFS / TP=−1.1 dBTP** |
+| quality | **PASS** / deliveryAllowed=true |
+
+Locked `music/music.py` not executed. Freepats optional — see `docs/MUSIC-BED.md`.
+

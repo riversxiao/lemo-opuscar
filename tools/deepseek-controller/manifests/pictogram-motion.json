@@ -152,5 +152,5 @@
     "timeline.json",
     "brand_strings.json"
   ],
-  "notes": "Chinese should be primary on-screen title for zh films. Pose must be in allowlist (stand/point/group aliases → golf/fencing/relay). Content bridge: edl_content.json → edl_runtime.json via apply_pictogram_edl; core/render/page.mjs overlays window.EDL without editing locked edl.js/scenes.js. Optional brand_strings.json rewrites Olympics HUD/intro/finale literals in eval(scenes.js) only. Scaffold fetches fonts via fetch_fonts.py. Audio: mix_vo_only.py (locked music.py is Olympics-length)."
+  "notes": "Chinese should be primary on-screen title for zh films. Pose must be in allowlist (stand/point/group aliases → golf/fencing/relay). Content bridge: edl_content.json → edl_runtime.json via apply_pictogram_edl; core/render/page.mjs overlays window.EDL without editing locked edl.js/scenes.js. Optional brand_strings.json rewrites Olympics HUD/intro/finale literals in eval(scenes.js) only. Scaffold fetches fonts via fetch_fonts.py. Audio: cli mix / music_bed.py placeholder bed + VO (locked music.py Olympics-length unused; --vo-only available)."
 }

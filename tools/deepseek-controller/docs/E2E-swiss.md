@@ -158,4 +158,4 @@ See [`E2E-caption.md`](./E2E-caption.md) and [`E2E-pictogram.md`](./E2E-pictogra
 
 ## Audio note
 
-Swiss E2E mux uses project mix / VO path; when a style score pack is unavailable, **`mix_vo_only.py`** builds a VO+silence bed for mux loudnorm.
+Swiss E2E mux uses project mix / VO path; when freepats/`score.py` is unavailable, prefer **`cli mix` / `music_bed.py`** (placeholder bed + VO) or `--vo-only`. See `docs/MUSIC-BED.md`.

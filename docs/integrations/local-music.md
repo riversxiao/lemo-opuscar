@@ -24,3 +24,12 @@ Do **not** download YuE2 weights into this library clone by default.
 ## Relation to OpenFilm `get`
 
 OpenFilm Studio can pull music via connected providers; that is separate from local YuE2. Prefer one music source per film for rights clarity.
+
+## Controller placeholder bed
+
+For DeepSeek controller E2E (when locked demo `music.py` / freepats / swarm are unavailable), use:
+
+`tools/deepseek-controller/music_bed.py` or `cli.py mix` → `music/bed.wav` + ducked VO → `out/mix.wav`.
+
+Documented in `tools/deepseek-controller/docs/MUSIC-BED.md`. Freepats remains optional via `sh tools/fetch.sh instruments freepats`.
+
