@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "project": "/workspace/lemo-opuscar-deepseek/tools/deepseek-controller/fixtures/out-swiss-motion",
+  "style": "swiss-motion",
+  "overall": "FAIL",
+  "deliveryAllowed": false,
+  "checks": [
+    {
+      "name": "plan_present",
+      "status": "PASS",
+      "detail": "/workspace/lemo-opuscar-deepseek/tools/deepseek-controller/fixtures/out-swiss-motion/content/plan.json",
+      "required": true
+    },
+    {
+      "name": "schedule_fits_target",
+      "status": "PASS",
+      "detail": "17.25s <= 32.0s",
+      "required": true
+    },
+    {
+      "name": "ffprobe_media",
+      "status": "NOT_CHECKED",
+      "detail": "no out.mp4/final.mp4 yet",
+      "required": false
+    },
+    {
+      "name": "loudness_ebur128",
+      "status": "NOT_CHECKED",
+      "detail": "no media for ebur128",
+      "required": false
+    },
+    {
+      "name": "media_duration",
+      "status": "NOT_CHECKED",
+      "detail": "no media",
+      "required": false
+    },
+    {
+      "name": "readcheck",
+      "status": "NOT_CHECKED",
+      "detail": "skipped (--skip-heavy)",
+      "required": true
+    },
+    {
+      "name": "asr_check",
+      "status": "NOT_CHECKED",
+      "detail": "skipped (--skip-heavy)",
+      "required": true
+    },
+    {
+      "name": "fixture_forced_fail",
+      "status": "FAIL",
+      "detail": "forced by fixture / --force-fail",
+      "required": true
+    }
+  ],
+  "blocking": [
+    {
+      "name": "fixture_forced_fail",
+      "status": "FAIL"
+    }
+  ],
+  "standards": {
+    "loudness_lufs": {
+      "target": -14.0,
+      "tol": 1.0
+    },
+    "true_peak_dbtp_max": -1.0
+  }
+}

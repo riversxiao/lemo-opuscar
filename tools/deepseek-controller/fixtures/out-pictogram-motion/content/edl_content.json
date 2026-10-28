@@ -1,0 +1,103 @@
+{
+  "style": "pictogram-motion",
+  "bpm": 150,
+  "beatSec": 0.4,
+  "shots": [
+    {
+      "id": "p0",
+      "kind": "intro",
+      "role": "hook",
+      "zh": "分散投资",
+      "en": "分散投资",
+      "pose": null,
+      "beats": 4,
+      "motionPreset": "intro",
+      "pal": "signal",
+      "data": {}
+    },
+    {
+      "id": "p1",
+      "kind": "chapter",
+      "role": "chapter",
+      "zh": "资产",
+      "en": "资产",
+      "pose": null,
+      "beats": 4,
+      "motionPreset": "chapter",
+      "pal": "signal",
+      "data": {}
+    },
+    {
+      "id": "p2",
+      "kind": "card",
+      "role": "card",
+      "zh": "股票",
+      "en": "股票",
+      "pose": "sprint",
+      "beats": 4,
+      "motionPreset": "card",
+      "pal": "signal",
+      "data": {}
+    },
+    {
+      "id": "p3",
+      "kind": "card",
+      "role": "card",
+      "zh": "债券",
+      "en": "债券",
+      "pose": "walk",
+      "beats": 4,
+      "motionPreset": "card",
+      "pal": "signal",
+      "data": {}
+    },
+    {
+      "id": "p4",
+      "kind": "card",
+      "role": "card",
+      "zh": "现金",
+      "en": "现金",
+      "pose": "stand",
+      "beats": 4,
+      "motionPreset": "card",
+      "pal": "signal",
+      "data": {}
+    },
+    {
+      "id": "p5",
+      "kind": "card",
+      "role": "explain",
+      "zh": "别押一把",
+      "en": "别押一把",
+      "pose": "point",
+      "beats": 4,
+      "motionPreset": "hard-cut",
+      "pal": "signal",
+      "data": {}
+    },
+    {
+      "id": "p6",
+      "kind": "finale",
+      "role": "payoff",
+      "zh": "组合",
+      "en": "组合",
+      "pose": "group",
+      "beats": 8,
+      "motionPreset": "finale",
+      "pal": "signal",
+      "data": {}
+    },
+    {
+      "id": "p7",
+      "kind": "finale",
+      "role": "end",
+      "zh": "分散投资",
+      "en": "分散投资",
+      "pose": null,
+      "beats": 4,
+      "motionPreset": "finale",
+      "pal": "signal",
+      "data": {}
+    }
+  ]
+}

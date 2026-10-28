@@ -1,0 +1,122 @@
+{
+  "targetDurationSec": 32.0,
+  "scheduledDurationSec": 57.0,
+  "beatGridSec": 0.25,
+  "fitsTarget": false,
+  "shots": [
+    {
+      "id": "s1",
+      "t0": 0.0,
+      "t1": 11.0,
+      "dur": 11.0,
+      "voIds": [
+        "l1"
+      ],
+      "voDur": 10.0,
+      "readSec": 0.8444,
+      "text": "复利",
+      "motionPreset": "numeral-climb",
+      "role": "hook"
+    },
+    {
+      "id": "s2",
+      "t0": 11.0,
+      "t1": 22.0,
+      "dur": 11.0,
+      "voIds": [
+        "l2"
+      ],
+      "voDur": 10.0,
+      "readSec": 1.0667,
+      "text": "利滚利",
+      "motionPreset": "grid-build",
+      "role": "explain"
+    },
+    {
+      "id": "s3",
+      "t0": 22.0,
+      "t1": 33.0,
+      "dur": 11.0,
+      "voIds": [
+        "l3"
+      ],
+      "voDur": 10.0,
+      "readSec": 0.8444,
+      "text": "时间",
+      "motionPreset": "locked-spread",
+      "role": "evidence"
+    },
+    {
+      "id": "s4",
+      "t0": 33.0,
+      "t1": 44.0,
+      "dur": 11.0,
+      "voIds": [
+        "l4"
+      ],
+      "voDur": 10.0,
+      "readSec": 0.8444,
+      "text": "取出",
+      "motionPreset": "knife",
+      "role": "contrast"
+    },
+    {
+      "id": "s5",
+      "t0": 44.0,
+      "t1": 55.0,
+      "dur": 11.0,
+      "voIds": [
+        "l5"
+      ],
+      "voDur": 10.0,
+      "readSec": 0.8444,
+      "text": "留下",
+      "motionPreset": "snap",
+      "role": "payoff"
+    },
+    {
+      "id": "s6",
+      "t0": 55.0,
+      "t1": 57.0,
+      "dur": 2.0,
+      "voIds": [],
+      "voDur": 0.0,
+      "readSec": 0.8444,
+      "text": "复利",
+      "motionPreset": "pull-out",
+      "role": "end"
+    }
+  ],
+  "cues": [
+    {
+      "type": "voice",
+      "id": "l1",
+      "shotId": "s1",
+      "t": 0.35
+    },
+    {
+      "type": "voice",
+      "id": "l2",
+      "shotId": "s2",
+      "t": 11.35
+    },
+    {
+      "type": "voice",
+      "id": "l3",
+      "shotId": "s3",
+      "t": 22.35
+    },
+    {
+      "type": "voice",
+      "id": "l4",
+      "shotId": "s4",
+      "t": 33.35
+    },
+    {
+      "type": "voice",
+      "id": "l5",
+      "shotId": "s5",
+      "t": 44.35
+    }
+  ]
+}

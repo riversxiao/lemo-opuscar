@@ -24,6 +24,24 @@
 
 ## P1 下一轮：控制器（优先）
 
+### 落地状态（MVP · `tools/deepseek-controller/`）
+
+已合并最小控制器骨架（**尚未**跑满 12 支对照 / 真 DeepSeek API / Playwright 成片）：
+
+| 组件 | 路径 |
+|---|---|
+| 计划 schema + 校验 | `tools/deepseek-controller/plan.schema.json` · `validate.py` |
+| 三风格 manifest | `tools/deepseek-controller/manifests/{swiss,pictogram,caption}-*.json` |
+| 适配器（只写 content/） | `tools/deepseek-controller/adapters/` |
+| VO 排期（超目标则失败） | `tools/deepseek-controller/schedule.py` |
+| `quality.json` 验收门 | `tools/deepseek-controller/quality.py` |
+| CLI | `python3 tools/deepseek-controller/cli.py validate / adapt / schedule / quality` |
+| 样例 / 回归 | `fixtures/` · `tests/test_mvp.sh` |
+
+说明见 [`tools/deepseek-controller/README.md`](../tools/deepseek-controller/README.md)。
+
+### 原计划要点
+
 ### 1. 结构化内容边界
 
 - Flash 只输出**严格 JSON 计划**（题材、镜头、文案、数字、调色、允许的运动方案）；**不**接收 JS / shader / 表达式 / 任意路径。
@@ -80,7 +98,7 @@
 
 | Sprint | 范围 |
 |---|---|
-| **A · 现在** | setup.sh P1（上节）+ 本表文档/技能脚手架 |
+| **A · 现在** | setup.sh P1（上节）+ 能力脚手架 + **`tools/deepseek-controller/` MVP** |
 | **B** | TTS 某一自托管 provider 的 HTTP 客户端 MVP + 用真实 mux 片跑一遍 `openfilm_handoff.sh` |
 | **C** | Remotion 桥接试做：一个 Caption 类中文题材（Flash 只填 props/data JSON） |
 | **D** | HyperFrames 试片（非锁定引擎片）；Stickman styleframe；本地乐床 drop-in |

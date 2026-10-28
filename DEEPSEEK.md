@@ -72,6 +72,16 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 
 试片与对照见 [`showcase/`](showcase/README.md)。
 
+## 控制器（MVP）
+
+内容边界开始用代码卡住（计划校验 → 风格适配器 → VO 排期 → `quality.json`）：
+
+- 目录与用法：[`tools/deepseek-controller/README.md`](tools/deepseek-controller/README.md)
+- 计划：`python3 tools/deepseek-controller/cli.py validate|adapt|schedule|quality …`
+- 下一轮范围：[`docs/NEXT-ROUND.md`](docs/NEXT-ROUND.md)
+
+Flash 仍须先复制官方 `demo/` 引擎；控制器**只写** `content/` 与时间表/质量报告，不改引擎核心。
+
 ## 安全提示
 
 - 默认 `setup.sh` 在 managed clone 上会拉远端；本 DeepSeek 技能默认指向 **本 fork**，并支持 `LEMO_OPUSCAR_PIN`（完整 SHA 优先）。**无 DeepSeek 覆盖层的库或 PIN 会非零退出**。引擎基线提交与控制层 fork 提交应分别记录（见 `docs/NEXT-ROUND.md`）。

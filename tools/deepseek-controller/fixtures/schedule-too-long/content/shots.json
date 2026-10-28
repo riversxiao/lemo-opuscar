@@ -1,0 +1,71 @@
+{
+  "style": "swiss-motion",
+  "shots": [
+    {
+      "id": "s1",
+      "role": "hook",
+      "text": "一块钱，放着不动会怎样？",
+      "onScreenText": "复利",
+      "motionPreset": "numeral-climb",
+      "data": {
+        "principal": 1
+      },
+      "allowDarkOpen": false
+    },
+    {
+      "id": "s2",
+      "role": "explain",
+      "text": "每年多出利息，利息再生利息。",
+      "onScreenText": "利滚利",
+      "motionPreset": "grid-build",
+      "data": {
+        "rate": 0.07
+      },
+      "allowDarkOpen": false
+    },
+    {
+      "id": "s3",
+      "role": "evidence",
+      "text": "同样本金，时间越长差距越大。",
+      "onScreenText": "时间",
+      "motionPreset": "locked-spread",
+      "data": {
+        "years": [
+          1,
+          10,
+          30
+        ]
+      },
+      "allowDarkOpen": false
+    },
+    {
+      "id": "s4",
+      "role": "contrast",
+      "text": "中途取出，后面的雪球就停了。",
+      "onScreenText": "取出",
+      "motionPreset": "knife",
+      "data": {
+        "withdraw": true
+      },
+      "allowDarkOpen": false
+    },
+    {
+      "id": "s5",
+      "role": "payoff",
+      "text": "复利靠的是留下，而不是赌一把。",
+      "onScreenText": "留下",
+      "motionPreset": "snap",
+      "data": {},
+      "allowDarkOpen": false
+    },
+    {
+      "id": "s6",
+      "role": "end",
+      "text": "复利",
+      "onScreenText": "复利",
+      "motionPreset": "pull-out",
+      "data": {},
+      "allowDarkOpen": false
+    }
+  ]
+}

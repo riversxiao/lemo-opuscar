@@ -28,3 +28,16 @@ description: Direct and produce a short film made entirely in code with DeepSeek
 | Demo | TREATMENT 写完后再 `setup.sh demo <slug>`；学技术、换故事，不抄样片剧情 |
 
 交付物严格按 `$LIB/DIRECTOR.md` §11，并告诉用户文件在哪。
+
+## 控制器（内容边界）
+
+写完 TREATMENT、选定风格后，优先走结构化计划而不是手改引擎：
+
+1. 按 `$LIB/tools/deepseek-controller/plan.schema.json` 写出计划 JSON（只含题材/镜头/文案/数字/调色/白名单运动）。
+2. `python3 "$LIB/tools/deepseek-controller/cli.py" validate <plan.json>`
+3. `… adapt <plan.json> -o "<project>"` → 只生成 `content/`（见 `content/TOUCHABLES.md`）。
+4. TTS 后写 `voices/dur.json`，再 `… schedule --project "<project>" --require-vo`。
+5. 成片后 `… quality --project "<project>" --media <out.mp4>`；`quality.json` 非 PASS 不得标正式交付。
+
+说明：`$LIB/tools/deepseek-controller/README.md` · 计划见 `$LIB/docs/NEXT-ROUND.md`。
+
