@@ -40,6 +40,8 @@ Swiss Motion · Pictogram Motion · Data Storytelling · Caption News · Bluepri
 write TREATMENT.md
 → demo <slug> → copy engine into project
 → adapt timeline/content/palette only
+→ 台词定稿（读 $LIB/DIALOGUE.md：字段 + 门禁 + TTS 前活人感）——未过门禁禁止 tts；可与上步交错，不拦 demo
+→ 写入 lines.json（旁白与画面同句；戏剧字段见 DIALOGUE.md）
 → still.mjs 关键帧 vs STYLE.md
 → tts (+ asr_check) ∥ sampler/sfx
 → video.mjs --fps 24
@@ -47,9 +49,11 @@ write TREATMENT.md
 → sheet.py + blackdetect + ebur128 → 一轮修复 → 交付
 ```
 
+无旁白：TREATMENT 写明「无 VO」，跳过「台词定稿」与 tts。
+
 ## 与上游 AGENTS.md 的关系
 
-冲突时以本文件为准（提问方式、引擎锁定、模型分工）。其余章节按 `AGENTS.md` / `DIRECTOR.md` / `TECHNIQUE.md` 执行。
+冲突时以本文件为准（提问方式、引擎锁定、模型分工）。其余章节按 `AGENTS.md` / `DIRECTOR.md` / `DIALOGUE.md` / `TECHNIQUE.md` 执行。旁白与对白以 `DIALOGUE.md` 为准；TTS 工具细节仍以 `TECHNIQUE.md` §4 为准。
 
 ## 实测调教（2026-10-28 · 复利 Swiss 对照）
 
@@ -72,3 +76,4 @@ write TREATMENT.md
 4. **字体与混音预置**：BRIEF 写明字体已就位（Inter/Noto 等）与 mix 降级路径（demo mix 绑旧时间轴时允许项目内自写 mix）。
 5. **旁白必须跟画面同句**：`audio/lines.json` 朗读文本与画面/字幕中文一致（可加标点），禁止缩短意译导致「没把字读全」；语速默认 `+0%`，勿默认 `+6%`。
 6. **优先风格**：信息图 / 讲解类样片优先 Swiss Motion、Pictogram Motion、Caption News（纯图形）；Whiteboard 慎用或接受英文字板。
+7. **台词门禁：** 有旁白时，BRIEF / TREATMENT 须指向 `$LIB/DIALOGUE.md`；`lines.json` 含 `function`（及可选 `want`/`speaker`）；TTS 前过句长 ≤35 字、钩子在前 3 拍、字速估时 ±15%、禁止金句升华与缩短意译。Cel Anime / Sci-Fi Sitcom 自动跑角色戏三问（见 `DIALOGUE.md` §7）。可选跑 `plugin/skills/lemo-dialogue`。
