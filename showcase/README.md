@@ -1,6 +1,6 @@
 # Showcase · riversxiao’s DeepSeek code-made shorts
 
-This folder is the film wall for [riversxiao/lemo-opuscar](https://github.com/riversxiao/lemo-opuscar): **DeepSeek Flash** (`openrouter/deepseek/deepseek-v4.1-flash`) + upstream Opus demo **engine lock**. Pure code films — **no** Seedance / Kling / Runway / Sora.
+This folder is the film wall for [riversxiao/lemo-opuscar](https://github.com/riversxiao/lemo-opuscar): **DeepSeek Flash** (official DeepSeek API `deepseek-flash` or OpenRouter `openrouter/deepseek/deepseek-v4.1-flash`) + upstream Opus demo **engine lock**. Pure code films — **no** Seedance / Kling / Runway / Sora.
 
 Finance vocab is only the **first sample set**. Any topic works (product, pets, travel, tutorials…).
 

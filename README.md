@@ -71,7 +71,10 @@ Loop: TREATMENT → `setup.sh demo <slug>` → content layer only → still → 
 
 - Node 20+, ffmpeg, Python 3.11+
 - Network (edge-tts Chinese VO; or offline Kokoro)
-- DeepSeek Flash via OpenCode / OpenRouter (recommended: `openrouter/deepseek/deepseek-v4.1-flash`)
+- DeepSeek Flash host, pick one:
+  - **Official DeepSeek API (recommended if you have a key)**: in OpenCode run `/connect` → choose `deepseek` → paste `DEEPSEEK_API_KEY` (from [platform.deepseek.com](https://platform.deepseek.com)) → model `deepseek-flash` (or `deepseek-v4-pro`); base URL `https://api.deepseek.com`
+  - **OpenRouter fallback**: `openrouter/deepseek/deepseek-v4.1-flash`
+  - **OpenCode free tier**: `opencode/deepseek-v4.1-flash-free` (may run out of quota — switch to one of the above)
 
 ---
 

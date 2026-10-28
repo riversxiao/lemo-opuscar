@@ -71,7 +71,10 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 
 - Node 20+、ffmpeg、Python 3.11+
 - 出网（edge-tts 中文旁白；或改离线 Kokoro）
-- OpenCode / OpenRouter 等可用的 DeepSeek Flash（推荐 `openrouter/deepseek/deepseek-v4.1-flash`）
+- DeepSeek Flash 宿主任选其一：
+  - **官方 API（推荐，有 Key 时）**：OpenCode 里 `/connect` → 选 `deepseek` → 填 `DEEPSEEK_API_KEY`（[platform.deepseek.com](https://platform.deepseek.com) 申请）→ 模型 `deepseek-flash`（或 `deepseek-v4-pro`）；base URL `https://api.deepseek.com`
+  - **OpenRouter 回退**：`openrouter/deepseek/deepseek-v4.1-flash`
+  - **OpenCode 免费档**：`opencode/deepseek-v4.1-flash-free`（额度不够就换上面两条）
 
 ---
 

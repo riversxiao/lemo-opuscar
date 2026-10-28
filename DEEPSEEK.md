@@ -30,6 +30,16 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 - `AGENTS.md` · `DIRECTOR.md` · `TECHNIQUE.md`
 - 所选 `styles/<slug>/STYLE.md`
 
+## 模型接入
+
+三条路由任选其一（宿主 agent 调 DeepSeek，片子本身不调任何视频模型 API）：
+
+1. **DeepSeek 官方 API（推荐）**：base URL `https://api.deepseek.com`，模型 `deepseek-flash`（V4.1-Flash）或 `deepseek-v4-pro`。在 OpenCode 里 `/connect` → 选 `deepseek` → 粘贴 Key；或设环境变量 `DEEPSEEK_API_KEY`。文档：[Coding Agents 接入](https://api-docs.deepseek.com/guides/coding_agents)、[价格](https://api-docs.deepseek.com/quick_start/pricing)。
+2. **OpenRouter 回退**：`openrouter/deepseek/deepseek-v4.1-flash`（无官方 Key 或被限流时）。
+3. **OpenCode 免费档**：`opencode/deepseek-v4.1-flash-free`（可能没额度）。
+
+> Key 只放在环境变量或 OpenCode 凭据里；不要让 agent 把 Key echo 到聊天、shell 日志或提交里。
+
 ## 最佳方案（摘要）
 
 1. **底座锁定，不是「看一眼参考」。** 复制 `styles/<slug>/demo/` 进项目，Flash 只改 timeline / 文案 / 配色。
@@ -56,7 +66,7 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 
 详见 [`AGENTS.deepseek.md`](AGENTS.deepseek.md)：
 
-- **「实测调教」五条**：内容层 + `K` 压缩、BRIEF 附 still、中文拆句、TTS 回修上限 2 次、`$LIB` 路径与 OpenRouter 回退 / ASCII session id。
+- **「实测调教」五条**：内容层 + `K` 压缩、BRIEF 附 still、中文拆句、TTS 回修上限 2 次、`$LIB` 路径与模型路由（官方 API 优先、OpenRouter 回退）/ ASCII session id。
 - **「多风格 BRIEF 硬规则」**：BRIEF 白名单、无实拍替代镜头、中文×绝对秒、字体/mix 预置、旁白与画面同句、信息图样片优先 Swiss / Pictogram / Caption。
 
 试片与对照见 [`showcase/`](showcase/README.md)。
