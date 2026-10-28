@@ -1,26 +1,40 @@
 <div align="center">
 
-# Lemo-Opuscar
+# Lemo-DeepSeek · riversxiao
 
-> **DeepSeek 版（本 fork）：** 见 [`DEEPSEEK.md`](DEEPSEEK.md) 与技能 [`plugin/skills/lemo-deepseek/`](plugin/skills/lemo-deepseek/)。默认「Opus demo 引擎作底座 + DeepSeek Flash 改内容」。
+**用 DeepSeek Flash + 锁定引擎底座，做金融「一词一图」代码短片（不用视频大模型）**
 
-**一套用代码做片的风格工具箱：<!--n-->59<!--/n--> 种现成风格，也能做出你自己的。**<br>
-选一个风格，或者从头做一个，带上你的故事，让编程 agent 来当导演。
+<a href="DEEPSEEK.md"><img alt="DEEPSEEK" src="https://img.shields.io/badge/DEEPSEEK.md-工作流-111?style=for-the-badge"></a>
+<a href="AGENTS.deepseek.md"><img alt="AGENTS" src="https://img.shields.io/badge/AGENTS.deepseek-规程-333?style=for-the-badge"></a>
+<a href="showcase/README.md"><img alt="Showcase" src="https://img.shields.io/badge/-%E2%96%B6%20Showcase%20%E8%AF%95%E7%89%87-E8553A?style=for-the-badge"></a>
+<a href="https://github.com/riversxiao/lemo-opuscar/releases/tag/showcase-v001"><img alt="Release" src="https://img.shields.io/badge/Release-showcase--v001-2EA44F?style=for-the-badge"></a>
+<a href="README.md"><img alt="English" src="https://img.shields.io/badge/README-English-555?style=for-the-badge"></a>
 
-<a href="https://lemomo-ai.github.io/lemo-opuscar/"><img alt="看图鉴" src="https://img.shields.io/badge/-%E2%96%B6%20%E7%9C%8B%E5%9B%BE%E9%89%B4-E8553A?style=for-the-badge"></a> <a href="README.md"><img alt="English" src="https://img.shields.io/badge/README-English-555?style=for-the-badge"></a> <a href="https://github.com/lemomo-ai/lemo-opuscar/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/lemomo-ai/lemo-opuscar?style=for-the-badge&color=F5B700&label=stars"></a> <a href="#授权"><img alt="MIT · CC BY 4.0" src="https://img.shields.io/badge/%E6%8E%88%E6%9D%83-MIT%20%C2%B7%20CC%20BY%204.0-2EA44F?style=for-the-badge"></a>
+本 fork：[github.com/riversxiao/lemo-opuscar](https://github.com/riversxiao/lemo-opuscar)
 
-<a href="https://trendshift.io/repositories/262645?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-262645" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/262645/daily?language=JavaScript" alt="lemomo-ai%2Flemo-opuscar | Trendshift" width="250" height="55"/></a>
-
-⚠️ **本插件为 Claude 专用。** 风格都是按 Claude Opus 5.5 调出来的，<br>
-其他模型适配度不高，请谨慎使用。
-
-🆕 **2026-10-22 · 新分类[「剪辑与纪实」](https://lemomo-ai.github.io/lemo-opuscar/#edit-documentary)**：8 种风格，用真实的档案、文件和数据剪成。[往下看 ↓](#剪辑与纪实)<br>
-🆕 **2026-10-22 · 新玩法[「改成你自己的风格」](#改成你自己的风格)**：改库里的风格或从空白做，存成你自己的。[往下看 ↓](#改成你自己的风格)<br>
-🆕 **2026-10-16 · 新分类[「实证影像」](https://lemomo-ai.github.io/lemo-opuscar/#evidence-films)**：8 种风格，拍真实素材，每个数字都有出处。[往下看 ↓](#实证影像)
-
-<sub>官方仓库：[github.com/lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar) · 作者 Lemomo（[@lemomo_ai](https://x.com/lemomo_ai)）</sub>
+ℹ️ **本 fork 默认 DeepSeek Flash；引擎底座仍来自上游 Opus demo。**  
+上游是 [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar)（Opus 风格引擎）；本仓库改成 DeepSeek 工作流 + 自有试片 showcase。
 
 </div>
+
+## 我的试片
+
+四支金融词卡，DeepSeek Flash 编排、官方 demo 引擎锁定。成片在 Release，静帧在仓库。
+
+| 主题 | 风格 | 静帧 | 成片 |
+|---|---|---|---|
+| 复利 | Swiss Motion | [stills](showcase/stills/fuli-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/fuli-swiss-ds-v001.mp4) |
+| 分散投资 | Pictogram Motion | [stills](showcase/stills/fensan-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/fensan-pictogram-ds-v001.mp4) |
+| 流动性 | Caption News | [stills](showcase/stills/liudong-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/liudong-caption-ds-v001.mp4) |
+| 对冲是什么 | Whiteboard | [stills](showcase/stills/duichong-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/duichong-whiteboard-ds-v001.mp4) |
+
+完整说明与对照 → [`showcase/README.md`](showcase/README.md) · 规程 → [`AGENTS.deepseek.md`](AGENTS.deepseek.md) · 用法 → [`DEEPSEEK.md`](DEEPSEEK.md)
+
+---
+
+## 上游工具箱（lemomo-ai/lemo-opuscar）
+
+以下为上游图鉴与用法原文，保留作风格目录与参考。本 fork 日常请走 DeepSeek 技能，不要按「Claude 专用插件」安装路径操作。
 
 ## 🎬 特别放映：OPUSCAR 98
 

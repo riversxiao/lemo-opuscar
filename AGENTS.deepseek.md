@@ -61,3 +61,14 @@ write TREATMENT.md
 4. **TTS↔时间轴最多回修 2 次**，然后强制 `still.mjs` → 成片，禁止为抠时长无限改短句。
 5. **路径与额度**：在 `films/` 工程里调用工具一律用 `$LIB` 绝对路径；缺 librosa 时用 ffmpeg `atempo` 压乐床；OpenCode 官方 DeepSeek 额度不足时改用 `openrouter/deepseek/deepseek-v4.1-flash`。OpenCode `-s` session id **只能 ASCII**（如 `ses_fuli_swiss`），中文放 `--title`。
 
+
+## 多风格 BRIEF 硬规则（2026-10-28）
+
+多风格词卡试片后追加；与上文「实测调教」五条并用。
+
+1. **BRIEF 白名单优于整份 STYLE**：每个项目 BRIEF 必须写死「允许改的文件名」「禁止改的文件」「可用 pose / 镜头 k 白名单」「精确 still/video/mux 命令」。不要只扔 STYLE.md 全文。
+2. **无实拍风格先声明替代路径**：Caption News 等只允许 `stock|loss|stress|end`（或该风格等价纯图形镜头）；禁止 Flash 去拉 demo 实拍包。
+3. **中文 × 词级时间轴**：凡依赖 `words.json` / `at(id,word)` 的风格（如 Whiteboard），BRIEF 强制「绝对秒时间轴 + 跳过 ASR 词对齐」；板上可拉丁、旁白可中文时必须写明。
+4. **字体与混音预置**：BRIEF 写明字体已就位（Inter/Noto 等）与 mix 降级路径（demo mix 绑旧时间轴时允许项目内自写 mix）。
+5. **旁白必须跟画面同句**：`audio/lines.json` 朗读文本与画面/字幕中文一致（可加标点），禁止缩短意译导致「没把字读全」；语速默认 `+0%`，勿默认 `+6%`。
+6. **优先风格**：词卡/金融短片优先 Swiss Motion、Pictogram Motion、Caption News（纯图形）；Whiteboard 慎用或接受英文字板。

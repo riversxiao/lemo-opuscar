@@ -1,27 +1,40 @@
 <div align="center">
 
-# Lemo-Opuscar
+# Lemo-DeepSeek · riversxiao
 
-> **DeepSeek edition (this fork):** see [`DEEPSEEK.md`](DEEPSEEK.md) and [`plugin/skills/lemo-deepseek/`](plugin/skills/lemo-deepseek/). Default workflow: Opus demo engine as locked base + DeepSeek Flash edits content only.
+**DeepSeek Flash + locked Opus demo engines → finance “one-word, one-picture” code films (no video models)**
 
-**A toolbox of film styles made in code: <!--n-->59<!--/n--> ready to use, and your own.**<br>
-Pick a style or make one from scratch, bring your story, and let your coding agent direct.<br>
-<sub><!--n-->59<!--/n--> 种影片风格，每种都配一支完全用代码做出来的短片 · 🇨🇳 中文用户请看 <a href="README.zh-CN.md">简体中文说明</a></sub>
+<a href="DEEPSEEK.md"><img alt="DEEPSEEK" src="https://img.shields.io/badge/DEEPSEEK.md-workflow-111?style=for-the-badge"></a>
+<a href="AGENTS.deepseek.md"><img alt="AGENTS" src="https://img.shields.io/badge/AGENTS.deepseek-rules-333?style=for-the-badge"></a>
+<a href="showcase/README.md"><img alt="Showcase" src="https://img.shields.io/badge/-%E2%96%B6%20Showcase-E8553A?style=for-the-badge"></a>
+<a href="https://github.com/riversxiao/lemo-opuscar/releases/tag/showcase-v001"><img alt="Release" src="https://img.shields.io/badge/Release-showcase--v001-2EA44F?style=for-the-badge"></a>
+<a href="README.zh-CN.md"><img alt="简体中文" src="https://img.shields.io/badge/README-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-555?style=for-the-badge"></a>
 
-<a href="https://lemomo-ai.github.io/lemo-opuscar/"><img alt="Watch the gallery" src="https://img.shields.io/badge/-%E2%96%B6%20Watch%20the%20gallery-E8553A?style=for-the-badge"></a> <a href="README.zh-CN.md"><img alt="简体中文" src="https://img.shields.io/badge/README-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-555?style=for-the-badge"></a> <a href="https://github.com/lemomo-ai/lemo-opuscar/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/lemomo-ai/lemo-opuscar?style=for-the-badge&color=F5B700&label=stars"></a> <a href="#licence"><img alt="MIT · CC BY 4.0" src="https://img.shields.io/badge/licence-MIT%20%C2%B7%20CC%20BY%204.0-2EA44F?style=for-the-badge"></a>
+This fork: [github.com/riversxiao/lemo-opuscar](https://github.com/riversxiao/lemo-opuscar)
 
-<a href="https://trendshift.io/repositories/262645?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-262645" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/262645/daily?language=JavaScript" alt="lemomo-ai%2Flemo-opuscar | Trendshift" width="250" height="55"/></a>
-
-⚠️ **Built for Claude.** The styles are tuned for Claude Opus 5.5;<br>
-other models may not reproduce them well, so use them with care.
-
-🆕 **2026-10-22 · [Edit & Documentary](https://lemomo-ai.github.io/lemo-opuscar/#edit-documentary)**: 8 styles cut from real footage, documents and data. [See them ↓](#edit--documentary)<br>
-🆕 **2026-10-22 · [Make a style your own](#make-a-style-your-own)**: change a style or start blank, and keep it. [See how ↓](#make-a-style-your-own)<br>
-🆕 **2026-10-16 · [Evidence Films](https://lemomo-ai.github.io/lemo-opuscar/#evidence-films)**: 8 styles that film real material, every number sourced. [See them ↓](#evidence-films)
-
-<sub>Official repo: [github.com/lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar) · by Lemomo ([@lemomo_ai](https://x.com/lemomo_ai))</sub>
+ℹ️ **This fork defaults to DeepSeek Flash; render engines still come from upstream Opus demos.**  
+Upstream is [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar). Here: DeepSeek workflow + my own film showcase.
 
 </div>
+
+## My films
+
+Four finance vocab shorts. MP4s on the Release; stills in-repo.
+
+| Topic | Style | Stills | Film |
+|---|---|---|---|
+| Compound interest | Swiss Motion | [stills](showcase/stills/fuli-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/fuli-swiss-ds-v001.mp4) |
+| Diversification | Pictogram Motion | [stills](showcase/stills/fensan-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/fensan-pictogram-ds-v001.mp4) |
+| Liquidity | Caption News | [stills](showcase/stills/liudong-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/liudong-caption-ds-v001.mp4) |
+| What is hedging | Whiteboard | [stills](showcase/stills/duichong-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/duichong-whiteboard-ds-v001.mp4) |
+
+Details → [`showcase/README.md`](showcase/README.md) · rules → [`AGENTS.deepseek.md`](AGENTS.deepseek.md) · how-to → [`DEEPSEEK.md`](DEEPSEEK.md)
+
+---
+
+## Upstream toolkit
+
+The sections below are the upstream gallery and docs, kept as the style catalog. For day-to-day work on this fork, use the DeepSeek skill — not the Claude-only plugin install path.
 
 ## 🎬 Feature presentation: OPUSCAR 98
 
