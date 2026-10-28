@@ -262,6 +262,41 @@ else
   fi
 fi
 
+# 15) ebur128 parser ignores early framelog I:-70, prefers Summary
+if python3 - <<'PY'
+import sys
+from pathlib import Path
+import subprocess
+sys.path.insert(0, "tools/deepseek-controller")
+import quality
+fake = """
+[Parsed_ebur128_0] t: 0.1  I: -70.0 LUFS  TPK: -38.5 -38.5 dBFS
+Summary:
+
+  Integrated loudness:
+    I:         -14.0 LUFS
+
+  True peak:
+    Peak:       -1.0 dBFS
+"""
+class R:
+    stderr = fake
+    stdout = ""
+_real = subprocess.run
+subprocess.run = lambda *a, **k: R()
+try:
+    r = quality.ebur128(Path("/etc/hosts"))
+finally:
+    subprocess.run = _real
+assert r["ok"] and r["integrated_lufs"] == -14.0, r
+assert r["true_peak_dbtp"] == -1.0, r
+PY
+then
+  ok "ebur128 prefers Summary I: over early framelog -70"
+else
+  bad "ebur128 Summary parse"
+fi
+
 echo
 echo "Results: $pass passed, $fail failed"
 test "$fail" -eq 0

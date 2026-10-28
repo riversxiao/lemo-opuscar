@@ -115,14 +115,36 @@ def ebur128(path: Path) -> dict[str, Any]:
         return {"ok": False, "error": str(e)}
     integ = None
     tpeak = None
-    m = re.search(r"\bI:\s*([+-]?\d+(?:\.\d+)?)\s*LUFS", log)
+    # ebur128=peak=true prints per-frame "I: -70.0 LUFS" before audio starts; the
+    # final value is under "Summary:" (or the last framelog line). Never take the first match.
+    m = re.search(
+        r"Summary:.*?Integrated loudness:\s*I:\s*([+-]?\d+(?:\.\d+)?)\s*LUFS",
+        log,
+        re.S,
+    )
     if m:
         integ = float(m.group(1))
-    m2 = re.search(r"True peak:\s*[^\n]*?([+-]?\d+(?:\.\d+)?)\s*dB", log)
-    if not m2:
-        m2 = re.search(r"Peak:\s*([+-]?\d+(?:\.\d+)?)\s*dBFS", log)
+    else:
+        matches = re.findall(r"\bI:\s*([+-]?\d+(?:\.\d+)?)\s*LUFS", log)
+        if matches:
+            integ = float(matches[-1])
+    m2 = re.search(
+        r"Summary:.*?True peak:.*?Peak:\s*([+-]?\d+(?:\.\d+)?)\s*dBFS",
+        log,
+        re.S,
+    )
     if m2:
         tpeak = float(m2.group(1))
+    else:
+        m2 = re.search(r"True peak:\s*[^\n]*?([+-]?\d+(?:\.\d+)?)\s*dB", log)
+        if m2:
+            tpeak = float(m2.group(1))
+        else:
+            peaks = re.findall(
+                r"\bTPK:\s*([+-]?\d+(?:\.\d+)?)\s+[+-]?\d+(?:\.\d+)?\s*dBFS", log
+            )
+            if peaks:
+                tpeak = float(peaks[-1])
     if integ is None:
         return {"ok": False, "error": "could not parse ebur128", "log_tail": log[-500:]}
     return {"ok": True, "integrated_lufs": integ, "true_peak_dbtp": tpeak}
