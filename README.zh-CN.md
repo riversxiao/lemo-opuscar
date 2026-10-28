@@ -40,8 +40,8 @@
 git clone https://github.com/riversxiao/lemo-opuscar.git
 cd lemo-opuscar
 
-# 可选：钉死已审计提交
-export LEMO_OPUSCAR_PIN=413a6bd
+# 可选：钉死 DeepSeek 控制层提交（完整 40 字符 SHA；勿用裸上游 413a6bd）
+export LEMO_OPUSCAR_PIN=f3d2e1c934be18ac4cb816ecaa5e9d27176afaae
 
 sh plugin/skills/lemo-deepseek/scripts/setup.sh
 sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
@@ -66,6 +66,8 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 > 用 Caption News 做一支 30 秒片子，讲流动性 / 橘猫 / 产品发布均可。
 
 规程摘要：TREATMENT → `setup.sh demo <slug>` → 只改内容层 → still → TTS → video → mix → mux。详见 [`DEEPSEEK.md`](DEEPSEEK.md)。
+
+> `setup.sh` 现在会拒绝缺少 DeepSeek 覆盖层的库或 PIN；钉版本请用完整 SHA（见 [`DEEPSEEK.md`](DEEPSEEK.md) / [`docs/NEXT-ROUND.md`](docs/NEXT-ROUND.md)）。
 
 ### 前提
 

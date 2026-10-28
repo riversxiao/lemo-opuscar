@@ -10,8 +10,9 @@
 git clone https://github.com/riversxiao/lemo-opuscar.git
 cd lemo-opuscar
 
-# 可选：钉死已审计提交，避免 setup 自动漂到最新 main
-export LEMO_OPUSCAR_PIN=413a6bd
+# 可选：钉死 DeepSeek 控制层提交（完整 40 字符 SHA 或 tag；勿用裸上游 413a6bd）
+# 413a6bd 是引擎/上游基线，不含本 fork 覆盖层；setup 钉到无覆盖层的提交会失败退出
+export LEMO_OPUSCAR_PIN=f3d2e1c934be18ac4cb816ecaa5e9d27176afaae
 
 sh plugin/skills/lemo-deepseek/scripts/setup.sh
 sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
@@ -73,7 +74,7 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 
 ## 安全提示
 
-- 默认 `setup.sh` 在 managed clone 上会拉远端；本 DeepSeek 技能默认指向 **本 fork**，并支持 `LEMO_OPUSCAR_PIN`。
+- 默认 `setup.sh` 在 managed clone 上会拉远端；本 DeepSeek 技能默认指向 **本 fork**，并支持 `LEMO_OPUSCAR_PIN`（完整 SHA 优先）。**无 DeepSeek 覆盖层的库或 PIN 会非零退出**。引擎基线提交与控制层 fork 提交应分别记录（见 `docs/NEXT-ROUND.md`）。
 - 中文旁白 `tts_zh.py` 走微软 edge-tts（出网）；可改用离线 Kokoro。
 - 不要把含密钥的环境变量暴露给会执行 shell 的 agent。
 

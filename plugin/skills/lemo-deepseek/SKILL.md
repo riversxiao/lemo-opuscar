@@ -11,7 +11,7 @@ description: Direct and produce a short film made entirely in code with DeepSeek
 
 ## 启动步骤
 
-1. **拿库。** 运行 `sh "<skill base directory>/scripts/setup.sh"`。默认仓库是 fork：`https://github.com/riversxiao/lemo-opuscar`。最后一行打印 `LIB=<path>`。若要钉死版本：`export LEMO_OPUSCAR_PIN=<commit>`。
+1. **拿库。** 运行 `sh "<skill base directory>/scripts/setup.sh"`。默认仓库是 fork：`https://github.com/riversxiao/lemo-opuscar`。最后一行打印 `LIB=<path>`。若要钉死版本：`export LEMO_OPUSCAR_PIN=<full-sha-or-tag>`（完整 SHA 优先；钉到无 DeepSeek 覆盖层的提交会失败）。
 2. **装依赖。** 立刻后台跑 `sh "<skill base directory>/scripts/setup.sh" deps`。需要旁白再 `deps voice`，拨弦再 `deps music`。系统缺 Node 20+ / ffmpeg / Python 3.11+ 时在一轮提问里报告，不要擅自装系统包。
 3. **跟规程。** 先读 `$LIB/AGENTS.deepseek.md`（DeepSeek 覆盖层），再读 `$LIB/AGENTS.md`、`$LIB/DIRECTOR.md`、`$LIB/TECHNIQUE.md`，按 **Start → 一轮提问 → TREATMENT → 复制引擎 → 生产 → 自检** 执行。
 
