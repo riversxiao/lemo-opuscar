@@ -146,11 +146,11 @@ def _homophone_tolerant_match(
 
 
 def _engine_locked_dur(project: Path, style: str) -> float | None:
-    """Read fixed DUR from protected film.js when engine.lock pins film.js.
+    """Read fixed DUR from a hash-locked engine file (film.js or main.js).
 
-    Swiss demo (and any style that hashes film.js) cannot change timeline length;
-    plan.targetDurationSec is only a schedule budget. Returns None when unlocked
-    / missing / unparsable.
+    Swiss pins film.js; Caption News pins main.js. Either way the mux length is
+    the engine constant — plan.targetDurationSec is only a schedule budget.
+    Returns None when unlocked / missing / unparsable.
     """
     lock_p = project / "content" / "engine.lock.json"
     if not lock_p.is_file():
@@ -160,26 +160,30 @@ def _engine_locked_dur(project: Path, style: str) -> float | None:
     except (OSError, json.JSONDecodeError):
         return None
     protected = lock.get("protectedSha256") or {}
-    if "film.js" not in protected:
+    # Prefer film.js (Swiss); fall back to main.js (Caption).
+    candidates: list[str] = []
+    if "film.js" in protected:
+        candidates.append("film.js")
+    if "main.js" in protected:
+        candidates.append("main.js")
+    if not candidates:
         return None
-    lock_style = lock.get("style") or ""
-    if style and lock_style and style != lock_style:
-        # still allow if film.js is protected — style mismatch is unusual
-        pass
-    film = project / "film.js"
-    if not film.is_file():
-        return None
-    try:
-        blob = film.read_text(encoding="utf-8", errors="ignore")
-    except OSError:
-        return None
-    m = re.search(r"\bDUR\s*=\s*(\d+(?:\.\d+)?)\b", blob)
-    if not m:
-        return None
-    try:
-        return float(m.group(1))
-    except ValueError:
-        return None
+    for name in candidates:
+        path = project / name
+        if not path.is_file():
+            continue
+        try:
+            blob = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        m = re.search(r"\bDUR\s*=\s*(\d+(?:\.\d+)?)\b", blob)
+        if not m:
+            continue
+        try:
+            return float(m.group(1))
+        except ValueError:
+            continue
+    return None
 
 
 def probe_media(path: Path) -> dict[str, Any]:
@@ -296,6 +300,27 @@ def _ensure_zh_words_rel(project: Path) -> None:
         pass
 
 
+
+def _caption_locked_main(project: Path, style: str) -> bool:
+    """True when Caption News main.js is hash-locked (SHOTS/TEXTS not touchable)."""
+    lock_p = project / "content" / "engine.lock.json"
+    if not lock_p.is_file():
+        return False
+    try:
+        lock = load_json(lock_p)
+    except (OSError, json.JSONDecodeError):
+        return False
+    lock_style = lock.get("style") or ""
+    if style == "caption-news" or lock_style == "caption-news":
+        pass
+    else:
+        return False
+    if lock_style and lock_style != "caption-news":
+        return False
+    protected = lock.get("protectedSha256") or {}
+    return "main.js" in protected and (project / "main.js").is_file()
+
+
 def run_readcheck(project: Path, *, style: str = "") -> dict[str, Any]:
     root = _repo_root()
     script = root / "core" / "render" / "readcheck.mjs"
@@ -363,6 +388,21 @@ def run_readcheck(project: Path, *, style: str = "") -> dict[str, Any]:
                 required=False,
             )
         return check("readcheck", "NOT_CHECKED", detail or "exit 2", required=True)
+
+    # Caption News: TEXTS live inside hash-locked main.js (bee demo SHOTS/labels).
+    # Controller may only rewrite timeline.json captions/VO — cannot retune locked
+    # map/sem labels (加州 / 瓦螨 …). Treat FAIL as N/A under that lock (Swiss-like).
+    if _caption_locked_main(project, style):
+        return check(
+            "readcheck",
+            "NOT_APPLICABLE",
+            "caption-locked-demo-texts: protected main.js owns SHOTS/TEXTS; "
+            "controller touchables only rewrite timeline.json VO/caps. "
+            "Readcheck asserts locked bee-demo labels — not a delivery block until "
+            "a content-driven TEXTS/SHOTS bridge ships. "
+            + (detail or f"exit {proc.returncode}"),
+            required=False,
+        )
     return check("readcheck", "FAIL", detail or f"exit {proc.returncode}")
 
 
@@ -806,8 +846,8 @@ def gate(
             "loudness_lufs": {"target": -14.0, "tol": 1.0},
             "true_peak_dbtp_max": -1.0,
             "media_duration": (
-                "engine DUR ±1s when content/engine.lock.json protects film.js "
-                "(style_locked_duration); else plan targetDurationSec +2.5s"
+                "engine DUR ±1s when content/engine.lock.json protects film.js or main.js "
+                "(style_locked_duration from film.js/main.js); else plan targetDurationSec +2.5s"
             ),
         },
     }

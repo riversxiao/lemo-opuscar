@@ -487,6 +487,107 @@ else
   bad "delivery ASR resolve"
 fi
 
+# 20) style_locked_duration also reads protected main.js (Caption)
+if python3 - <<'PY'
+import json, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, "tools/deepseek-controller")
+import quality
+from common import dump_json
+
+td = Path(tempfile.mkdtemp(prefix="dc-cap-dur-"))
+(td / "content").mkdir()
+(td / "main.js").write_text("const W=1920, H=1080, FPS=30, DUR = 59.5;\nwindow.DUR=DUR;\n", encoding="utf-8")
+dump_json(td / "content" / "engine.lock.json", {
+    "style": "caption-news",
+    "protectedSha256": {"main.js": "x"},
+})
+assert quality._engine_locked_dur(td, "caption-news") == 59.5
+(td / "film.js").write_text("const DUR = 44;\n", encoding="utf-8")
+lock = json.loads((td / "content" / "engine.lock.json").read_text())
+lock["protectedSha256"]["film.js"] = "y"
+dump_json(td / "content" / "engine.lock.json", lock)
+assert quality._engine_locked_dur(td, "swiss-motion") == 44.0
+print("ok")
+PY
+then
+  ok "style_locked_duration reads main.js (Caption) and prefers film.js"
+else
+  bad "style_locked_duration main.js"
+fi
+
+# 21) caption timeline apply writes vo + engine dur
+if python3 - <<'PY'
+import json, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, "tools/deepseek-controller")
+from apply_caption_timeline import apply_caption_timeline
+from common import dump_json
+
+td = Path(tempfile.mkdtemp(prefix="dc-cap-tl-"))
+(td / "main.js").write_text("const DUR = 59.5;\n", encoding="utf-8")
+dump_json(td / "timeline.json", {
+    "fps": 30, "dur": 30, "vo": {}, "hook": {"t0": 0, "t1": 1, "zh": "x", "en": "x"}, "caps": [
+        {"t0": 0, "t1": 1, "zh": "a", "en": "a"},
+        {"t0": 0, "t1": 1, "zh": "b", "en": "b"},
+    ],
+})
+dump_json(td / "timeline.parsed.json", {
+    "scheduledDurationSec": 30.0,
+    "shots": [
+        {"id": "c1", "t0": 0.0, "t1": 3.5, "voIds": ["L01"], "role": "hook", "text": "流动性"},
+        {"id": "c2", "t0": 3.5, "t1": 7.0, "voIds": ["L02"], "role": "explain", "text": "现金"},
+    ],
+    "cues": [
+        {"type": "voice", "id": "L01", "shotId": "c1", "t": 0.35},
+        {"type": "voice", "id": "L02", "shotId": "c2", "t": 3.85},
+    ],
+})
+info = apply_caption_timeline(td)
+assert info["voCount"] == 2 and info["dur"] == 59.5
+tl = json.loads((td / "timeline.json").read_text())
+assert tl["vo"]["L01"] == 0.35 and tl["dur"] == 59.5
+assert tl["hook"]["t1"] == 3.5
+print("ok")
+PY
+then
+  ok "apply_caption_timeline sets vo + engine dur"
+else
+  bad "apply_caption_timeline"
+fi
+
+# 22) caption locked-main readcheck helper
+if python3 - <<'PY'
+import sys, tempfile
+from pathlib import Path
+sys.path.insert(0, "tools/deepseek-controller")
+import quality
+from common import dump_json
+td = Path(tempfile.mkdtemp(prefix="dc-cap-rc-"))
+(td / "content").mkdir()
+(td / "main.js").write_text("const DUR=59.5;\n", encoding="utf-8")
+dump_json(td / "content" / "engine.lock.json", {
+    "style": "caption-news",
+    "protectedSha256": {"main.js": "abc"},
+})
+assert quality._caption_locked_main(td, "caption-news") is True
+# style arg ignored when lock.style is caption-news
+assert quality._caption_locked_main(td, "swiss-motion") is True
+# non-caption lock → False
+dump_json(td / "content" / "engine.lock.json", {
+    "style": "swiss-motion",
+    "protectedSha256": {"film.js": "abc"},
+})
+assert quality._caption_locked_main(td, "swiss-motion") is False
+assert quality._caption_locked_main(td, "caption-news") is False
+print("ok")
+PY
+then
+  ok "caption locked-main readcheck helper"
+else
+  bad "caption locked-main helper"
+fi
+
 echo
 echo "Results: $pass passed, $fail failed"
 test "$fail" -eq 0

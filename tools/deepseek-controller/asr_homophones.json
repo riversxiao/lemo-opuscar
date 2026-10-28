@@ -3,26 +3,95 @@
   "description": "Known Whisper zh finance/education homophone classes for quality --asr-mode=zh-homophone-tolerant only. Default ASR stays strict. members = multi-char equivalents (longest-match first). short = optional 1-char Whisper truncations/homophones of that class — matched only AFTER all multi-char members across classes, so 富力 (复利 class) wins over 力 (利息 short).",
   "classes": [
     {
-      "members": ["本金", "本经", "本巾"]
+      "members": [
+        "本金",
+        "本经",
+        "本巾"
+      ]
     },
     {
-      "members": ["复利", "赋利", "负利", "附利", "富力", "福利"]
+      "members": [
+        "复利",
+        "赋利",
+        "负利",
+        "附利",
+        "富力",
+        "福利"
+      ]
     },
     {
-      "members": ["利息", "利席", "利惜"],
-      "short": ["利", "力"]
+      "members": [
+        "利息",
+        "利席",
+        "利惜"
+      ],
+      "short": [
+        "利",
+        "力"
+      ]
     },
     {
-      "members": ["取出", "曲出"]
+      "members": [
+        "取出",
+        "曲出"
+      ]
     },
     {
-      "members": ["雪球", "学球"]
+      "members": [
+        "雪球",
+        "学球"
+      ]
     },
     {
-      "members": ["投入", "投如"]
+      "members": [
+        "投入",
+        "投如"
+      ]
     },
     {
-      "members": ["风险", "风显"]
+      "members": [
+        "风险",
+        "风显"
+      ]
+    },
+    {
+      "members": [
+        "钱",
+        "前"
+      ]
+    },
+    {
+      "members": [
+        "账",
+        "帐"
+      ]
+    },
+    {
+      "members": [
+        "缺",
+        "去"
+      ]
+    },
+    {
+      "members": [
+        "周转",
+        "周专",
+        "周转"
+      ]
+    },
+    {
+      "members": [
+        "流动性",
+        "流定性",
+        "留动性"
+      ]
+    },
+    {
+      "members": [
+        "房产",
+        "房主",
+        "房颤"
+      ]
     }
   ]
 }

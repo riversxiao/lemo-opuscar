@@ -337,6 +337,19 @@ def main(argv: list[str] | None = None) -> int:
             f"content {timeline.get('contentDurationSec')}s)"
         )
     print(f"OK scheduled {timeline['scheduledDurationSec']}s{pad_note} → {out}")
+
+    # Caption News: push cues into touchable timeline.json (main.js SHOTS/DUR stay locked).
+    if style == "caption-news" and (project / "timeline.json").is_file():
+        try:
+            from apply_caption_timeline import apply_caption_timeline
+
+            info = apply_caption_timeline(project, parsed=timeline)
+            print(
+                f"OK applied caption timeline.json vo={info['voCount']} "
+                f"dur={info['dur']} (engine={info.get('engineDurSec')})"
+            )
+        except Exception as e:
+            print(f"WARN: caption timeline apply failed: {e}", file=sys.stderr)
     return 0
 
 

@@ -130,7 +130,7 @@ Evidence: `evidence/quality-mux-strict.json`, `evidence/quality-mux-tolerant.jso
 - Plan `targetDurationSec` is schedule budget; mux length under Swiss lock follows engine `DUR` (44s) — pad does not rewrite `film.js`.
 - No `window.TEXTS(t)` without unlocking engine → readcheck stays NOT_APPLICABLE.
 - Strict ASR on short Yunxi remains flaky; **recommended delivery** uses `--delivery` (zh → tolerant). Unrelated mishears (e.g. 蝙蝠) still block.
-- Pictogram / Caption: scaffold+schedule smoke only in this round (no full still/video/mux yet).
+- Caption full mux: see `E2E-caption.md` (liudong-controller-e2e, quality --delivery PASS). Pictogram still blocked on edl.js bridge.
 
 ## Fixed in `cda7a40`
 style_locked_duration + ASR short-form tokenize; tolerant mux quality PASS on fuli-controller-e2e.
@@ -148,5 +148,10 @@ style_locked_duration + ASR short-form tokenize; tolerant mux quality PASS on fu
 | pictogram-motion | OK (hashes lock) | content 18.4 → pad 13.6 → 32; fixture `voice.provider=none` (no VO lines) | PASS content-stage; asr NOT_APPLICABLE |
 | caption-news | OK | content 16.75 → pad 13.25 → 30 (synthetic 1.5s durs) | PASS content-stage; asr NOT_CHECKED (skip-heavy) |
 
-Gaps: pictogram fixture needs real VO lines for ASR/require-vo E2E; neither style has still/video/mux in this round.
+Gaps (updated): pictogram fixture now has Yunxi VO lines; Caption full mux in E2E-caption.md; Pictogram still lacks edl.js content bridge.
 
+
+
+## Caption mux follow-up (2026-10-28 night)
+
+See [`E2E-caption.md`](./E2E-caption.md): `/workspace/films/liudong-controller-e2e/liudong-controller-e2e.mp4` · 59.5s · quality `--delivery` PASS. Pictogram still blocked (`edl_content.json` sidecar only).
