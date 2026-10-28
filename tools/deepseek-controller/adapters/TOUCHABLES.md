@@ -45,3 +45,7 @@ Sync root `edl_content.json`, `lines.json`, `palette.json`, `CREDITS`. Do **not*
 
 ### Caption
 Sync root `timeline.json` (engine-fetched), `lines.json`, `audio/lines.json`, `facts.json`, `FACTS.md`, `palette.json`, `CREDITS`. Do **not** rewrite `main.js` (including hardcoded `SHOTS`).
+
+## Caption style versions
+
+`apply_caption_style_version.py --version liquidity-v001` unlocks **main.js only** on a sibling project. Default scaffold / `liudong-controller-e2e` keep demo `main.js` hash-locked.

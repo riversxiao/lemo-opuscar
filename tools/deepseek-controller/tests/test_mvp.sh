@@ -580,6 +580,15 @@ dump_json(td / "content" / "engine.lock.json", {
 })
 assert quality._caption_locked_main(td, "swiss-motion") is False
 assert quality._caption_locked_main(td, "caption-news") is False
+# styleVersion unlocks main.js
+dump_json(td / "content" / "engine.lock.json", {
+    "style": "caption-news",
+    "styleVersion": "liquidity-v001",
+    "unlocked": ["main.js"],
+    "protectedSha256": {"index.html": "abc"},
+    "versionSha256": {"main.js": "def"},
+})
+assert quality._caption_locked_main(td, "caption-news") is False
 print("ok")
 PY
 then
@@ -818,6 +827,67 @@ then
   ok "music_bed placeholder + cli mix / --vo-only"
 else
   bad "music_bed / cli mix"
+fi
+
+
+
+# 28) caption style-version liquidity-v001 unlocks main.js only; demo scaffold stays locked
+if python3 - <<'PY'
+import hashlib, json, shutil, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, "tools/deepseek-controller")
+from apply_caption_style_version import apply_style_version, default_lib
+from glue_caption import glue_caption
+import quality
+
+lib = default_lib()
+demo_main = lib / "styles/caption-news/demo/main.js"
+ver_main = lib / "styles/caption-news/versions/liquidity-v001/main.js"
+assert demo_main.is_file() and ver_main.is_file()
+assert hashlib.sha256(demo_main.read_bytes()).digest() != hashlib.sha256(ver_main.read_bytes()).digest()
+body = ver_main.read_text(encoding="utf-8")
+for bad in ("蜜蜂账本", "瓦螨", "THE BEE LEDGER", "加州"):
+    assert bad not in body, bad
+assert "流动性" in body and "LIQUIDITY" in body
+assert "DUR = 32" in body
+
+td = Path(tempfile.mkdtemp(prefix="dc-cap-sv-"))
+try:
+    glue_caption(
+        Path("tools/deepseek-controller/fixtures/plan-caption-news.json"),
+        td,
+        lib=lib,
+        force=True,
+    )
+    lock = json.loads((td / "content/engine.lock.json").read_text())
+    assert "main.js" in lock["protectedSha256"]
+    assert not lock.get("styleVersion")
+    h_demo = hashlib.sha256(demo_main.read_bytes()).hexdigest()
+    assert lock["protectedSha256"]["main.js"] == h_demo
+    assert quality._caption_locked_main(td, "caption-news") is True
+
+    apply_style_version(td, "liquidity-v001", lib=lib)
+    lock2 = json.loads((td / "content/engine.lock.json").read_text())
+    assert lock2.get("styleVersion") == "liquidity-v001"
+    assert "main.js" in lock2.get("unlocked", [])
+    assert "main.js" not in lock2.get("protectedSha256", {})
+    assert "index.html" in lock2["protectedSha256"]
+    assert "build.sh" in lock2["protectedSha256"]
+    h_ver = hashlib.sha256(ver_main.read_bytes()).hexdigest()
+    assert lock2["versionSha256"]["main.js"] == h_ver
+    assert hashlib.sha256((td / "main.js").read_bytes()).hexdigest() == h_ver
+    assert quality._caption_locked_main(td, "caption-news") is False
+    assert (td / "content/STYLE_VERSION.md").is_file()
+    body2 = (td / "main.js").read_text(encoding="utf-8")
+    assert "流动性" in body2 and "蜜蜂账本" not in body2
+finally:
+    shutil.rmtree(td, ignore_errors=True)
+print("ok")
+PY
+then
+  ok "caption style-version liquidity-v001 unlocks main only"
+else
+  bad "caption style-version liquidity-v001"
 fi
 
 

@@ -323,7 +323,11 @@ def _ensure_zh_words_rel(project: Path) -> None:
 
 
 def _caption_locked_main(project: Path, style: str) -> bool:
-    """True when Caption News main.js is hash-locked (SHOTS/TEXTS not touchable)."""
+    """True when Caption News main.js is hash-locked (SHOTS/TEXTS not touchable).
+
+    styleVersion overlays (e.g. liquidity-v001) unlock main.js — return False so
+    quality runs real readcheck against content-driven TEXTS.
+    """
     lock_p = project / "content" / "engine.lock.json"
     if not lock_p.is_file():
         return False
@@ -338,6 +342,11 @@ def _caption_locked_main(project: Path, style: str) -> bool:
         return False
     if lock_style and lock_style != "caption-news":
         return False
+    if lock.get("styleVersion"):
+        return False
+    unlocked = lock.get("unlocked") or []
+    if "main.js" in unlocked:
+        return False
     protected = lock.get("protectedSha256") or {}
     return "main.js" in protected and (project / "main.js").is_file()
 
@@ -349,6 +358,22 @@ def _pictogram_style_version(project: Path) -> str | None:
     try:
         lock = load_json(lock_p)
     except (OSError, json.JSONDecodeError):
+        return None
+    if (lock.get("style") or "") != "pictogram-motion":
+        return None
+    ver = lock.get("styleVersion")
+    return str(ver) if ver else None
+
+
+def _caption_style_version(project: Path) -> str | None:
+    lock_p = project / "content" / "engine.lock.json"
+    if not lock_p.is_file():
+        return None
+    try:
+        lock = load_json(lock_p)
+    except (OSError, json.JSONDecodeError):
+        return None
+    if (lock.get("style") or "") != "caption-news":
         return None
     ver = lock.get("styleVersion")
     return str(ver) if ver else None

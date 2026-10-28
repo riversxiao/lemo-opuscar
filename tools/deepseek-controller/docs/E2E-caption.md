@@ -137,3 +137,63 @@ Evidence: `evidence/quality-mux-delivery-real-assets.json`.
 ## Audio note
 
 Locked demo score packs are bee-demo length. Prefer **`cli mix`** (placeholder bed + VO) or `--vo-only`; do not regenerate locked bee `audio/mix.py` for content length. See `docs/MUSIC-BED.md`.
+
+## Style version liquidity-v001 (story-aligned sibling, 2026-10-29)
+
+**Problem:** locked `liudong-controller-e2e` keeps bee-demo `main.js` SHOTS (蜂场 / 瓦螨 / 加州) while VO/caps are 流动性 — picture ≠ narration. Unlocking demo `main.js` on that path would break the hash-lock workflow.
+
+**Approach (C + B):** sibling project + caption style version (mirrors pictogram `finance-v001`).
+
+| path | role |
+|---|---|
+| `/workspace/films/liudong-controller-e2e` | **unchanged** demo lock (`main.js` sha `541038bc…`) |
+| `styles/caption-news/versions/liquidity-v001/main.js` | maintainer overlay: DUR=32, liquidity SHOTS/TEXTS, no Commons bee pack |
+| `/workspace/films/liudong-caption-liquidity-v001` | sibling scaffold + `apply_caption_style_version.py --version liquidity-v001` |
+
+```bash
+LIB=/workspace/lemo-opuscar-deepseek
+P=/workspace/films/liudong-caption-liquidity-v001
+cd "$LIB"
+python3 tools/deepseek-controller/cli.py scaffold \
+  tools/deepseek-controller/fixtures/plan-caption-news.json -o "$P" --lib "$LIB" --force
+python3 tools/deepseek-controller/apply_caption_style_version.py \
+  --project "$P" --version liquidity-v001 --lib "$LIB"
+# reuse Yunxi VO from e2e (or re-TTS)
+mkdir -p "$P/voices" "$P/audio/vo"
+cp -f /workspace/films/liudong-controller-e2e/voices/*.wav \
+      /workspace/films/liudong-controller-e2e/voices/dur.json "$P/voices/"
+cp -f "$P/voices/"*.wav "$P/voices/dur.json" "$P/audio/vo/"
+python3 tools/deepseek-controller/post_tts.py --project "$P"
+python3 tools/deepseek-controller/cli.py schedule --project "$P" --require-vo
+python3 tools/deepseek-controller/cli.py mix --project "$P" --preset soft-pulse --bed-gain 0.72
+node core/render/events.mjs "$P"
+node core/render/still.mjs "$P" 1.0 5.0 10.0 18.0 28.0 --out "$P/out/still" --prefix k_
+node core/render/video.mjs "$P" --fps 30 --workers 3 --out "$P/out/video.mp4"
+sh core/render/mux.sh "$P/out/video.mp4" "$P/out/mix.wav" "$P/liudong-caption-liquidity-v001.mp4" 30 0
+python3 tools/deepseek-controller/cli.py quality --project "$P" \
+  --media "$P/liudong-caption-liquidity-v001.mp4" --delivery
+```
+
+### Deliverable (box-only)
+
+| artifact | notes |
+|---|---|
+| **MP4** | `…/liudong-caption-liquidity-v001.mp4` · **32.0 s** · ~3.9 MB · 1080p30 · **I=−14.2 / TP=−1.2** |
+| stills | hook「账上有钱≠随时能用」、sting「流动性」、split 现金0天/房产90天 — **no bees** |
+| music | `cli mix --preset soft-pulse` (locked `audio/mix.py` untouched) |
+| evidence | `evidence/quality-mux-delivery.json` |
+
+### quality `--delivery` — **PASS**, deliveryAllowed=true
+
+| check | status | note |
+|---|---|---|
+| media_duration | PASS | style_locked_duration → versioned `DUR=32` |
+| loudness_ebur128 | PASS | bed-gain 0.72 for TP≤−1.2 |
+| readcheck | **PASS** | content TEXTS (unlocked main); `_pictogram_style_version` gated on style=pictogram so caption versions are not N/A-misrouted |
+| asr_check | PASS | `--delivery` zh-homophone-tolerant |
+
+### Controller fixes
+
+1. `apply_caption_style_version.py` — unlock `main.js` only; keep `index.html`/`build.sh` demo-protected
+2. `_caption_locked_main` returns False under `styleVersion` / unlocked `main.js`
+3. `_pictogram_style_version` requires `lock.style == pictogram-motion` (do not steal caption versions)
