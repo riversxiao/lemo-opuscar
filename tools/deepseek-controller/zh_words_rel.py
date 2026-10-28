@@ -13,6 +13,7 @@ CJK = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff]")
 
 
 def build(project: Path) -> Path:
+    project = Path(project).resolve()
     lines_p = project / "lines.json"
     if not lines_p.is_file():
         lines_p = project / "content" / "lines.json"

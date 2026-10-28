@@ -3,6 +3,10 @@
   "scheduledDurationSec": 17.25,
   "beatGridSec": 0.25,
   "fitsTarget": true,
+  "requireVo": true,
+  "ok": true,
+  "errors": [],
+  "warnings": [],
   "shots": [
     {
       "id": "s1",

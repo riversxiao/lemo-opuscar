@@ -106,3 +106,18 @@ python3 tools/deepseek-controller/cli.py quality --project /tmp/film-fuli --medi
 ### 与评估文档的对应
 
 见 [`docs/NEXT-ROUND.md`](../../docs/NEXT-ROUND.md) P1。12 支对照与完整 Playwright 出片不在本 PR。
+
+## Quality flags (post E2E fixes)
+
+```bash
+# Absolute --project recommended; relative `.` is resolved.
+python3 tools/deepseek-controller/cli.py quality --project "$P" --require-vo
+
+# Default ASR is strict. Finance Whisper homophones (本金/本经, 复利/赋利, …):
+python3 tools/deepseek-controller/cli.py quality --project "$P" --require-vo \
+  --asr-mode=zh-homophone-tolerant
+```
+
+- `schedule` writes `ok` / `errors` on `timeline.parsed.json`. Quality fails if `ok` is false or VO durs are missing when the plan has voice lines.
+- Swiss scaffold fetches OFL `.ttf` via `fetch_fonts.py` and writes `voices/words_rel.json` for zh (`zh_words_rel.py` / `post_tts.py`). Do **not** run English `tools/words.py` on CJK.
+- Swiss readcheck without `window.TEXTS(t)` → `NOT_APPLICABLE` (`swiss-demo-without-registry`), not a forever-blocking `NOT_CHECKED`.

@@ -37,6 +37,8 @@ All three: copy `styles/<slug>/demo/` → project → `adapt` → sync touchable
 
 ### Swiss
 Sync root `lines.json`, `palette.json` sidecar, `CREDITS`. Leave `events.json` for later. Do **not** patch `film.js` `C`.
+Scaffold also fetches missing `fonts/*.ttf` (gitignored binaries; Flash still must not edit fonts) and writes zh `voices/words_rel.json`.
+Known gap: no touchable `window.TEXTS` registry — quality uses readcheck `NOT_APPLICABLE`.
 
 ### Pictogram
 Sync root `edl_content.json`, `lines.json`, `palette.json`, `CREDITS`. Do **not** rewrite `edl.js` / `engine.js` / `scenes.js`.

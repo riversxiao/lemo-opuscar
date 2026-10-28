@@ -4,6 +4,8 @@
   "style": "swiss-motion",
   "overall": "FAIL",
   "deliveryAllowed": false,
+  "asrMode": "strict",
+  "requireVo": true,
   "checks": [
     {
       "name": "plan_present",
@@ -14,7 +16,7 @@
     {
       "name": "schedule_fits_target",
       "status": "PASS",
-      "detail": "17.25s <= 32.0s",
+      "detail": "17.25s <= 32.0s (require-vo OK)",
       "required": true
     },
     {
@@ -37,9 +39,9 @@
     },
     {
       "name": "readcheck",
-      "status": "NOT_CHECKED",
-      "detail": "skipped (--skip-heavy)",
-      "required": true
+      "status": "NOT_APPLICABLE",
+      "detail": "swiss-demo-without-registry (+ skipped heavy run)",
+      "required": false
     },
     {
       "name": "asr_check",

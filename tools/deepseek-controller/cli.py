@@ -96,6 +96,10 @@ def cmd_quality(args: argparse.Namespace) -> int:
         argv.append("--skip-heavy")
     if args.allow_unchecked:
         argv.append("--allow-unchecked")
+    if getattr(args, "require_vo", False):
+        argv.append("--require-vo")
+    if getattr(args, "asr_mode", None):
+        argv += ["--asr-mode", args.asr_mode]
     if args.output:
         argv += ["-o", args.output]
     return quality_main(argv)
@@ -144,6 +148,17 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--force-fail", action="append", default=[])
     q.add_argument("--skip-heavy", action="store_true")
     q.add_argument("--allow-unchecked", action="store_true")
+    q.add_argument(
+        "--require-vo",
+        action="store_true",
+        help="fail schedule check if measured VO missing (also implied when plan has voice lines)",
+    )
+    q.add_argument(
+        "--asr-mode",
+        choices=("strict", "zh-homophone-tolerant"),
+        default="strict",
+        help="strict (default) or zh-homophone-tolerant (lexicon fold; never silent override)",
+    )
     q.add_argument("-o", "--output")
     q.set_defaults(func=cmd_quality)
 

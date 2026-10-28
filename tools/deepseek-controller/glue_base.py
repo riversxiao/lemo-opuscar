@@ -171,10 +171,12 @@ def write_project_md(
     protected_list: str,
     content_blurb: str,
     tts_lines: str,
+    extra_steps: str = "",
 ) -> Path:
     topic = plan.get("topic", "film")
     rel_ctl = "tools/deepseek-controller"
     demo_rel = STYLE_DEMO[style]
+    extra = ("\n" + extra_steps.strip() + "\n") if extra_steps else ""
     text = f"""# PROJECT — {topic} ({style})
 
 Scaffolded by DeepSeek controller thin glue.
@@ -202,16 +204,16 @@ python3 {rel_ctl}/cli.py schedule --project {project} --require-vo
 # follow styles/{style}/STYLE.md or project build.sh
 
 # 4) Quality gate (omit --allow-unchecked for formal delivery)
-python3 {rel_ctl}/cli.py quality --project {project} --media {project}/out.mp4
-```
+python3 {rel_ctl}/cli.py quality --project {project} --media {project}/out.mp4 --require-vo
+{extra}```
 
 ## Content source of truth
 
 {content_blurb}
 """
-    path = project / "PROJECT.md"
-    path.write_text(text, encoding="utf-8")
-    return path
+    path_out = project / "PROJECT.md"
+    path_out.write_text(text, encoding="utf-8")
+    return path_out
 
 
 def prepare_project(

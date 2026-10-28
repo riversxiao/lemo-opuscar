@@ -3,6 +3,12 @@
   "scheduledDurationSec": 57.0,
   "beatGridSec": 0.25,
   "fitsTarget": false,
+  "requireVo": true,
+  "ok": false,
+  "errors": [
+    "scheduled duration 57.00s exceeds target 32.00s — cut copy / drop a shot (controller will not silent K-scale as final)"
+  ],
+  "warnings": [],
   "shots": [
     {
       "id": "s1",

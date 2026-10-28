@@ -152,6 +152,116 @@ else
   bad "scaffold caption: $(cat /tmp/dc-sc3.out) $(cat /tmp/dc-sc3.err)"
 fi
 
+# 11) quality schedule must FAIL when VO required but dur.json empty (fitsTarget alone insufficient)
+rm -rf /tmp/dc-q-novo
+cp -a "$FIX/out-swiss-motion" /tmp/dc-q-novo
+# empty measured durs + write a "fits" timeline that would look OK without require-vo
+python3 - <<'PY'
+import json
+from pathlib import Path
+p = Path("/tmp/dc-q-novo")
+(p / "voices").mkdir(exist_ok=True)
+(p / "voices" / "dur.json").write_text("{}\n", encoding="utf-8")
+# remove wavs if any
+for w in (p / "voices").glob("*.wav"):
+    w.unlink()
+tl = {
+  "targetDurationSec": 32.0,
+  "scheduledDurationSec": 12.0,
+  "beatGridSec": 0.25,
+  "fitsTarget": True,
+  "requireVo": True,
+  "ok": False,
+  "errors": ["missing VO duration for line 'l1'"],
+  "warnings": [],
+  "shots": [],
+  "cues": [],
+}
+(p / "timeline.parsed.json").write_text(json.dumps(tl, indent=2) + "\n", encoding="utf-8")
+PY
+if "${CLI[@]}" quality --project /tmp/dc-q-novo --skip-heavy --allow-unchecked \
+  -o /tmp/dc-q-novo/quality.json >/tmp/dc-q-novo.out 2>/tmp/dc-q-novo.err; then
+  bad "quality should FAIL when timeline.ok=false / missing VO"
+else
+  if grep -q 'schedule_fits_target' /tmp/dc-q-novo/quality.json \
+    && python3 -c 'import json;q=json.load(open("/tmp/dc-q-novo/quality.json"));c={x["name"]:x for x in q["checks"]};assert c["schedule_fits_target"]["status"]=="FAIL";assert q["overall"]=="FAIL"'; then
+    ok "quality fails schedule when require-vo would fail (not fooled by fitsTarget)"
+  else
+    bad "quality novo schedule check: $(cat /tmp/dc-q-novo.out) $(cat /tmp/dc-q-novo.err) $(cat /tmp/dc-q-novo/quality.json)"
+  fi
+fi
+
+# 12) quality --project . resolves absolute path (no 'index.html in .')
+rm -rf /tmp/dc-q-rel
+cp -a /tmp/dc-scaffold-swiss /tmp/dc-q-rel 2>/dev/null || true
+if test ! -d /tmp/dc-q-rel; then
+  "${CLI[@]}" scaffold "$FIX/plan-swiss-motion.json" -o /tmp/dc-q-rel --lib "$ROOT" --force >/dev/null 2>&1 || true
+fi
+# ensure dur so schedule check can pass under has_vo
+python3 - <<'PY'
+import json
+from pathlib import Path
+p = Path("/tmp/dc-q-rel")
+plan = json.loads((p/"content"/"plan.json").read_text())
+durs = {ln["id"]: 1.0 for ln in (plan.get("voice") or {}).get("lines") or []}
+(p/"voices").mkdir(exist_ok=True)
+(p/"voices"/"dur.json").write_text(json.dumps(durs)+"\n")
+# minimal ok timeline
+shots = [{"id":s["id"],"t0":0,"t1":1,"dur":1,"voIds":[],"voDur":0,"readSec":0.5,"text":s.get("text","")} for s in plan["shots"]]
+tl={"targetDurationSec":plan["targetDurationSec"],"scheduledDurationSec":1.0,"beatGridSec":0.25,"fitsTarget":True,"requireVo":True,"ok":True,"errors":[],"warnings":[],"shots":shots,"cues":[]}
+(p/"timeline.parsed.json").write_text(json.dumps(tl)+"\n")
+PY
+pushd /tmp/dc-q-rel >/dev/null
+if "${CLI[@]}" quality --project . --skip-heavy --allow-unchecked \
+  -o /tmp/dc-q-rel-abs.json >/tmp/dc-q-rel.out 2>/tmp/dc-q-rel.err; then
+  if python3 -c 'import json;q=json.load(open("/tmp/dc-q-rel-abs.json"));assert q["project"].startswith("/"), q["project"];assert "no index.html in \".\"" not in json.dumps(q)'; then
+    ok "quality --project . resolves to absolute path"
+  else
+    bad "quality relative path still broken: $(cat /tmp/dc-q-rel-abs.json)"
+  fi
+else
+  if python3 -c 'import json;q=json.load(open("/tmp/dc-q-rel-abs.json"));assert q["project"].startswith("/");print(q["project"])' 2>/dev/null; then
+    ok "quality --project . resolves to absolute path (overall may fail)"
+  else
+    bad "quality --project . : $(cat /tmp/dc-q-rel.out) $(cat /tmp/dc-q-rel.err)"
+  fi
+fi
+popd >/dev/null
+
+# 13) scaffold swiss writes words_rel.json for zh + fetches fonts
+if test -f /tmp/dc-scaffold-swiss/voices/words_rel.json \
+  && python3 -c 'import json;d=json.load(open("/tmp/dc-scaffold-swiss/voices/words_rel.json"));assert d, d'; then
+  ok "scaffold swiss writes zh words_rel.json"
+else
+  # re-scaffold if earlier run was before fix
+  rm -rf /tmp/dc-scaffold-swiss2
+  export LEMO_FONT_CACHE="/workspace/films/fuli-controller-e2e/fonts"
+  if "${CLI[@]}" scaffold "$FIX/plan-swiss-motion.json" -o /tmp/dc-scaffold-swiss2 --lib "$ROOT" --force >/tmp/dc-sc-zh.out 2>/tmp/dc-sc-zh.err \
+    && test -f /tmp/dc-scaffold-swiss2/voices/words_rel.json; then
+    ok "scaffold swiss writes zh words_rel.json"
+  else
+    bad "scaffold zh words_rel: $(cat /tmp/dc-sc-zh.out 2>/dev/null) $(cat /tmp/dc-sc-zh.err 2>/dev/null)"
+  fi
+fi
+
+# 14) scaffold swiss fonts present (Archivo-VF etc.)
+FONT_PROJ=/tmp/dc-scaffold-swiss2
+test -d "$FONT_PROJ" || FONT_PROJ=/tmp/dc-scaffold-swiss
+if test -f "$FONT_PROJ/fonts/Archivo-VF.ttf" \
+  && test -f "$FONT_PROJ/fonts/DMSerifDisplay-Regular.ttf" \
+  && test -f "$FONT_PROJ/fonts/UnifrakturMaguntia-Regular.ttf"; then
+  ok "scaffold swiss fetches/copies required .ttf fonts"
+else
+  export LEMO_FONT_CACHE="/workspace/films/fuli-controller-e2e/fonts"
+  rm -rf /tmp/dc-scaffold-fonts
+  if "${CLI[@]}" scaffold "$FIX/plan-swiss-motion.json" -o /tmp/dc-scaffold-fonts --lib "$ROOT" --force >/tmp/dc-sc-f.out 2>/tmp/dc-sc-f.err \
+    && test -f /tmp/dc-scaffold-fonts/fonts/Archivo-VF.ttf; then
+    ok "scaffold swiss fetches/copies required .ttf fonts"
+  else
+    bad "scaffold fonts: $(cat /tmp/dc-sc-f.out) $(cat /tmp/dc-sc-f.err); ls $(ls /tmp/dc-scaffold-fonts/fonts 2>/dev/null)"
+  fi
+fi
+
 echo
 echo "Results: $pass passed, $fail failed"
 test "$fail" -eq 0

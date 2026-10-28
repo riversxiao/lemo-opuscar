@@ -161,11 +161,18 @@ def schedule(
             f"cut copy / drop a shot (controller will not silent K-scale as final)"
         )
 
+    warns = [e for e in errors if e.startswith("WARN:")]
+    all_errors = hard_errors + warns
+    ok = len(hard_errors) == 0
     timeline = {
         "targetDurationSec": target_duration,
         "scheduledDurationSec": total,
         "beatGridSec": beat_grid,
         "fitsTarget": total <= target_duration + 1e-6,
+        "requireVo": bool(require_all_vo),
+        "ok": ok,
+        "errors": list(hard_errors),
+        "warnings": list(warns),
         "shots": parsed_shots,
         "cues": [
             {"type": "voice", "id": vid, "shotId": s["id"], "t": s["t0"] + enter}
@@ -173,7 +180,7 @@ def schedule(
             for vid in s["voIds"]
         ],
     }
-    return timeline, hard_errors + [e for e in errors if e.startswith("WARN:")]
+    return timeline, all_errors
 
 
 def _load_shots_from_project(project: Path) -> list[dict[str, Any]]:

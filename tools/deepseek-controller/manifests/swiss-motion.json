@@ -81,7 +81,8 @@
     "lines.json",
     "palette.json",
     "CREDITS",
-    "PROJECT.md"
+    "PROJECT.md",
+    "voices/words_rel.json"
   ],
   "notes": "Adapter writes content/*. Flash may not edit ease.js / film.js / mix.py. Wire content into a project copy of demo via thin project glue only."
 }
