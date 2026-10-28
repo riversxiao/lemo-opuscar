@@ -121,3 +121,5 @@ python3 tools/deepseek-controller/cli.py quality --project "$P" --require-vo \
 - `schedule` writes `ok` / `errors` on `timeline.parsed.json`. Quality fails if `ok` is false or VO durs are missing when the plan has voice lines.
 - Swiss scaffold fetches OFL `.ttf` via `fetch_fonts.py` and writes `voices/words_rel.json` for zh (`zh_words_rel.py` / `post_tts.py`). Do **not** run English `tools/words.py` on CJK.
 - Swiss readcheck without `window.TEXTS(t)` → `NOT_APPLICABLE` (`swiss-demo-without-registry`), not a forever-blocking `NOT_CHECKED`.
+- When `content/engine.lock.json` protects `film.js`, `media_duration` uses **`style_locked_duration`**: compare mux length to engine `DUR` (±1s). Plan `targetDurationSec` stays the schedule budget.
+- `--asr-mode=zh-homophone-tolerant` uses `asr_homophones.json` v2 (`members` + optional `short` truncations, longest-match). Default ASR stays **strict**.

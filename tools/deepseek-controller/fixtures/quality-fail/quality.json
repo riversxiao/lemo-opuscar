@@ -6,6 +6,7 @@
   "deliveryAllowed": false,
   "asrMode": "strict",
   "requireVo": true,
+  "engineLockedDurSec": null,
   "checks": [
     {
       "name": "plan_present",
@@ -67,6 +68,7 @@
       "target": -14.0,
       "tol": 1.0
     },
-    "true_peak_dbtp_max": -1.0
+    "true_peak_dbtp_max": -1.0,
+    "media_duration": "engine DUR ±1s when content/engine.lock.json protects film.js (style_locked_duration); else plan targetDurationSec +2.5s"
   }
 }

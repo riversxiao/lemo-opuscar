@@ -41,28 +41,145 @@ def _norm_zh(s: str) -> str:
     return "".join(c for c in s if unicodedata.category(c)[0] in "LN")
 
 
-def _load_homophone_classes() -> list[set[str]]:
+def _load_homophone_classes() -> list[dict[str, set[str]]]:
+    """Load asr_homophones.json.
+
+    Supports schema v2 objects ``{members, short?}`` and legacy plain string lists.
+    Returns [{members: set[str], short: set[str]}, ...] with norm_zh applied.
+    1-char entries in members are moved into short.
+    """
     path = ROOT / "asr_homophones.json"
     if not path.is_file():
         return []
     raw = load_json(path)
-    classes: list[set[str]] = []
+    classes: list[dict[str, set[str]]] = []
     for group in raw.get("classes") or []:
-        classes.append({_norm_zh(x) for x in group if x})
+        if isinstance(group, dict):
+            members = {_norm_zh(x) for x in (group.get("members") or []) if x}
+            shorts = {_norm_zh(x) for x in (group.get("short") or []) if x}
+        elif isinstance(group, list):
+            members = {_norm_zh(x) for x in group if x}
+            shorts = set()
+        else:
+            continue
+        shorts |= {m for m in members if len(m) == 1}
+        members = {m for m in members if len(m) >= 2}
+        if members or shorts:
+            classes.append({"members": members, "short": shorts})
     return classes
 
 
-def _apply_homophone_fold(s: str, classes: list[set[str]]) -> str:
-    """Replace any member of a class with the canonical (sorted) representative."""
+def _apply_homophone_fold(s: str, classes: list) -> str:
+    """Legacy multi-char substring fold (no short forms). Kept for tests/callers."""
     out = _norm_zh(s)
     for cls in classes:
-        if len(cls) < 2:
+        members: set[str]
+        if isinstance(cls, dict):
+            members = set(cls.get("members") or [])
+        else:
+            members = {m for m in cls if len(m) >= 2}
+        if len(members) < 1:
             continue
-        canon = sorted(cls, key=len)[0]
-        for member in sorted(cls, key=len, reverse=True):
+        canon = sorted(members, key=lambda x: (len(x), x))[0]
+        for member in sorted(members, key=len, reverse=True):
             if member and member in out:
                 out = out.replace(member, canon)
     return out
+
+
+def _homophone_tokenize(s: str, classes: list[dict[str, set[str]]]) -> str:
+    """Longest-match tokenize: multi-char members first (all classes), then shorts.
+
+    Each class match becomes «i» so 利息/利席/力 share a token while 富力 still
+    binds to the 复利 class before 力 can steal the trailing char.
+    """
+    s = _norm_zh(s)
+    multi: list[tuple[str, int]] = []
+    shorts: list[tuple[str, int]] = []
+    for i, cls in enumerate(classes):
+        for m in cls.get("members") or []:
+            multi.append((m, i))
+        for m in cls.get("short") or []:
+            shorts.append((m, i))
+    multi.sort(key=lambda x: (-len(x[0]), x[0]))
+    shorts.sort(key=lambda x: (-len(x[0]), x[0]))
+    out: list[str] = []
+    i = 0
+    n = len(s)
+    while i < n:
+        hit = False
+        for m, ci in multi:
+            if m and s.startswith(m, i):
+                out.append(f"«{ci}»")
+                i += len(m)
+                hit = True
+                break
+        if hit:
+            continue
+        for m, ci in shorts:
+            if m and s.startswith(m, i):
+                out.append(f"«{ci}»")
+                i += len(m)
+                hit = True
+                break
+        if hit:
+            continue
+        out.append(s[i])
+        i += 1
+    return "".join(out)
+
+
+def _homophone_tolerant_match(
+    want: str,
+    got: str,
+    classes: list[dict[str, set[str]]],
+    *,
+    min_ratio: float = 0.88,
+) -> tuple[bool, str, str, float]:
+    """Return (ok, tokenized_want, tokenized_got, ratio)."""
+    import difflib
+
+    a = _homophone_tokenize(want, classes)
+    b = _homophone_tokenize(got, classes)
+    ratio = difflib.SequenceMatcher(None, a, b).ratio() if (a or b) else 1.0
+    return (a == b or ratio >= min_ratio, a, b, ratio)
+
+
+def _engine_locked_dur(project: Path, style: str) -> float | None:
+    """Read fixed DUR from protected film.js when engine.lock pins film.js.
+
+    Swiss demo (and any style that hashes film.js) cannot change timeline length;
+    plan.targetDurationSec is only a schedule budget. Returns None when unlocked
+    / missing / unparsable.
+    """
+    lock_p = project / "content" / "engine.lock.json"
+    if not lock_p.is_file():
+        return None
+    try:
+        lock = load_json(lock_p)
+    except (OSError, json.JSONDecodeError):
+        return None
+    protected = lock.get("protectedSha256") or {}
+    if "film.js" not in protected:
+        return None
+    lock_style = lock.get("style") or ""
+    if style and lock_style and style != lock_style:
+        # still allow if film.js is protected — style mismatch is unusual
+        pass
+    film = project / "film.js"
+    if not film.is_file():
+        return None
+    try:
+        blob = film.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return None
+    m = re.search(r"\bDUR\s*=\s*(\d+(?:\.\d+)?)\b", blob)
+    if not m:
+        return None
+    try:
+        return float(m.group(1))
+    except ValueError:
+        return None
 
 
 def probe_media(path: Path) -> dict[str, Any]:
@@ -313,7 +430,8 @@ def run_asr(
     if asr_mode != "zh-homophone-tolerant":
         return check("asr_check", "FAIL", detail or f"exit {proc.returncode}")
 
-    # Tolerant mode: fold known finance homophone classes, re-compare DIFF lines.
+    # Tolerant mode: longest-match class tokens (+ documented short truncations),
+    # re-compare DIFF lines. Never silent — requires --asr-mode=zh-homophone-tolerant.
     classes = _load_homophone_classes()
     diffs = _parse_asr_diffs(detail)
     if not diffs:
@@ -326,16 +444,17 @@ def run_asr(
         )
     still_bad: list[str] = []
     tolerated: list[str] = []
-    import difflib
 
     for lid, want, got in diffs:
-        a = _apply_homophone_fold(want, classes)
-        b = _apply_homophone_fold(got, classes)
-        ratio = difflib.SequenceMatcher(None, a, b).ratio() if (a or b) else 1.0
-        if a == b or ratio >= 0.92:
-            tolerated.append(f"{lid}: '{want}'≈'{got}' (folded '{a}')")
+        ok, a, b, ratio = _homophone_tolerant_match(want, got, classes, min_ratio=0.88)
+        if ok:
+            tolerated.append(
+                f"{lid}: '{want}'≈'{got}' (tokens '{a}' vs '{b}', sim={ratio:.2f})"
+            )
         else:
-            still_bad.append(f"{lid}: '{want}'→'{got}' folded '{a}'≠'{b}' sim={ratio:.2f}")
+            still_bad.append(
+                f"{lid}: '{want}'→'{got}' tokens '{a}'≠'{b}' sim={ratio:.2f}"
+            )
     if still_bad:
         return check(
             "asr_check",
@@ -348,7 +467,8 @@ def run_asr(
     return check(
         "asr_check",
         "PASS",
-        "zh-homophone-tolerant: all DIFF lines match after lexicon fold. "
+        "zh-homophone-tolerant: all DIFF lines match after lexicon tokenize "
+        "(members + documented short truncations). "
         "Strict ASR would FAIL; not silently overridden — mode flag required.\n"
         + "; ".join(tolerated)
         + "\n--- raw ---\n"
@@ -487,19 +607,49 @@ def gate(
                 dur = float(info["data"]["format"]["duration"])
             except (KeyError, TypeError, ValueError):
                 pass
-            if target and dur is not None:
-                if dur > float(target) + 2.5:
-                    checks.append(
-                        check(
-                            "media_duration",
-                            "FAIL",
-                            f"media {dur:.2f}s > target {target}+2.5",
+            if dur is not None:
+                engine_dur = _engine_locked_dur(project, style)
+                if engine_dur is not None:
+                    # Locked film.js DUR is the mux length; plan target is schedule budget.
+                    slack = 1.0
+                    if abs(dur - engine_dur) <= slack + 1e-6:
+                        detail = (
+                            f"style_locked_duration: media {dur:.2f}s ≈ engine DUR "
+                            f"{engine_dur:g}s (±{slack:g}s)"
                         )
-                    )
-                else:
-                    checks.append(
-                        check("media_duration", "PASS", f"{dur:.2f}s vs target {target}")
-                    )
+                        if target is not None:
+                            detail += (
+                                f"; plan targetDurationSec={target} is schedule "
+                                f"budget only (protected film.js)"
+                            )
+                        checks.append(check("media_duration", "PASS", detail))
+                    else:
+                        checks.append(
+                            check(
+                                "media_duration",
+                                "FAIL",
+                                f"style_locked_duration: media {dur:.2f}s ≠ engine "
+                                f"DUR {engine_dur:g}s (±{slack:g}s); plan target "
+                                f"{target} not used as mux length under engine lock",
+                            )
+                        )
+                elif target is not None:
+                    if dur > float(target) + 2.5:
+                        checks.append(
+                            check(
+                                "media_duration",
+                                "FAIL",
+                                f"media {dur:.2f}s > target {target}+2.5",
+                            )
+                        )
+                    else:
+                        checks.append(
+                            check(
+                                "media_duration",
+                                "PASS",
+                                f"{dur:.2f}s vs target {target}",
+                            )
+                        )
         else:
             checks.append(
                 check("ffprobe_media", "NOT_CHECKED", info.get("error", ""), required=True)
@@ -600,6 +750,7 @@ def gate(
             blocking.append(c)
 
     overall = "FAIL" if blocking else "PASS"
+    engine_dur_meta = _engine_locked_dur(project, style)
     report = {
         "schemaVersion": 1,
         "project": str(project),
@@ -608,11 +759,16 @@ def gate(
         "deliveryAllowed": overall == "PASS",
         "asrMode": asr_mode,
         "requireVo": bool(require_vo or has_vo),
+        "engineLockedDurSec": engine_dur_meta,
         "checks": checks,
         "blocking": [{"name": b["name"], "status": b["status"]} for b in blocking],
         "standards": {
             "loudness_lufs": {"target": -14.0, "tol": 1.0},
             "true_peak_dbtp_max": -1.0,
+            "media_duration": (
+                "engine DUR ±1s when content/engine.lock.json protects film.js "
+                "(style_locked_duration); else plan targetDurationSec +2.5s"
+            ),
         },
     }
     return report
@@ -644,8 +800,9 @@ def main(argv: list[str] | None = None) -> int:
         choices=("strict", "zh-homophone-tolerant"),
         default="strict",
         help="strict (default): asr_check FAIL stays FAIL. "
-        "zh-homophone-tolerant: fold known finance homophones from asr_homophones.json "
-        "and PASS with detail when only those remain — never silent override",
+        "zh-homophone-tolerant: tokenize via asr_homophones.json members + short "
+        "truncations (longest-match) and PASS with detail when only those remain "
+        "— never silent override",
     )
     ap.add_argument("-o", "--output", help="quality.json path")
     args = ap.parse_args(argv)

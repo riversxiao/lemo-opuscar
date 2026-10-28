@@ -1,40 +1,28 @@
 {
-  "schemaVersion": 1,
-  "description": "Known Whisper zh finance / education homophone pairs. Used only with quality --asr-mode=zh-homophone-tolerant. Default ASR stays strict. Pairs are unordered equivalence classes after norm_zh.",
+  "schemaVersion": 2,
+  "description": "Known Whisper zh finance/education homophone classes for quality --asr-mode=zh-homophone-tolerant only. Default ASR stays strict. members = multi-char equivalents (longest-match first). short = optional 1-char Whisper truncations/homophones of that class — matched only AFTER all multi-char members across classes, so 富力 (复利 class) wins over 力 (利息 short).",
   "classes": [
-    [
-      "本金",
-      "本经",
-      "本巾"
-    ],
-    [
-      "复利",
-      "赋利",
-      "负利",
-      "附利",
-      "富力",
-      "福利"
-    ],
-    [
-      "利息",
-      "利席",
-      "利惜"
-    ],
-    [
-      "取出",
-      "曲出"
-    ],
-    [
-      "雪球",
-      "学球"
-    ],
-    [
-      "投入",
-      "投如"
-    ],
-    [
-      "风险",
-      "风显"
-    ]
+    {
+      "members": ["本金", "本经", "本巾"]
+    },
+    {
+      "members": ["复利", "赋利", "负利", "附利", "富力", "福利"]
+    },
+    {
+      "members": ["利息", "利席", "利惜"],
+      "short": ["利", "力"]
+    },
+    {
+      "members": ["取出", "曲出"]
+    },
+    {
+      "members": ["雪球", "学球"]
+    },
+    {
+      "members": ["投入", "投如"]
+    },
+    {
+      "members": ["风险", "风显"]
+    }
   ]
 }

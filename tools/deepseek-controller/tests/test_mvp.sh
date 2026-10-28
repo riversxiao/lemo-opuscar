@@ -297,6 +297,130 @@ else
   bad "ebur128 Summary parse"
 fi
 
+# 16) style_locked_duration: media ≈ engine DUR passes even when plan target is shorter
+if python3 - <<'PY'
+import json, sys, tempfile, shutil
+from pathlib import Path
+sys.path.insert(0, "tools/deepseek-controller")
+import quality
+
+src = Path("tools/deepseek-controller/fixtures/out-swiss-motion")
+for cand in (Path("/tmp/dc-scaffold-swiss"), Path("/tmp/dc-scaffold-swiss2"), src):
+    if (cand / "film.js").is_file() and (cand / "content" / "engine.lock.json").is_file():
+        base = cand
+        break
+else:
+    raise SystemExit("no swiss project with film.js+lock for test 16")
+
+td = Path(tempfile.mkdtemp(prefix="dc-dur-"))
+for name in ("film.js", "content"):
+    s = base / name
+    d = td / name
+    if s.is_dir():
+        shutil.copytree(s, d)
+    else:
+        d.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(s, d)
+plan_p = td / "content" / "plan.json"
+plan = json.loads(plan_p.read_text()) if plan_p.is_file() else {
+    "style": "swiss-motion", "targetDurationSec": 32,
+    "voice": {"provider": "none", "lines": []}, "shots": [],
+}
+plan["style"] = "swiss-motion"
+plan["targetDurationSec"] = 32
+plan["voice"] = {"provider": "none", "lines": []}
+plan_p.parent.mkdir(parents=True, exist_ok=True)
+plan_p.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n")
+
+engine_dur = quality._engine_locked_dur(td, "swiss-motion")
+assert engine_dur == 44.0, engine_dur
+
+real_probe = quality.probe_media
+real_ebur = quality.ebur128
+quality.probe_media = lambda p: {"ok": True, "data": {"format": {"duration": "44.00"}, "streams": []}}
+quality.ebur128 = lambda p: {"ok": True, "integrated_lufs": -14.0, "true_peak_dbtp": -1.0}
+media = td / "out.mp4"
+media.write_bytes(b"0")
+tl = {
+  "targetDurationSec": 32.0, "scheduledDurationSec": 20.0, "beatGridSec": 0.25,
+  "fitsTarget": True, "requireVo": False, "ok": True, "errors": [], "warnings": [],
+  "shots": [], "cues": [],
+}
+(td / "timeline.parsed.json").write_text(json.dumps(tl) + "\n")
+try:
+    report = quality.gate(td, media=media, skip_heavy=True, require_vo=False)
+finally:
+    quality.probe_media = real_probe
+    quality.ebur128 = real_ebur
+checks = {c["name"]: c for c in report["checks"]}
+assert checks["media_duration"]["status"] == "PASS", checks["media_duration"]
+assert "style_locked_duration" in checks["media_duration"]["detail"], checks["media_duration"]
+assert report.get("engineLockedDurSec") == 44.0, report.get("engineLockedDurSec")
+quality.probe_media = lambda p: {"ok": True, "data": {"format": {"duration": "50.00"}, "streams": []}}
+quality.ebur128 = lambda p: {"ok": True, "integrated_lufs": -14.0, "true_peak_dbtp": -1.0}
+try:
+    report2 = quality.gate(td, media=media, skip_heavy=True, require_vo=False)
+finally:
+    quality.probe_media = real_probe
+    quality.ebur128 = real_ebur
+c2 = {c["name"]: c for c in report2["checks"]}
+assert c2["media_duration"]["status"] == "FAIL", c2["media_duration"]
+print("ok")
+PY
+then
+  ok "media_duration uses style_locked_duration (engine DUR) for Swiss lock"
+else
+  bad "style_locked_duration media_duration"
+fi
+
+# 17) zh-homophone-tolerant tokenizes 利息→力 short without breaking 富力/复利
+if python3 - <<'PY'
+import sys
+sys.path.insert(0, "tools/deepseek-controller")
+import quality
+classes = quality._load_homophone_classes()
+assert classes, "no classes loaded"
+ok, a, b, r = quality._homophone_tolerant_match(
+    "每年多出利息，利息再生利息。",
+    "每年多出力,利息再生利息。",
+    classes,
+)
+assert ok and a == b, (ok, a, b, r)
+ok2, a2, b2, r2 = quality._homophone_tolerant_match(
+    "复利靠的是留下，而不是赌一把。",
+    "富力靠的是留下,而不是赌一把。",
+    classes,
+)
+assert ok2 and a2 == b2, (ok2, a2, b2, r2)
+ok3, a3, b3, r3 = quality._homophone_tolerant_match(
+    "复利靠的是留下，而不是赌一把。",
+    "蝙蝠靠的是留下,而不是赌一把。",
+    classes,
+)
+assert not ok3, (ok3, a3, b3, r3)
+detail = """OK   l1 | x → y
+DIFF l2 | 每年多出利息，利息再生利息。 → 每年多出力,利息再生利息。    (similarity 0.87 < 0.92)
+DIFF l3 | 同样本金，时间越长差距越大。 → 同样本经,时间越长,差距越大。    (similarity 0.92 < 0.92)
+DIFF l5 | 复利靠的是留下，而不是赌一把。 → 赋利靠的是留下,而不是赌一把。    (similarity 0.93 < 0.92)
+mismatches: 3
+"""
+diffs = quality._parse_asr_diffs(detail)
+assert len(diffs) == 3, diffs
+still = []
+for lid, want, got in diffs:
+    okx, _, _, _ = quality._homophone_tolerant_match(want, got, classes)
+    if not okx:
+        still.append(lid)
+assert still == [], still
+print("ok")
+PY
+then
+  ok "zh-homophone-tolerant handles 利息→力 short; rejects 蝙蝠"
+else
+  bad "zh-homophone-tolerant tokenize"
+fi
+
+
 echo
 echo "Results: $pass passed, $fail failed"
 test "$fail" -eq 0
