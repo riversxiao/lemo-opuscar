@@ -92,8 +92,14 @@ def schedule(
     exit_: float = 0.25,
     settle: float = 0.35,
     require_all_vo: bool = False,
+    pad_under_target: bool = True,
 ) -> tuple[dict[str, Any], list[str]]:
-    """Return (timeline, errors). Over-target → error (no silent K-scale)."""
+    """Return (timeline, errors). Over-target → error (no silent K-scale).
+
+    When content end < targetDurationSec and pad_under_target, extend the last
+    shot (hold-last-beat) so scheduledDurationSec reaches the target. Original
+    shortfall stays visible via contentDurationSec / padSec / underTargetBeforePad.
+    """
     errors: list[str] = []
     # Map shotId → vo lines
     by_shot: dict[str, list[dict[str, Any]]] = {}
@@ -154,6 +160,32 @@ def schedule(
     if parsed_shots:
         total = parsed_shots[-1]["t1"]
 
+    content_duration = float(total)
+    pad_sec = 0.0
+    pad_mode = "none"
+    under_before_pad = False
+
+    # Pad under-target by holding the last beat (extend last shot to target).
+    # Over-target still hard-fails — never silent K-scale shrink.
+    if (
+        pad_under_target
+        and parsed_shots
+        and total + 1e-6 < target_duration
+    ):
+        under_before_pad = True
+        pad_sec = round(target_duration - total, 4)
+        last = parsed_shots[-1]
+        last["t1"] = round(target_duration, 4)
+        last["dur"] = round(last["t1"] - last["t0"], 4)
+        last["padSec"] = pad_sec
+        last["padMode"] = "hold-last-beat"
+        total = float(target_duration)
+        pad_mode = "hold-last-beat"
+        errors.append(
+            f"WARN: padded {pad_sec:.2f}s (hold-last-beat) — content was "
+            f"{content_duration:.2f}s under target {target_duration:.2f}s"
+        )
+
     hard_errors = [e for e in errors if not e.startswith("WARN:")]
     if total > target_duration + 1e-6:
         hard_errors.append(
@@ -167,6 +199,10 @@ def schedule(
     timeline = {
         "targetDurationSec": target_duration,
         "scheduledDurationSec": total,
+        "contentDurationSec": content_duration,
+        "padSec": pad_sec,
+        "padMode": pad_mode,
+        "underTargetBeforePad": under_before_pad,
         "beatGridSec": beat_grid,
         "fitsTarget": total <= target_duration + 1e-6,
         "requireVo": bool(require_all_vo),
@@ -234,6 +270,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--grid", type=float, help="override beat grid sec")
     ap.add_argument("--style", help="style slug for manifest grid")
     ap.add_argument("--require-vo", action="store_true", help="fail if any line missing measured dur")
+    ap.add_argument(
+        "--no-pad",
+        action="store_true",
+        help="do not extend last shot when content < target (diagnostic; default pads hold-last-beat)",
+    )
     ap.add_argument("-o", "--output", help="timeline.parsed.json path")
     args = ap.parse_args(argv)
 
@@ -274,6 +315,7 @@ def main(argv: list[str] | None = None) -> int:
         beat_grid=float(grid),
         durs=durs,
         require_all_vo=args.require_vo,
+        pad_under_target=not args.no_pad,
     )
     out = Path(args.output) if args.output else project / "timeline.parsed.json"
     dump_json(out, timeline)
@@ -288,7 +330,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  - {e}", file=sys.stderr)
         print(f"wrote (diagnostic) {out}", file=sys.stderr)
         return 1
-    print(f"OK scheduled {timeline['scheduledDurationSec']}s → {out}")
+    pad_note = ""
+    if timeline.get("padSec"):
+        pad_note = (
+            f" (padded {timeline['padSec']}s {timeline.get('padMode')}; "
+            f"content {timeline.get('contentDurationSec')}s)"
+        )
+    print(f"OK scheduled {timeline['scheduledDurationSec']}s{pad_note} → {out}")
     return 0
 
 

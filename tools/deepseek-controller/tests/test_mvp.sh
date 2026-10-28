@@ -421,6 +421,72 @@ else
 fi
 
 
+# 18) schedule pads under-target (hold-last-beat); under-target still in metadata
+if python3 - <<'PY'
+import json, sys
+from pathlib import Path
+sys.path.insert(0, "tools/deepseek-controller")
+import schedule as sch
+
+proj = Path("tools/deepseek-controller/fixtures/out-swiss-motion")
+lines = json.loads((proj/"content"/"lines.json").read_text())
+shots = json.loads((proj/"content"/"shots.json").read_text())["shots"]
+durs = json.loads((proj/"voices"/"dur.json").read_text())
+tl, errs = sch.schedule(
+    lines=lines, shots=shots, target_duration=32.0, beat_grid=0.25,
+    durs=durs, require_all_vo=True, pad_under_target=True,
+)
+assert tl["ok"] and tl["fitsTarget"], tl
+assert tl["underTargetBeforePad"] is True, tl
+assert tl["padMode"] == "hold-last-beat", tl
+assert tl["padSec"] > 0, tl
+assert tl["contentDurationSec"] < 32, tl
+assert abs(tl["scheduledDurationSec"] - 32.0) < 1e-6, tl
+assert abs(tl["contentDurationSec"] + tl["padSec"] - 32.0) < 1e-3, tl
+assert tl["shots"][-1].get("padSec") == tl["padSec"], tl["shots"][-1]
+tl2, _ = sch.schedule(
+    lines=lines, shots=shots, target_duration=32.0, beat_grid=0.25,
+    durs=durs, require_all_vo=True, pad_under_target=False,
+)
+assert tl2["ok"] and tl2["fitsTarget"]
+assert tl2["padSec"] == 0 and tl2["padMode"] == "none"
+assert tl2["scheduledDurationSec"] == tl2["contentDurationSec"] < 32
+assert not tl2["underTargetBeforePad"]
+big = {k: 20.0 for k in durs}
+tl3, e3 = sch.schedule(
+    lines=lines, shots=shots, target_duration=32.0, beat_grid=0.25,
+    durs=big, require_all_vo=True, pad_under_target=True,
+)
+assert not tl3["ok"] and tl3["fitsTarget"] is False
+assert any("exceeds target" in x for x in e3)
+print("ok")
+PY
+then
+  ok "schedule pads under-target; metadata keeps shortfall; over still fails"
+else
+  bad "schedule pad under-target"
+fi
+
+# 19) --delivery picks zh-homophone-tolerant for zh plans; en stays strict
+if python3 - <<'PY'
+import sys
+sys.path.insert(0, "tools/deepseek-controller")
+import quality
+assert quality.resolve_delivery_asr_mode({"language": "zh"}, asr_mode=None, delivery=True) == "zh-homophone-tolerant"
+assert quality.resolve_delivery_asr_mode({"language": "zh-en"}, asr_mode=None, delivery=True) == "zh-homophone-tolerant"
+assert quality.resolve_delivery_asr_mode({"language": "en"}, asr_mode=None, delivery=True) == "strict"
+assert quality.resolve_delivery_asr_mode({"language": "zh"}, asr_mode=None, delivery=False) == "strict"
+assert quality.resolve_delivery_asr_mode({"language": "zh"}, asr_mode="strict", delivery=True) == "strict"
+assert quality.resolve_delivery_asr_mode({"language": "en"}, asr_mode="auto", delivery=False) == "strict"
+assert quality.resolve_delivery_asr_mode({"language": "zh"}, asr_mode="auto", delivery=False) == "zh-homophone-tolerant"
+print("ok")
+PY
+then
+  ok "delivery ASR resolve: zh→tolerant, en→strict, explicit wins"
+else
+  bad "delivery ASR resolve"
+fi
+
 echo
 echo "Results: $pass passed, $fail failed"
 test "$fail" -eq 0

@@ -14,7 +14,7 @@ Minimal controller for Lemo-DeepSeek: `validate` → `adapt` / **`scaffold`** �
 - Style manifests: `manifests/{swiss-motion,pictogram-motion,caption-news}.json`.
 - Adapters write **content-only** files under `<project>/content/` (see `adapters/TOUCHABLES.md`).
 - **`scaffold`** (all three styles): copy `styles/<slug>/demo/` → project, adapt, sync touchable sidecars only, write `engine.lock.json` + `PROJECT.md`. Never rewrites style cores (`ease.js`/`film.js`, `engine.js`/`edl.js`, or `main.js`).
-- `schedule` builds `timeline.parsed.json` from measured VO; **fails** if over target.
+- `schedule` builds `timeline.parsed.json` from measured VO; **pads** under-target (hold-last-beat); **fails** if over target.
 - `quality` writes `quality.json`; required `FAIL` / `NOT_CHECKED` blocks delivery.
 
 ### One-shot paths (fixtures)
@@ -111,15 +111,21 @@ python3 tools/deepseek-controller/cli.py quality --project /tmp/film-fuli --medi
 
 ```bash
 # Absolute --project recommended; relative `.` is resolved.
-python3 tools/deepseek-controller/cli.py quality --project "$P" --require-vo
 
-# Default ASR is strict. Finance Whisper homophones (本金/本经, 复利/赋利, …):
+# Recommended delivery path (zh plan → zh-homophone-tolerant; en stays strict):
+python3 tools/deepseek-controller/cli.py quality --project "$P" --media "$P/out.mp4" --delivery
+
+# Explicit modes still available:
+python3 tools/deepseek-controller/cli.py quality --project "$P" --require-vo --asr-mode=strict
 python3 tools/deepseek-controller/cli.py quality --project "$P" --require-vo \
   --asr-mode=zh-homophone-tolerant
 ```
 
+- **`--delivery`**: imply `--require-vo`; for `plan.language` zh/zh-en use `zh-homophone-tolerant` unless `--asr-mode` is set. English never silently weakened.
+- Bare default without `--delivery` / `--asr-mode` remains **strict**.
+- `schedule` pads under-target by **hold-last-beat** (extends last shot to `targetDurationSec`). Metadata keeps `contentDurationSec` / `padSec` / `underTargetBeforePad`. Use `--no-pad` for raw content length. Over-target still hard-fails (no silent K-scale).
 - `schedule` writes `ok` / `errors` on `timeline.parsed.json`. Quality fails if `ok` is false or VO durs are missing when the plan has voice lines.
 - Swiss scaffold fetches OFL `.ttf` via `fetch_fonts.py` and writes `voices/words_rel.json` for zh (`zh_words_rel.py` / `post_tts.py`). Do **not** run English `tools/words.py` on CJK.
 - Swiss readcheck without `window.TEXTS(t)` → `NOT_APPLICABLE` (`swiss-demo-without-registry`), not a forever-blocking `NOT_CHECKED`.
 - When `content/engine.lock.json` protects `film.js`, `media_duration` uses **`style_locked_duration`**: compare mux length to engine `DUR` (±1s). Plan `targetDurationSec` stays the schedule budget.
-- `--asr-mode=zh-homophone-tolerant` uses `asr_homophones.json` v2 (`members` + optional `short` truncations, longest-match). Default ASR stays **strict**.
+- `--asr-mode=zh-homophone-tolerant` uses `asr_homophones.json` v2 (`members` + optional `short` truncations, longest-match).

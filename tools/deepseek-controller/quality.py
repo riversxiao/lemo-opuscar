@@ -550,12 +550,46 @@ def _schedule_check(
             "FAIL",
             f"scheduled {tl.get('scheduledDurationSec')} > target {tl.get('targetDurationSec')}",
         )
+    detail = f"{tl.get('scheduledDurationSec')}s <= {tl.get('targetDurationSec')}s"
+    if need_vo:
+        detail += " (require-vo OK)"
+    if tl.get("padSec"):
+        detail += (
+            f"; padded {tl.get('padSec')}s {tl.get('padMode') or 'hold-last-beat'}"
+            f" (contentDurationSec={tl.get('contentDurationSec')})"
+        )
+    elif tl.get("underTargetBeforePad"):
+        detail += f"; underTargetBeforePad contentDurationSec={tl.get('contentDurationSec')}"
     return check(
         "schedule_fits_target",
         "PASS",
-        f"{tl.get('scheduledDurationSec')}s <= {tl.get('targetDurationSec')}s"
-        + (" (require-vo OK)" if need_vo else ""),
+        detail,
     )
+
+
+
+def resolve_delivery_asr_mode(
+    plan: dict[str, Any],
+    *,
+    asr_mode: str | None,
+    delivery: bool,
+) -> str:
+    """Pick ASR mode for quality.
+
+    - Explicit strict / zh-homophone-tolerant always wins.
+    - auto: zh* → tolerant, else strict.
+    - None + --delivery + plan.language zh/zh-en → zh-homophone-tolerant.
+    - None otherwise → strict (English never silently weakened).
+    """
+    if asr_mode in ("strict", "zh-homophone-tolerant"):
+        return asr_mode
+    lang = str((plan or {}).get("language") or "").lower()
+    zhish = lang == "zh" or lang.startswith("zh") or lang.startswith("zh-")
+    if asr_mode == "auto":
+        return "zh-homophone-tolerant" if zhish else "strict"
+    if delivery and zhish:
+        return "zh-homophone-tolerant"
+    return "strict"
 
 
 def gate(
@@ -565,7 +599,8 @@ def gate(
     force_fail: list[str] | None = None,
     skip_heavy: bool = False,
     require_vo: bool = False,
-    asr_mode: str = "strict",
+    asr_mode: str | None = None,
+    delivery: bool = False,
 ) -> dict[str, Any]:
     project = Path(project).resolve()
     checks: list[dict[str, Any]] = []
@@ -588,6 +623,10 @@ def gate(
         style = ""
         target = None
         checks.append(check("plan_present", "FAIL", "content/plan.json missing"))
+
+    if delivery:
+        require_vo = True
+    asr_mode = resolve_delivery_asr_mode(plan, asr_mode=asr_mode, delivery=delivery)
 
     checks.append(_schedule_check(project, plan, require_vo=require_vo))
 
@@ -758,6 +797,7 @@ def gate(
         "overall": overall,
         "deliveryAllowed": overall == "PASS",
         "asrMode": asr_mode,
+        "delivery": bool(delivery),
         "requireVo": bool(require_vo or has_vo),
         "engineLockedDurSec": engine_dur_meta,
         "checks": checks,
@@ -797,24 +837,33 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument(
         "--asr-mode",
-        choices=("strict", "zh-homophone-tolerant"),
-        default="strict",
-        help="strict (default): asr_check FAIL stays FAIL. "
-        "zh-homophone-tolerant: tokenize via asr_homophones.json members + short "
-        "truncations (longest-match) and PASS with detail when only those remain "
-        "— never silent override",
+        choices=("strict", "zh-homophone-tolerant", "auto"),
+        default=None,
+        help="strict: asr_check FAIL stays FAIL. "
+        "zh-homophone-tolerant: lexicon fold for zh finance Whisper drift. "
+        "auto: zh* → tolerant, else strict. "
+        "Default without --delivery/--asr-mode: strict (English never silently weakened).",
+    )
+    ap.add_argument(
+        "--delivery",
+        action="store_true",
+        help="recommended delivery gate: imply --require-vo; for plan.language zh/zh-en "
+        "use zh-homophone-tolerant unless --asr-mode is set explicitly. "
+        "English plans stay strict. Does not silently weaken strict ASR.",
     )
     ap.add_argument("-o", "--output", help="quality.json path")
     args = ap.parse_args(argv)
 
     project = Path(args.project).resolve()
+    # None asr_mode → resolve inside gate (delivery+zh → tolerant, else strict)
     report = gate(
         project,
         media=Path(args.media).resolve() if args.media else None,
         force_fail=args.force_fail,
         skip_heavy=args.skip_heavy,
         require_vo=args.require_vo,
-        asr_mode=args.asr_mode,
+        asr_mode=args.asr_mode,  # None | strict | zh-homophone-tolerant | auto
+        delivery=args.delivery,
     )
     if args.allow_unchecked:
         report["blocking"] = [

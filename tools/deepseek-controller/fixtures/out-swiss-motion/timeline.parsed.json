@@ -1,12 +1,18 @@
 {
   "targetDurationSec": 32.0,
-  "scheduledDurationSec": 17.25,
+  "scheduledDurationSec": 32.0,
+  "contentDurationSec": 17.25,
+  "padSec": 14.75,
+  "padMode": "hold-last-beat",
+  "underTargetBeforePad": true,
   "beatGridSec": 0.25,
   "fitsTarget": true,
   "requireVo": true,
   "ok": true,
   "errors": [],
-  "warnings": [],
+  "warnings": [
+    "WARN: padded 14.75s (hold-last-beat) — content was 17.25s under target 32.00s"
+  ],
   "shots": [
     {
       "id": "s1",
@@ -81,14 +87,16 @@
     {
       "id": "s6",
       "t0": 15.25,
-      "t1": 17.25,
-      "dur": 2.0,
+      "t1": 32.0,
+      "dur": 16.75,
       "voIds": [],
       "voDur": 0.0,
       "readSec": 0.8444,
       "text": "复利",
       "motionPreset": "pull-out",
-      "role": "end"
+      "role": "end",
+      "padSec": 14.75,
+      "padMode": "hold-last-beat"
     }
   ],
   "cues": [

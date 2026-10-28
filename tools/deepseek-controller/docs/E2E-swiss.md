@@ -12,8 +12,10 @@ python3 tools/deepseek-controller/cli.py scaffold tools/deepseek-controller/fixt
 python3 core/tts/tts_zh.py $P/content/lines.json $P/voices      # writes l*.wav + voices/dur.json
 python3 tools/deepseek-controller/post_tts.py --project $P       # refresh zh words_rel after TTS
 python3 tools/deepseek-controller/cli.py schedule --project $P --require-vo
-python3 tools/deepseek-controller/cli.py quality --project $P --require-vo
-# optional finance ASR: --asr-mode=zh-homophone-tolerant
+# default: pads under-target (hold-last-beat). Diagnostic raw length: add --no-pad
+python3 tools/deepseek-controller/cli.py quality --project $P --delivery
+# --delivery = require-vo + zh → zh-homophone-tolerant (en stays strict)
+# explicit: --asr-mode=strict | zh-homophone-tolerant | auto
 ```
 Deps needed on the box: `soundfile`, `soxr`, `faster-whisper` (pip). Swiss `fonts/*.ttf` are gitignored — **scaffold / `fetch_fonts.py`** pull Archivo-VF / DMSerifDisplay / UnifrakturMaguntia from google/fonts (or `$LEMO_FONT_CACHE`).
 
@@ -31,14 +33,16 @@ Deps needed on the box: `soundfile`, `soxr`, `faster-whisper` (pip). Swiss `font
 
 ## Schedule
 - Gate check first (no VO yet): `--require-vo` → **FAIL**, 5× "missing VO duration", exit 1 (correct). Timeline now records `ok: false` + `errors`.
-- With VO: **PASS**, 20.75 s ≤ 32 s target, grid 0.25 s. Shots s1 3.25 · s2 3.75 · s3 4.25 · s4 3.75 · s5 3.75 · s6 2.00 (end, no VO). Not over target → **no fixture trimming done**.
-- Note: plan targets 32 s but schedule yields 20.75 s; the controller doesn't pad. Decide whether to pad holds/end card or lower `targetDuration`.
+- With VO + pad (default): **PASS**, content **20.75 s** → pad **11.25 s** hold-last-beat on s6 → **scheduledDurationSec=32.0** = target. Metadata: `contentDurationSec=20.75`, `padSec=11.25`, `underTargetBeforePad=true`, `padMode=hold-last-beat`.
+- `--no-pad`: still 20.75 s ≤ 32 (fitsTarget true) but no pad fields filled — diagnostic only.
+- Shots (content): s1 3.25 · s2 3.75 · s3 4.25 · s4 3.75 · s5 3.75 · s6 2.00 → after pad s6.t1=32.
+- Over-target still hard-fails (no silent K-scale).
 
 ## quality.json (content stage) — overall **FAIL**, deliveryAllowed=false (original run)
 | check | status | note |
 |---|---|---|
 | plan_present | PASS | |
-| schedule_fits_target | PASS (with VO) | 20.75 ≤ 32 |
+| schedule_fits_target | PASS (with VO) | after pad: 32 ≤ 32 (content 20.75 + pad 11.25) |
 | ffprobe_media / loudness_ebur128 / media_duration | NOT_CHECKED (optional) | no mp4, expected |
 | readcheck | NOT_CHECKED → **NOT_APPLICABLE** after fix | Swiss demo page has no `window.TEXTS(t)` registry |
 | asr_check | FAIL (strict) | whisper small: l3 "本金"→"本经" sim 0.92 < 0.92. Use `--asr-mode=zh-homophone-tolerant` for lexicon fold PASS with detail |
@@ -58,9 +62,8 @@ Evidence copies in the project: `evidence/quality-novo.json`, `evidence/timeline
 
 ## Remaining known gaps
 - No `window.TEXTS(t)` hook without editing protected `film.js`/`main.js`/`index.html` — maintainer style version needed before readcheck can PASS.
-- Schedule does not pad under-target duration to `targetDurationSec`.
 - Homophone lexicon is a small finance starter set; extend `asr_homophones.json` as needed.
-- Full MP4 / mux / Release not part of this dry path.
+- Full MP4 / mux / Release not part of this dry path (see Full render below).
 
 ## Fixed in `3b0ec88`
 See table above; remaining gaps unchanged.
@@ -91,18 +94,20 @@ PYTHONPATH=$LIB/core/audio .venv/bin/python $P/mix.py
 node core/render/still.mjs $P 5.0 12.5 22.5 40.0 --out $P/out/still --prefix k_
 node core/render/video.mjs $P --fps 24 --workers 3 --out $P/out/video24.mp4
 sh core/render/mux.sh $P/out/video24.mp4 $P/mix.wav $P/fuli-controller-e2e.mp4 24 0
-python3 tools/deepseek-controller/cli.py quality --project $P   --media $P/fuli-controller-e2e.mp4 --require-vo --asr-mode=zh-homophone-tolerant
+python3 tools/deepseek-controller/cli.py quality --project $P \
+  --media $P/fuli-controller-e2e.mp4 --delivery
+# equivalent explicit: --require-vo --asr-mode=zh-homophone-tolerant
 # skipped: tools/subs.py (l3/l5 Chinese VO exceeds demo END asserts without editing film.js)
 ```
 
-### quality after mux — overall **PASS** with `--asr-mode=zh-homophone-tolerant` (post gate fix)
+### quality after mux — overall **PASS** with `--delivery` (zh → tolerant)
 
-Evidence (re-run after gate fix): `evidence/quality-mux-strict.json`, `evidence/quality-mux-tolerant.json` (= root `quality.json` when tolerant).
+Evidence: `evidence/quality-mux-strict.json`, `evidence/quality-mux-tolerant.json`, `evidence/quality-mux-delivery.json` (= root `quality.json` on delivery path).
 
 | check | status | note |
 |---|---|---|
 | plan_present | PASS | |
-| schedule_fits_target | PASS | 20.75 ≤ 32 (require-vo OK) |
+| schedule_fits_target | PASS | 32.0 ≤ 32 (require-vo OK); padded 11.25s hold-last-beat (content 20.75) |
 | ffprobe_media | PASS | |
 | media_duration | **PASS** (`style_locked_duration`) | mux **44 s** ≈ protected `film.js` `DUR=44` (±1s). Plan `targetDurationSec=32` is **schedule budget only**, not mux length under engine lock. |
 | loudness_ebur128 | PASS | I=−14.0 / TP=−1.0 |
@@ -122,9 +127,26 @@ Evidence (re-run after gate fix): `evidence/quality-mux-strict.json`, `evidence/
 
 - Locked `setLines` only splits on ASCII `. `; CJK needs that touchable hack (or a future style version with `。` support + Noto).
 - Locked `mix.py` path assumes `styles/…/demo`; films under `/workspace/films` need `PYTHONPATH=$LIB/core/audio`.
-- Schedule still does not pad under-target (20.75 → 32). Plan target remains a schedule budget when engine DUR is locked.
+- Plan `targetDurationSec` is schedule budget; mux length under Swiss lock follows engine `DUR` (44s) — pad does not rewrite `film.js`.
 - No `window.TEXTS(t)` without unlocking engine → readcheck stays NOT_APPLICABLE.
-- Strict ASR on short Yunxi remains flaky; delivery for this Swiss fixture uses `--asr-mode=zh-homophone-tolerant` (explicit, documented). Unrelated mishears (e.g. 蝙蝠) still block.
+- Strict ASR on short Yunxi remains flaky; **recommended delivery** uses `--delivery` (zh → tolerant). Unrelated mishears (e.g. 蝙蝠) still block.
+- Pictogram / Caption: scaffold+schedule smoke only in this round (no full still/video/mux yet).
 
 ## Fixed in `cda7a40`
 style_locked_duration + ASR short-form tokenize; tolerant mux quality PASS on fuli-controller-e2e.
+
+## Optimize round — schedule pad + `--delivery`
+
+- Schedule **hold-last-beat** pad: fuli content 20.75s → scheduled 32.0s (`padSec=11.25`, `underTargetBeforePad=true`). Evidence: `evidence/timeline-before-pad.json`, `evidence/timeline-after-pad.json`.
+- Quality recommended path: `--delivery` → `asrMode=zh-homophone-tolerant`, `deliveryAllowed=true`. Evidence: `evidence/quality-mux-delivery.json`.
+- Tests: 29/29 (pad + delivery resolve).
+
+### Pictogram / Caption smoke (no mux)
+
+| style | scaffold | schedule (synthetic/no VO) | quality `--delivery --skip-heavy --allow-unchecked` |
+|---|---|---|---|
+| pictogram-motion | OK (hashes lock) | content 18.4 → pad 13.6 → 32; fixture `voice.provider=none` (no VO lines) | PASS content-stage; asr NOT_APPLICABLE |
+| caption-news | OK | content 16.75 → pad 13.25 → 30 (synthetic 1.5s durs) | PASS content-stage; asr NOT_CHECKED (skip-heavy) |
+
+Gaps: pictogram fixture needs real VO lines for ASR/require-vo E2E; neither style has still/video/mux in this round.
+

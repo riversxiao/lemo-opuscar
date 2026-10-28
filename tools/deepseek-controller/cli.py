@@ -81,6 +81,8 @@ def cmd_schedule(args: argparse.Namespace) -> int:
         argv += ["--style", args.style]
     if args.require_vo:
         argv.append("--require-vo")
+    if getattr(args, "no_pad", False):
+        argv.append("--no-pad")
     if args.output:
         argv += ["-o", args.output]
     return schedule_main(argv)
@@ -98,6 +100,8 @@ def cmd_quality(args: argparse.Namespace) -> int:
         argv.append("--allow-unchecked")
     if getattr(args, "require_vo", False):
         argv.append("--require-vo")
+    if getattr(args, "delivery", False):
+        argv.append("--delivery")
     if getattr(args, "asr_mode", None):
         argv += ["--asr-mode", args.asr_mode]
     if args.output:
@@ -139,6 +143,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--grid", type=float)
     s.add_argument("--style")
     s.add_argument("--require-vo", action="store_true")
+    s.add_argument(
+        "--no-pad",
+        action="store_true",
+        help="do not hold-last-beat pad when content < target",
+    )
     s.add_argument("-o", "--output")
     s.set_defaults(func=cmd_schedule)
 
@@ -155,9 +164,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     q.add_argument(
         "--asr-mode",
-        choices=("strict", "zh-homophone-tolerant"),
-        default="strict",
-        help="strict (default) or zh-homophone-tolerant (lexicon fold; never silent override)",
+        choices=("strict", "zh-homophone-tolerant", "auto"),
+        default=None,
+        help="strict / zh-homophone-tolerant / auto (zh*→tolerant). "
+        "Default without --delivery: strict",
+    )
+    q.add_argument(
+        "--delivery",
+        action="store_true",
+        help="recommended delivery path: --require-vo + zh plan → zh-homophone-tolerant "
+        "(English stays strict unless --asr-mode set)",
     )
     q.add_argument("-o", "--output")
     q.set_defaults(func=cmd_quality)

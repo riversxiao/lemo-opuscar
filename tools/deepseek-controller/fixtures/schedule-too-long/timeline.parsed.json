@@ -1,6 +1,10 @@
 {
   "targetDurationSec": 32.0,
   "scheduledDurationSec": 57.0,
+  "contentDurationSec": 57.0,
+  "padSec": 0.0,
+  "padMode": "none",
+  "underTargetBeforePad": false,
   "beatGridSec": 0.25,
   "fitsTarget": false,
   "requireVo": true,

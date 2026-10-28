@@ -5,6 +5,7 @@
   "overall": "FAIL",
   "deliveryAllowed": false,
   "asrMode": "strict",
+  "delivery": false,
   "requireVo": true,
   "engineLockedDurSec": null,
   "checks": [
@@ -17,7 +18,7 @@
     {
       "name": "schedule_fits_target",
       "status": "PASS",
-      "detail": "17.25s <= 32.0s (require-vo OK)",
+      "detail": "32.0s <= 32.0s (require-vo OK); padded 14.75s hold-last-beat (contentDurationSec=17.25)",
       "required": true
     },
     {
