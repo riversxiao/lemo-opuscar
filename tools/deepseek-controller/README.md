@@ -10,7 +10,7 @@ Studio 清点（本机是否存在、与三风格适配器关系）：[`docs/STU
 
 ## English (short)
 
-Minimal controller for Lemo-DeepSeek: `validate` → `adapt` / **`scaffold`** → **`tts`** → `schedule` → `mix` → `quality`.
+Minimal controller for Lemo-DeepSeek: `validate` → `adapt` / **`scaffold`** → **`tts`** → `schedule` → `mix` → `quality` → **`handoff`**.
 
 - Plan schema: `plan.schema.json` (content only; rejects code/path/shader-looking keys).
 - Style manifests: `manifests/{swiss-motion,pictogram-motion,caption-news}.json`.
@@ -137,3 +137,11 @@ python3 tools/deepseek-controller/cli.py quality --project "$P" --require-vo \
 - Swiss: `texts_runtime.json` + `page.mjs` installs `window.TEXTS(t)` (no film.js unlock). Without overlay → `NOT_APPLICABLE` (`swiss-demo-without-registry`), not eternal `NOT_CHECKED`.
 - When `content/engine.lock.json` protects `film.js`, `media_duration` uses **`style_locked_duration`**: compare mux length to engine `DUR` (±1s). Plan `targetDurationSec` stays the schedule budget.
 - `--asr-mode=zh-homophone-tolerant` uses `asr_homophones.json` v2 (`members` + optional `short` truncations, longest-match).
+
+### Handoff (OpenFilm / HyperFrames)
+
+```bash
+python3 $CTL/cli.py handoff --project /workspace/films/fensan-pictogram-finance-v001 --target both --lint
+```
+
+See [`docs/nle-handoff.md`](docs/nle-handoff.md) and repo [`docs/integrations/nle-handoff.md`](../../docs/integrations/nle-handoff.md).

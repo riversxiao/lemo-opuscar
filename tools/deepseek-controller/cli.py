@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DeepSeek controller CLI: validate | adapt | scaffold | tts | schedule | mix | quality."""
+"""DeepSeek controller CLI: validate | adapt | scaffold | tts | schedule | mix | quality | handoff."""
 from __future__ import annotations
 
 import argparse
@@ -189,10 +189,53 @@ def cmd_quality(args: argparse.Namespace) -> int:
     return quality_main(argv)
 
 
+
+def cmd_handoff(args: argparse.Namespace) -> int:
+    """OpenFilm / HyperFrames export from a finished film dir (mux + timeline)."""
+    import json
+    import sys as _sys
+    root = Path(__file__).resolve().parents[2]
+    if str(root) not in _sys.path:
+        _sys.path.insert(0, str(root))
+    from tools.handoff.openfilm import export_openfilm
+    from tools.handoff.hyperframes import export_hyperframes
+
+    film = Path(args.project)
+    target = args.target
+    infos = {}
+    if target in ("openfilm", "both"):
+        infos["openfilm"] = export_openfilm(
+            film,
+            name=args.name,
+            out_dir=Path(args.out) if args.out and target == "openfilm" else None,
+            extract_shots=args.extract_shots,
+        )
+    if target in ("hyperframes", "both"):
+        infos["hyperframes"] = export_hyperframes(
+            film,
+            name=args.name,
+            out_dir=Path(args.out) if args.out and target == "hyperframes" else None,
+            try_init_cli=args.try_init_cli,
+            run_lint=args.lint,
+        )
+    if args.json:
+        print(json.dumps(infos, ensure_ascii=False, indent=2))
+    else:
+        for k, info in infos.items():
+            print(f"OK handoff {k} → {info['out']} shots={info['shotCount']} ({info['shotSource']})")
+            if k == "hyperframes" and info.get("lintOk") is True:
+                print("  lint: PASS")
+            elif k == "hyperframes" and info.get("lintOk") is False:
+                print("  lint: FAIL")
+    if infos.get("hyperframes", {}).get("lintOk") is False:
+        return 1
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="deepseek-controller",
-        description="Minimal DeepSeek film controller (plan → adapt → scaffold → tts → schedule → mix → quality)",
+        description="Minimal DeepSeek film controller (plan → adapt → scaffold → tts → schedule → mix → quality → handoff)",
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -306,6 +349,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="legacy mix_vo_only (VO + silence, no bed)",
     )
     m.set_defaults(func=cmd_mix)
+
+    ho = sub.add_parser(
+        "handoff",
+        help="OpenFilm / HyperFrames package from finished mux + timeline (NLE handoff)",
+    )
+    ho.add_argument("--project", required=True, help="film project directory with muxed mp4")
+    ho.add_argument(
+        "--target",
+        choices=("openfilm", "hyperframes", "both"),
+        default="both",
+    )
+    ho.add_argument("--name", default=None)
+    ho.add_argument("-o", "--out", default=None, help="override out dir (single-target only)")
+    ho.add_argument("--extract-shots", action="store_true")
+    ho.add_argument("--try-init-cli", action="store_true", help="hyperframes: try npx init --video")
+    ho.add_argument("--lint", action="store_true", help="hyperframes: run lint after export")
+    ho.add_argument("--json", action="store_true")
+    ho.set_defaults(func=cmd_handoff)
+
 
     return p
 

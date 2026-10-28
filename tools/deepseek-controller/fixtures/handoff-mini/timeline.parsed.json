@@ -1,0 +1,25 @@
+{
+  "targetDurationSec": 2.0,
+  "scheduledDurationSec": 2.0,
+  "shots": [
+    {
+      "id": "a",
+      "t0": 0.0,
+      "t1": 1.0,
+      "dur": 1.0,
+      "text": "一",
+      "voIds": [
+        "L01"
+      ]
+    },
+    {
+      "id": "b",
+      "t0": 1.0,
+      "t1": 2.0,
+      "dur": 1.0,
+      "text": "二",
+      "voIds": []
+    }
+  ],
+  "ok": true
+}

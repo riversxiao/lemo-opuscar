@@ -87,8 +87,8 @@
 
 | # | 能力 | 路径 | Stub vs 已实现 |
 |---|---|---|---|
-| 1 | **OpenFilm NLE 手递** | `plugin/skills/lemo-export-nle/SKILL.md` · `tools/openfilm_handoff.sh` | 技能 + **单镜 MP4 打包脚本已写**（按 [OpenFilm manual](https://openfilm.dev/docs/manual/) 的 `film.html`）；Studio / Premiere·Resolve 时间轴导出未在 CI 实测；分镜级 `frame(t)` 适配器 **未做** |
-| 2 | **HyperFrames 备用轨** | `docs/integrations/hyperframes.md` · `plugin/skills/lemo-hyperframes/SKILL.md` | 文档/技能 **stub**；默认仍 Playwright |
+| 1 | **OpenFilm NLE 手递** | `docs/integrations/nle-handoff.md` · `tools/openfilm_handoff.sh` · `tools/handoff/` | **v2 多分镜导出可用**（`film.html` + EDL + ffmpeg rebuild）；本机 `openfilm look` 已过；Studio GUI 需一次浏览器下载；Premiere XML / `frame(t)` 适配器 **未做** |
+| 2 | **HyperFrames 备用轨** | `docs/integrations/hyperframes.md` · `tools/hyperframes_export.sh` | **导出可用** + 本机 `lint`；默认仍 Playwright；desktop/cloud/skills = needs-user |
 | 3 | **中文 TTS 路由** | `tools/tts_router.md` · `core/tts/tts_router.py` · `cli.py tts` · `providers/` | edge + kokoro **ready**（`.venv-voice`）；qwen3/omnivoice **HTTP ready when `*_BASE` set**（不臆造 Key、不下载大模型）；`AGENTS.deepseek.md`：跳过词对齐 ≠ 跳过 VO 完整性 |
 | 4 | **Remotion 信息图** | `docs/integrations/remotion.md` · `plugin/skills/lemo-remotion-infographic/SKILL.md` | 桥接说明 **stub**；不 vendoring Remotion 模板；不碰 Opus demo |
 | 5 | Stickman my-style | `docs/integrations/stickman-style.md` + `MY-STYLES.md` 指针 | 调研笔记（偏 stix / 自研 SVG，勿走视频大模型） |
@@ -100,7 +100,7 @@
 | Sprint | 范围 |
 |---|---|
 | **A · 现在** | setup.sh P1（上节）+ 能力脚手架 + **`tools/deepseek-controller/` MVP** |
-| **B** | TTS 某一自托管 provider 的 HTTP 客户端 MVP + 用真实 mux 片跑一遍 `openfilm_handoff.sh` |
+| **B** | TTS HTTP 客户端 MVP（`7946de1`）+ 真实 mux 片跑通 OpenFilm/HyperFrames handoff（本轮） |
 | **C** | Remotion 桥接试做：一个 Caption 类中文题材（Flash 只填 props/data JSON） |
 | **D** | HyperFrames 试片（非锁定引擎片）；Stickman styleframe；本地乐床 drop-in |
 

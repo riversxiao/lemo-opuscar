@@ -60,11 +60,11 @@ They share vocabulary (timeline, TTS, mix, Releases) with lemo workflows, but th
 
 ### 3.2 HyperFrames Studio (HeyGen)
 
-Desktop + browser editor for [HyperFrames](https://hyperframes.heygen.com) (Apache-2.0 open-source CLI; optional HeyGen-hosted features may bill separately). Documented as a **stub alternate rail** only: [`docs/integrations/hyperframes.md`](../../../docs/integrations/hyperframes.md). **Not installed on this box.** Not Opuscar Studio.
+Desktop + browser editor for [HyperFrames](https://hyperframes.heygen.com) (Apache-2.0 open-source CLI; optional HeyGen-hosted features may bill separately). Export path live (`tools/hyperframes_export.sh`); documented as an **alternate rail** (not default mux): [`docs/integrations/hyperframes.md`](../../../docs/integrations/hyperframes.md). **Not installed on this box.** Not Opuscar Studio.
 
 ### 3.3 OpenFilm Studio
 
-OpenFilm’s editor / NLE surface (`npx openfilm open …`, MIT). This fork has a **research stub** handoff (`plugin/skills/lemo-export-nle/`, `tools/openfilm_handoff.sh`) — single-shot `film.html` pack, **not** a full Studio install. **Not on this box.**
+OpenFilm’s editor / NLE surface (`npx openfilm open …`, MIT). This fork has a **real multi-shot handoff** (`tools/openfilm_handoff.sh` → `openfilm-handoff/`); `npx openfilm look` verified on box. Studio GUI still needs a one-time browser download — not a permanent Studio install.
 
 ### 3.4 `styles/*/demo/studio.js`
 

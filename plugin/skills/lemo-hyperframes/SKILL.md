@@ -1,24 +1,28 @@
-# lemo-hyperframes — optional alternate render rail
+# lemo-hyperframes — alternate rail **export** (+ optional local CLI)
 
-Read [`docs/integrations/hyperframes.md`](../../../docs/integrations/hyperframes.md) first.
+Read [`docs/integrations/hyperframes.md`](../../../docs/integrations/hyperframes.md) and [`docs/integrations/nle-handoff.md`](../../../docs/integrations/nle-handoff.md).
 
-## When to use
+## 状态（2026-10-29）
 
-User wants HTML→MP4 via **HeyGen HyperFrames** instead of (or as a bake-off against) lemo Playwright still/video — and the film is **not** bound to a locked Opus `styles/*/demo` engine.
+**导出可用。** `bash tools/hyperframes_export.sh <film>` 写出可 `npx hyperframes lint` 的工程。默认出片仍是 Playwright。桌面 Studio / HeyGen cloud / skills 安装 = **needs-user**。
+
+## 用法
+
+```sh
+bash tools/hyperframes_export.sh <film_dir>
+# or
+python3 tools/deepseek-controller/cli.py handoff --project <film_dir> --target hyperframes --lint
+```
 
 ## When not to use
 
-- Any engine-locked DeepSeek Flash job (`AGENTS.deepseek.md`)
-- User only asked for Premiere/Resolve handoff → use `lemo-export-nle` / OpenFilm instead
+- Engine-locked DeepSeek Flash job that must stay on demo Playwright contract
+- User only asked for Premiere/Resolve → prefer `lemo-export-nle` / OpenFilm
 
-## Agent steps (high level)
+## Needs-user
 
-1. Confirm Node 22+ and ffmpeg.
-2. Install skills: `npx hyperframes skills update` (or `npx skills add heygen-com/hyperframes`).
-3. `npx hyperframes init <name>` → write compositions per HyperFrames `/hyperframes` skill.
-4. `npx hyperframes preview` → `npx hyperframes render --output ….mp4`.
-5. Still run loudness / duration checks the user cares about; do not claim lemo `quality.json` unless that gate exists for this rail.
+- Desktop HyperFrames app
+- `hyperframes auth` / cloud render
+- Interactive `npx hyperframes skills update`
 
-## Status
-
-Stub only. No lemo adapter, no automatic migration of Opus demos.
+Never claim Opuscar Studio is connected via this path.

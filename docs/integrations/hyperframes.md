@@ -1,6 +1,6 @@
 # HyperFrames · alternate HTML→MP4 rail
 
-**Status:** research + skill stub (2026-10-28). **Not wired** into lemo `setup.sh` / mux. Default render remains Playwright `still.mjs` / `video.mjs`.
+**Status:** export path live (2026-10-29) via `tools/hyperframes_export.sh` / `tools/handoff/`. **Not** the default mux rail — Playwright `still.mjs` / `video.mjs` remain delivery. Desktop Studio / HeyGen cloud / skills install = **needs-user** (see `lemo-manifest.json`).
 
 ## What it is
 
@@ -45,8 +45,18 @@ Claude Code plugin path (optional): marketplace `heygen-com/hyperframes`, then `
 
 OpenFilm and HyperFrames are **different** stacks (OpenFilm: `film.html` + `frame(t)` + Studio NLE export; HyperFrames: composition HTML + `hyperframes render`). Pick one alternate rail per project; do not dual-render unless the user asks for a bake-off.
 
-## Fork follow-ups (not done)
+## Fork follow-ups
 
-- [ ] Optional thin wrapper script that only documents cwd + commands (no secret handling)
-- [ ] Decision in BRIEF: `render_rail: playwright | hyperframes`
+- [x] Export wrapper: `tools/hyperframes_export.sh` + `tools/handoff/hyperframes.py` (no secret handling)
+- [x] Document needs-user blockers in export `lemo-manifest.json` / README
+- [ ] Decision in BRIEF: `render_rail: playwright | hyperframes` (only if a greenfield film opts in)
 - [ ] Quality gate parity (`quality.json`) if HyperFrames becomes a second delivery path
+- [ ] Do **not** fake Opuscar Studio connect
+
+## Export from a finished lemo film
+
+```sh
+bash tools/hyperframes_export.sh /path/to/film   # writes hyperframes-handoff/, runs lint
+```
+
+Composition = A-roll of the muxed MP4 + shot-label overlays from `timeline.parsed.json`. This is a handoff/bake-off package, not a migration of locked demo engines.

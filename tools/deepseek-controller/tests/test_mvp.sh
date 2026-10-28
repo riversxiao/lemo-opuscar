@@ -1004,7 +1004,52 @@ else
   bad "tts router list / kokoro"
 fi
 
+# --- handoff: OpenFilm multi-shot + HyperFrames export ---
+HO_FIX="$FIX/handoff-mini"
+HO_OUT=/tmp/dc-handoff-of
+rm -rf "$HO_OUT" /tmp/dc-handoff-hf
+if PYTHONPATH="$ROOT" python3 -m tools.handoff.cli openfilm "$HO_FIX" -o "$HO_OUT" >/tmp/dc-ho.out 2>/tmp/dc-ho.err \
+  && test -f "$HO_OUT/film.html" \
+  && test -f "$HO_OUT/manifest.json" \
+  && test -f "$HO_OUT/timeline.edl" \
+  && test -f "$HO_OUT/rebuild_shots.sh" \
+  && grep -q 'id="a"' "$HO_OUT/film.html" \
+  && grep -q 'id="b"' "$HO_OUT/film.html"; then
+  ok "openfilm handoff writes multi-shot film.html+edl+manifest"
+else
+  bad "openfilm handoff: $(cat /tmp/dc-ho.err /tmp/dc-ho.out)"
+fi
 
+SHOTS=$(python3 -c "import json;print(json.load(open('$HO_OUT/manifest.json'))['shotCount'])")
+if [ "$SHOTS" = "2" ]; then
+  ok "openfilm handoff shotCount=2"
+else
+  bad "openfilm handoff shotCount=$SHOTS"
+fi
+
+if "${CLI[@]}" handoff --project "$HO_FIX" --target openfilm -o /tmp/dc-handoff-cli >/tmp/dc-ho2.out 2>/tmp/dc-ho2.err \
+  && test -f /tmp/dc-handoff-cli/film.html; then
+  ok "cli handoff openfilm"
+else
+  bad "cli handoff: $(cat /tmp/dc-ho2.err /tmp/dc-ho2.out)"
+fi
+
+# HyperFrames export (skip live lint in CI-ish path — network already proven separately)
+if PYTHONPATH="$ROOT" python3 -m tools.handoff.cli hyperframes "$HO_FIX" -o /tmp/dc-handoff-hf >/tmp/dc-hf.out 2>/tmp/dc-hf.err \
+  && test -f /tmp/dc-handoff-hf/index.html \
+  && test -f /tmp/dc-handoff-hf/lemo-manifest.json \
+  && test -f /tmp/dc-handoff-hf/hyperframes.json \
+  && grep -q 'data-composition-id="main"' /tmp/dc-handoff-hf/index.html; then
+  ok "hyperframes export writes composition + lemo-manifest"
+else
+  bad "hyperframes export: $(cat /tmp/dc-hf.err /tmp/dc-hf.out)"
+fi
+
+if grep -q 'needsUser' /tmp/dc-handoff-hf/lemo-manifest.json; then
+  ok "hyperframes manifest marks needsUser blockers"
+else
+  bad "hyperframes missing needsUser"
+fi
 
 echo
 echo "Results: $pass passed, $fail failed"
