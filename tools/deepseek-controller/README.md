@@ -4,6 +4,8 @@
 
 **不**在本目录改 `styles/*/demo` 引擎核心，**不**内嵌 DeepSeek API 调用，**不**声称已接入 Opuscar Studio。
 
+Studio 清点（本机是否存在、与三风格适配器关系）：[`docs/STUDIO.md`](docs/STUDIO.md)。
+
 ---
 
 ## English (short)

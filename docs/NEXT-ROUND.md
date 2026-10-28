@@ -3,7 +3,7 @@
 评估对象：fork [`f3d2e1c`](https://github.com/riversxiao/lemo-opuscar/commit/f3d2e1c934be18ac4cb816ecaa5e9d27176afaae) vs 上游基线 [`413a6bd`](https://github.com/lemomo-ai/lemo-opuscar/commit/413a6bd6d78ebd3bdd5abaec9538a26867f890df)。  
 目标：**同样的视觉底座，换内容更可靠；相同的制作预算，影片更容易看懂。**
 
-> **Opuscar Studio**：评估文档提到的 `../../opuscar-studio/README.md` **不在本构建机上**。在用户提供路径/仓库之前，**不假设可复用**；本 fork 内先做最小控制器（建议目录 `tools/deepseek-controller/` 或 `controller/`）。若日后拿到 Studio，再评估 JSON 计划 / hash / 预算账本 / 专家候选的迁入，避免双份控制器。
+> **Opuscar Studio**：评估文档提到的 `../../opuscar-studio/README.md` **不在本构建机上**。在用户提供路径/仓库之前，**不假设可复用**；本 fork 内先做最小控制器（建议目录 `tools/deepseek-controller/` 或 `controller/`）。若日后拿到 Studio，再评估 JSON 计划 / hash / 预算账本 / 专家候选的迁入，避免双份控制器。完整清点见 [`tools/deepseek-controller/docs/STUDIO.md`](../tools/deepseek-controller/docs/STUDIO.md)（2026-10-29：仍为 MISSING）。
 
 ## P0（本 PR 已做）
 
