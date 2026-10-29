@@ -157,7 +157,7 @@ def test_cli_premiere_json_reports_source(film, tmp_path, capsys):
 
 def test_probe_video_fallback_without_ffprobe(no_ffprobe, film):
     info = common.probe_video(film / "handoff-mini.mp4")
-    assert info == {"width": 1920, "height": 1080, "fps": 24.0, "duration": 30.0, "probed": False}
+    assert info == {"width": 1920, "height": 1080, "fps": 24.0, "duration": 30.0, "probed": False, "fpsProbed": False}
     assert common.probe_duration(film / "handoff-mini.mp4") == 30.0
 
 
@@ -179,6 +179,27 @@ def test_probe_video_unreadable_file(tmp_path):
     info = common.probe_video(bad)
     assert info["probed"] is False
     assert (info["width"], info["height"]) == (1920, 1080)
+
+
+@pytest.mark.parametrize("rate", ["0/0", "1000/1", "", None])
+def test_unusable_rate_keeps_default_fps_source(monkeypatch, film, rate):
+    """Size probed but r_frame_rate unusable: fps stays 24 and is labelled 'default'."""
+    st = {"width": 1080, "height": 1920}
+    if rate is not None:
+        st["r_frame_rate"] = rate
+    monkeypatch.setattr(common, "_ffprobe_json", lambda p: {"streams": [st], "format": {"duration": "3.0"}})
+    info = common.probe_video(film / "handoff-mini.mp4")
+    assert info["probed"] is True and info["fpsProbed"] is False and info["fps"] == 24.0
+    fr = common.resolve_frame(film / "handoff-mini.mp4")
+    assert (fr["width"], fr["height"], fr["sizeSource"]) == (1080, 1920, "probe")
+    assert (fr["fps"], fr["fpsSource"]) == (24.0, "default")
+
+
+def test_probed_rate_labelled_probe(monkeypatch, film):
+    st = {"width": 1080, "height": 1920, "r_frame_rate": "30000/1001"}
+    monkeypatch.setattr(common, "_ffprobe_json", lambda p: {"streams": [st], "format": {}})
+    fr = common.resolve_frame(film / "handoff-mini.mp4")
+    assert fr["fps"] == pytest.approx(29.97) and fr["fpsSource"] == "probe"
 
 
 @pytest.mark.skipif(not HAS_FFPROBE, reason="ffprobe not installed")

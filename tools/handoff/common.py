@@ -109,11 +109,14 @@ def _ffprobe_json(path: Path) -> dict[str, Any] | None:
 
 
 def probe_video(path: Path) -> dict[str, Any]:
-    """Return {width, height, fps, duration, probed} for the first video stream.
+    """Return {width, height, fps, duration, probed, fpsProbed} for the first video stream.
 
     Falls back to 1920x1080 @ 24fps / 30s (probed=False) when ffprobe is
     missing or the file cannot be read. Fields that ffprobe does return are
-    kept even if others are missing.
+    kept even if others are missing. ``probed`` covers width/height and
+    ``fpsProbed`` the frame rate: a stream with a size but an unusable
+    r_frame_rate (``0/0``, or above 240 for VFR) keeps the 24fps default with
+    fpsProbed=False.
     """
     info: dict[str, Any] = {
         "width": DEFAULT_WIDTH,
@@ -121,6 +124,7 @@ def probe_video(path: Path) -> dict[str, Any]:
         "fps": DEFAULT_FPS,
         "duration": DEFAULT_DURATION,
         "probed": False,
+        "fpsProbed": False,
     }
     data = _ffprobe_json(path)
     if not data:
@@ -138,6 +142,7 @@ def probe_video(path: Path) -> dict[str, Any]:
     if rate:
         try:
             info["fps"] = round(parse_fps(rate), 3)
+            info["fpsProbed"] = True
         except ValueError:
             pass
     try:
@@ -177,7 +182,7 @@ def resolve_frame(
     if fps:
         f = float(fps)
         fps_src = "flag"
-    elif pv["probed"]:
+    elif pv["fpsProbed"]:
         f = float(pv["fps"])
         fps_src = "probe"
     else:
