@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "topic": "分散投资",
+  "style": "caption-news",
+  "language": "zh",
+  "targetDurationSec": 30,
+  "palette": {
+    "page": "#0E0E0C",
+    "ink": "#F7F5EF",
+    "signal": "#FFC21A",
+    "accent": "#FF4A3D"
+  },
+  "shots": [
+    {
+      "id": "c1",
+      "role": "hook",
+      "text": "分散投资，不是把鸡蛋随手乱撒。",
+      "onScreenText": "分散|{不是乱撒}",
+      "motionPreset": "hook",
+      "allowDarkOpen": true
+    },
+    {
+      "id": "c2",
+      "role": "explain",
+      "text": "股票、债券和现金，涨跌往往不同步。",
+      "onScreenText": "三类|{不同步}",
+      "motionPreset": "compare"
+    },
+    {
+      "id": "c3",
+      "role": "evidence",
+      "text": "全押一类资产，一次下跌就全部砸中。",
+      "onScreenText": "集中|{堆风险}",
+      "motionPreset": "stress"
+    },
+    {
+      "id": "c4",
+      "role": "contrast",
+      "text": "多配一类走势不同的资产，就少一次同时踩坑。",
+      "onScreenText": "多一类|{少踩坑}",
+      "motionPreset": "loss"
+    },
+    {
+      "id": "c5",
+      "role": "payoff",
+      "text": "分散省不掉风险，但能给你留下回旋余地。",
+      "onScreenText": "余地|{别赌}",
+      "motionPreset": "stock"
+    },
+    {
+      "id": "c6",
+      "role": "end",
+      "text": "分散投资",
+      "onScreenText": "分散投资",
+      "motionPreset": "end"
+    }
+  ],
+  "voice": {
+    "provider": "edge",
+    "voiceId": "zh-CN-YunxiNeural",
+    "lines": [
+      {
+        "id": "L01",
+        "text": "分散投资，不是把鸡蛋随手乱撒。",
+        "shotId": "c1"
+      },
+      {
+        "id": "L02",
+        "text": "股票、债券和现金，涨跌往往不同步。",
+        "shotId": "c2"
+      },
+      {
+        "id": "L03",
+        "text": "全押一类资产，一次下跌就全部砸中。",
+        "shotId": "c3"
+      },
+      {
+        "id": "L04",
+        "text": "多配一类走势不同的资产，就少一次同时踩坑。",
+        "shotId": "c4"
+      },
+      {
+        "id": "L05",
+        "text": "分散省不掉风险，但能给你留下回旋余地。",
+        "shotId": "c5"
+      }
+    ]
+  },
+  "credits": {
+    "title": "分散投资",
+    "author": "riversxiao",
+    "year": "2026",
+    "license": "CC BY 4.0"
+  }
+}

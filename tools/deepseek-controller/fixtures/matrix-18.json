@@ -218,7 +218,7 @@
       "alias": null,
       "mp4": "/workspace/films/matrix-fuli-caption-flash/matrix-fuli-caption-flash.mp4",
       "evidence": "/workspace/films/matrix-fuli-caption-flash/evidence/quality-mux-delivery.json",
-      "notes": "Cross×Flash: 复利 on Caption (seed liudong-caption-ds-v001; draw/ease infra unchanged); 30.00s, −14.4 LUFS/−1.0 dBTP, readcheck PASS; --delivery FAIL: schedule_fits_target (VO+read-time schedule 32.25s > locked 30s) + asr_check (L05 复利→复立 homophone residual after zh-tolerant; L02/L06/L07 raw sim 0.86–0.91). Not promoted. DeepSeek ¥0.81"
+      "notes": "Cross×Flash: 复利 on Caption (seed liudong-caption-ds-v001; draw/ease infra unchanged); 30.00s, −14.4 LUFS/−1.0 dBTP, readcheck PASS; --delivery FAIL: schedule_fits_target (VO+read-time schedule 32.25s > locked 30s) + asr_check (L05 复利→复立 homophone residual after zh-tolerant; L02/L06/L07 raw sim 0.86–0.91). Not promoted. DeepSeek ¥0.81. Trimmed copy in fixtures/matrix-18/m14-trimmed (schedule 29.50s, fits the 30s lock); re-render pending (docs/MATRIX-18.md)."
     },
     {
       "id": "M15",
@@ -244,7 +244,7 @@
       "alias": null,
       "mp4": "/workspace/films/matrix-fensan-caption-flash/matrix-fensan-caption-flash.mp4",
       "evidence": "/workspace/films/matrix-fensan-caption-flash/evidence/quality-mux-delivery.json",
-      "notes": "Cross×Flash: 分散投资 on Caption (seed liudong-caption-ds-v001; draw/ease infra unchanged; font subset regenerated offline); 30.00s, −14.3 LUFS/−1.1 dBTP, readcheck PASS, ASR 0 mismatches; --delivery FAIL only on schedule_fits_target (31.25s > locked 30s). Not promoted. DeepSeek ¥0.86"
+      "notes": "Cross×Flash: 分散投资 on Caption (seed liudong-caption-ds-v001; draw/ease infra unchanged; font subset regenerated offline); 30.00s, −14.3 LUFS/−1.1 dBTP, readcheck PASS, ASR 0 mismatches; --delivery FAIL only on schedule_fits_target (31.25s > locked 30s). Not promoted. DeepSeek ¥0.86. Trimmed copy in fixtures/matrix-18/m16-trimmed (schedule 29.00s, fits the 30s lock); re-render pending (docs/MATRIX-18.md)."
     },
     {
       "id": "M17",
@@ -286,8 +286,8 @@
     }
   ],
   "nextKnife": [
-    "M14 fuli×caption×flash: cut VO/copy to fit 30s (schedule 32.25s) + ASR lexicon 复立→复利, then re-gate",
-    "M16 fensan×caption×flash: trim copy to fit 30s (schedule 31.25s), then re-gate",
+    "M14 fuli×caption×flash: re-render with fixtures/matrix-18/m14-trimmed (copy cut, schedule 32.25s -> 29.50s; ASR lexicon 复立→复利 in place), then re-gate",
+    "M16 fensan×caption×flash: re-render with fixtures/matrix-18/m16-trimmed (copy cut, schedule 31.25s -> 29.00s), then re-gate",
     "Optional polish: Caption Commons packs; Swiss German-poster literal rebrand"
   ],
   "proofNote": "Full factorial 18/18 filled 2026-10-29 Asia/Shanghai. M01–M12 delivery-pass (prior epics). Cross×Flash M13–M18 made via OpenCode deepseek/deepseek-flash on DeepSeek official API only (balance ¥14.94→¥10.33, ¥4.61 total incl. ¥0.14 late-billed between runs not attributed per cell): M13/M15/M17/M18 delivery-pass; M14/M16 muxed — caption 30s lock overflowed by Flash copy (schedule_fits_target FAIL; M14 also ASR homophone residual). 16/18 delivery-pass."

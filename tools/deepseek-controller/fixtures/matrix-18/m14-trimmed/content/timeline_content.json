@@ -1,0 +1,70 @@
+{
+  "style": "caption-news",
+  "fps": 30,
+  "targetDurationSec": 30,
+  "caps": [
+    {
+      "id": "c1",
+      "role": "hook",
+      "k": "hook",
+      "zh": "复利|{是什么}",
+      "en": "一块钱存着不动，三十年后会变成多少？",
+      "data": {},
+      "allowDarkOpen": true
+    },
+    {
+      "id": "c2",
+      "role": "explain",
+      "k": "compare",
+      "zh": "利息|{再生利息}",
+      "en": "利息滚回本金，第二年连利息一起生利息。",
+      "data": {
+        "rate": 0.07
+      },
+      "allowDarkOpen": false
+    },
+    {
+      "id": "c3",
+      "role": "evidence",
+      "k": "stress",
+      "zh": "三十年|{七倍多}",
+      "en": "按年利率百分之七算，三十年后接近七块六。",
+      "data": {
+        "years": [
+          1,
+          10,
+          30
+        ]
+      },
+      "allowDarkOpen": false
+    },
+    {
+      "id": "c4",
+      "role": "contrast",
+      "k": "loss",
+      "zh": "取出|{雪球停}",
+      "en": "中途取出花掉，后面的雪球就滚不动了。",
+      "data": {},
+      "allowDarkOpen": false
+    },
+    {
+      "id": "c5",
+      "role": "payoff",
+      "k": "stock",
+      "zh": "留下|{别打断}",
+      "en": "复利靠的不是押对一次，是时间不被打断。",
+      "data": {},
+      "allowDarkOpen": false
+    },
+    {
+      "id": "c6",
+      "role": "end",
+      "k": "end",
+      "zh": "复利",
+      "en": "复利",
+      "data": {},
+      "allowDarkOpen": false
+    }
+  ],
+  "note": "Times filled by schedule_from_voice / timeline.parsed.json; this file is content only."
+}

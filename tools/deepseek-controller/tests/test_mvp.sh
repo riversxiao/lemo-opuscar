@@ -758,6 +758,37 @@ else
   bad "trimmed caption copy: $(cat $WORK/dc-ovr3.out $WORK/dc-ovr3.err)"
 fi
 
+# 21c) MATRIX-18 M14/M16 trimmed copy (fixtures/matrix-18/m1{4,6}-trimmed: controller-written
+#      content/ + measured edge zh-CN-YunxiNeural durations): the plan validates, the lines pass the
+#      dialogue gate against the VO budget of the 30s lock (--target 20: 77-103 zi at 4.5 zi/s, the
+#      same gate cli tts runs), and schedule fits the locked 30s DUR
+#      of the seed main.js (liudong-caption-ds-v001) with no overrun.
+for cell in m14 m16; do
+  TRIM="$WORK/matrix-$cell-trimmed"
+  rm -rf "$TRIM"
+  cp -a "$FIX/matrix-18/$cell-trimmed" "$TRIM"
+  printf 'const W = innerWidth, H = innerHeight, FPS = 30, DUR = 30;\n' >"$TRIM/main.js"
+  if ! "${CLI[@]}" validate "$TRIM/content/plan.json" >$WORK/dc-trim-$cell.val 2>&1; then
+    bad "$cell trimmed plan validate: $(cat $WORK/dc-trim-$cell.val)"
+  elif ! "${CLI[@]}" dialogue-check --project "$TRIM" --target 20 >$WORK/dc-trim-$cell.dlg 2>&1; then
+    bad "$cell trimmed dialogue-check: $(cat $WORK/dc-trim-$cell.dlg)"
+  elif ! "${CLI[@]}" schedule --project "$TRIM" --require-vo >$WORK/dc-trim-$cell.out 2>$WORK/dc-trim-$cell.err; then
+    bad "$cell trimmed schedule: $(cat $WORK/dc-trim-$cell.err)"
+  elif python3 - "$TRIM/timeline.parsed.json" <<'PY' >$WORK/dc-trim-$cell.chk 2>&1
+import json, sys
+t = json.load(open(sys.argv[1], encoding="utf-8"))
+assert t["ok"] and t["lockedDurationSec"] == 30 and t["lockOverrunSec"] == 0, t
+assert t["contentDurationSec"] <= 29.5 and t["scheduledDurationSec"] == 30.0, t
+assert len(t["shots"]) == 6 and all(s["voIds"] for s in t["shots"][:5]), t["shots"]
+print(t["contentDurationSec"])
+PY
+  then
+    ok "MATRIX-18 $cell trimmed caption copy: validate + dialogue-check + schedule $(cat $WORK/dc-trim-$cell.chk)s within the locked 30s"
+  else
+    bad "$cell trimmed timeline: $(cat $WORK/dc-trim-$cell.chk)"
+  fi
+done
+
 # 22) caption locked-main readcheck helper
 if python3 - <<'PY'
 import sys, tempfile
