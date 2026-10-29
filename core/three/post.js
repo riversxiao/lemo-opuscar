@@ -1,5 +1,6 @@
 // Post: scene → (MSAA + depth) → [GTAO ambient occlusion] → physical depth of field (CoC∝|1/f−1/z|, spiral sampling) → bloom → grade/vignette → tone mapping
 // makePost(renderer, scene, camera, w, h, { ssaa: 2, ao: true }): ssaa is the internal supersampling factor (the canvas is shown at CSS size; the browser scales it down when capturing)
+// Any frame size works (1920x1080, 1080x1920, ...): pass the demo's W/H; post.setSize(w, h) re-targets everything if the viewport changes
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
@@ -24,8 +25,9 @@ const cocShader = {
       gl_FragColor = vec4(col, c);
     }`
 };
+// res is the render-target size in pixels; DofScenePass sets it from (w, h) and setSize() keeps it in step with the renderer size
 const gatherShader = {
-  uniforms: { tIn: { value: null }, res: { value: new THREE.Vector2(1920, 1080) }, maxCoc: { value: 18 } },
+  uniforms: { tIn: { value: null }, res: { value: new THREE.Vector2(1, 1) }, maxCoc: { value: 18 } },
   vertexShader: cocShader.vertexShader,
   fragmentShader: `
     varying vec2 vUv; uniform sampler2D tIn; uniform vec2 res; uniform float maxCoc;
@@ -66,6 +68,12 @@ class DofScenePass extends Pass {
       this.aoAmt = o.aoAmt ?? .85;
     }
   }
+  setSize(w, h) {   // called by EffectComposer.addPass/setSize with the composer's effective size
+    if (this.rt.width === w && this.rt.height === h) return;
+    this.rt.setSize(w, h); this.rtC.setSize(w, h);
+    this.gat.material.uniforms.res.value.set(w, h);
+    if (this.ao) this.ao.setSize(w, h);
+  }
   render(renderer, writeBuffer) {
     renderer.setRenderTarget(this.rt); renderer.clear(); renderer.render(this.scene, this.camera);
     if (this.ao && this.aoAmt > 0) this.ao.render(renderer, null, null);
@@ -98,5 +106,7 @@ export function makePost(renderer, scene, camera, w, h, o = {}) {
   const vig = new ShaderPass(vignetteShader);
   const out = new OutputPass();
   composer.addPass(dof); composer.addPass(bloom); composer.addPass(vig); composer.addPass(out);
-  return { composer, dof, bloom, vig };
+  // setSize(w, h) takes CSS pixels like makePost; ssaa is applied here (passes follow via EffectComposer.setSize)
+  const setSize = (w2, h2) => composer.setSize(w2 * s, h2 * s);
+  return { composer, dof, bloom, vig, setSize };
 }
