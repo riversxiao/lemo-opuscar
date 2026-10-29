@@ -1740,12 +1740,41 @@ else
   bad "portrait caption plan: $(cat $WORK/dc-asp-val.err)"
 fi
 
-if "${CLI[@]}" validate "$FIX/plan-invalid-pictogram-portrait.json" >/dev/null 2>$WORK/dc-asp-bad.err; then
-  bad "pictogram-motion + 9:16 should be rejected"
-elif grep -q "pictogram-motion does not support '9:16'" $WORK/dc-asp-bad.err; then
-  ok "pictogram-motion + 9:16 rejected with manifest aspects message"
+if "${CLI[@]}" validate "$FIX/plan-pictogram-motion-portrait.json" >/dev/null 2>$WORK/dc-asp-picto.err; then
+  ok "validate plan-pictogram-motion-portrait.json (pictogram-motion has a native 9:16 layout)"
 else
-  bad "pictogram 9:16 rejected without aspect message: $(cat $WORK/dc-asp-bad.err)"
+  bad "pictogram 9:16 plan should validate: $(cat $WORK/dc-asp-picto.err)"
+fi
+
+rm -rf $WORK/dc-scaffold-picto-portrait
+if "${CLI[@]}" scaffold "$FIX/plan-pictogram-motion-portrait.json" -o $WORK/dc-scaffold-picto-portrait --lib "$ROOT" --force >$WORK/dc-spp.out 2>$WORK/dc-spp.err \
+  && grep -q 'size=1080x1920 aspect=9:16' $WORK/dc-spp.out \
+  && python3 -c "
+import json;d=json.load(open('$WORK/dc-scaffold-picto-portrait/content/engine.lock.json'))
+assert d['style']=='pictogram-motion' and d['aspect']=='9:16' and d['size']=='1080x1920', d" \
+  && grep -q 'core/render/video.mjs .* --size 1080x1920' $WORK/dc-scaffold-picto-portrait/PROJECT.md \
+  && ! grep -q '1920x1080' $WORK/dc-scaffold-picto-portrait/PROJECT.md; then
+  ok "scaffold pictogram 9:16 records size 1080x1920 in engine.lock + PROJECT.md --size"
+else
+  bad "scaffold pictogram portrait: $(cat $WORK/dc-spp.out $WORK/dc-spp.err)"
+fi
+
+# an aspect that no engine lists is still rejected by the manifest check (schema allows 16:9 / 9:16 only, so patch the manifest copy)
+if PYTHONPATH="$CTL" python3 - <<'PY'
+import json, validate
+plan = json.load(open("tools/deepseek-controller/fixtures/plan-pictogram-motion-portrait.json"))
+orig = validate.load_manifest
+def only_landscape(slug):
+    m = dict(orig(slug)); m["aspects"] = ["16:9"]; return m
+validate.load_manifest = only_landscape
+msgs = validate.validate_plan(plan)
+assert any("pictogram-motion does not support '9:16'" in m for m in msgs), msgs
+assert validate.validate_plan(dict(plan, aspect="16:9")) == [], "16:9 must stay valid"
+PY
+then
+  ok "a style whose manifest lacks 9:16 still rejects a 9:16 plan with the aspects message"
+else
+  bad "manifest aspects rejection"
 fi
 
 python3 -c "

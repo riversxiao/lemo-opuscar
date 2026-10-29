@@ -10,7 +10,8 @@
     "zh-en"
   ],
   "aspects": [
-    "16:9"
+    "16:9",
+    "9:16"
   ],
   "durationSec": {
     "min": 20,
