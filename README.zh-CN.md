@@ -88,6 +88,12 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 - 控制层计划：`"aspect": "9:16"`（默认 `"16:9"`）。象形动态只支持 16:9，校验会直接说明。
 - 剪辑交接：`handoff --size 1080x1920 --fps 30`，不写则用 ffprobe 从成片读取尺寸和帧率。
 
+### 从 Lemo-Opuscar 迁移
+
+- **插件 id 变了。** 现在是 `wordfilm@wordfilm`（marketplace `riversxiao/wordfilm`）；以 `lemo-opuscar@lemolab` 安装的插件收不到本 fork 的更新。切换：`claude plugin uninstall lemo-opuscar@lemolab`、`claude plugin marketplace add riversxiao/wordfilm`、`claude plugin install wordfilm@wordfilm`（不再用旧 marketplace 时再 `claude plugin marketplace remove lemolab`）。
+- **`setup.sh` 自己克隆的库**（带 `lemo.managed` 标记，比如 `~/lemo-opuscar`）目录不变，但下次运行时 `origin` 会改指本 fork，并重置到它的 `main`。这类库里不该放你自己的东西，有改动请先拷出来。想继续跟上游：设 `WORDFILM_REPO=https://github.com/lemomo-ai/lemo-opuscar.git`（仅 Claude 技能；DeepSeek 技能需要本 fork 的覆盖层）。你自己克隆的库永远不会被重置。
+- **环境变量。** `LEMO_OPUSCAR_HOME` / `_REPO` / `_PIN` 仍然有效；与 `WORDFILM_*` 同时设置时以后者为准。
+
 ---
 
 ## 🎬 特别放映 · 我的样片

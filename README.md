@@ -88,6 +88,12 @@ Loop: TREATMENT → `setup.sh demo <slug>` → content layer only → still → 
 - Controller plans: `"aspect": "9:16"` (default `"16:9"`). Pictogram Motion is 16:9 only and validation says so.
 - NLE handoff: `handoff --size 1080x1920 --fps 30`, or leave them out and the size and fps are read from the master with ffprobe.
 
+### Coming from Lemo-Opuscar
+
+- **Plugin id changed.** The plugin is now `wordfilm@wordfilm` (marketplace `riversxiao/wordfilm`); an install named `lemo-opuscar@lemolab` does not get this fork's updates. Switch with `claude plugin uninstall lemo-opuscar@lemolab`, `claude plugin marketplace add riversxiao/wordfilm`, `claude plugin install wordfilm@wordfilm` (then `claude plugin marketplace remove lemolab` if nothing else uses it).
+- **Library clones made by `setup.sh`** (marked `lemo.managed`, e.g. `~/lemo-opuscar`) keep their folder, but on the next run their `origin` moves to this fork and they are reset to its `main`. Nothing of yours should live in them; copy out any edits first. To stay on the upstream, set `WORDFILM_REPO=https://github.com/lemomo-ai/lemo-opuscar.git` (the Claude skill only: the DeepSeek skill needs this fork's overlay). Clones you made yourself are never reset.
+- **Environment.** `LEMO_OPUSCAR_HOME` / `_REPO` / `_PIN` still work; the `WORDFILM_*` names win when both are set.
+
 ---
 
 ## 🎬 Feature presentation · my samples
