@@ -1,6 +1,7 @@
 // Local copy (tilt-shift version): adds a tilt-shift blur computed from screen height on top of the physical depth of field. With tiltAmt=0 it is identical to core/three/post.js
 // Post: scene → (MSAA + depth) → [GTAO ambient occlusion] → physical depth of field (CoC∝|1/f−1/z|, spiral sampling) → bloom → grade/vignette → tone mapping
 // makePost(renderer, scene, camera, w, h, { ssaa: 2, ao: true }): ssaa is the internal supersampling factor (the canvas is shown at CSS size; the browser downscales it when capturing)
+// every target is sized from w, h (the renderer's CSS size) x ssaa; post.setSize(w, h) re-targets them, like core/three/post.js
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
@@ -70,6 +71,14 @@ class DofScenePass extends Pass {
       this.aoAmt = o.aoAmt ?? .85;
     }
   }
+  // Pass.setSize stays the inherited no-op (as in core/three/post.js): EffectComposer.addPass/setSize call it with
+  // size x renderer pixelRatio. The size is owned by makePost (w*ssaa x h*ssaa) and changed only here.
+  resize(w, h) {
+    if (this.rt.width === w && this.rt.height === h) return;
+    this.rt.setSize(w, h); this.rtC.setSize(w, h);
+    this.gat.material.uniforms.res.value.set(w, h);
+    if (this.ao) this.ao.setSize(w, h);
+  }
   render(renderer, writeBuffer) {
     renderer.setRenderTarget(this.rt); renderer.clear(); renderer.render(this.scene, this.camera);
     if (this.ao && this.aoAmt > 0) this.ao.render(renderer, null, null);
@@ -103,5 +112,12 @@ export function makePost(renderer, scene, camera, w, h, o = {}) {
   const vig = new ShaderPass(vignetteShader);
   const out = new OutputPass();
   composer.addPass(dof); composer.addPass(bloom); composer.addPass(vig); composer.addPass(out);
-  return { composer, dof, bloom, vig };
+  // setSize(w, h) takes CSS pixels like makePost: composer buffers and DOF at w*ssaa x h*ssaa, bloom at that times the pixel ratio (as addPass did)
+  const setSize = (w2, h2) => {
+    const W2 = w2 * s, H2 = h2 * s, pr = renderer.getPixelRatio();
+    composer.setSize(W2 / pr, H2 / pr);
+    dof.resize(W2, H2);
+    bloom.setSize(W2 * pr, H2 * pr);
+  };
+  return { composer, dof, bloom, vig, setSize };
 }
