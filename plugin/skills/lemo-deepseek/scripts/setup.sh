@@ -1,24 +1,27 @@
 #!/bin/sh
-# WordFilm skill: same as upstream setup, but defaults to the riversxiao fork
-# (DeepSeek edition). Set LEMO_OPUSCAR_REPO / LEMO_OPUSCAR_PIN to override.
+# WordFilm skill (DeepSeek edition): same as the base setup, defaults to the riversxiao fork.
+# Set WORDFILM_REPO / WORDFILM_PIN to override (the old LEMO_OPUSCAR_REPO / LEMO_OPUSCAR_PIN still work).
 #   sh setup.sh                    library ready? (clone on first run, update later) → prints LIB=<path>
 #   sh setup.sh deps [voice] [music]
 #                                  install packages: core = Node packages, headless browser, Python core tier;
 #                                  voice = TTS and speech check (+ the English voice model); music = pluck.py (numba)
 #   sh setup.sh demo <slug>        add one style's demo source and poster to the library (reference only)
 # The library is a sparse clone of the main branch: guides, core/ tools and every STYLE.md. Big assets: tools/fetch.sh.
-# LEMO_OPUSCAR_HOME = where the library lives (default: the clone you stand in, else ~/lemo-opuscar).
+# WORDFILM_HOME = where the library lives (default: the clone you stand in, else ~/wordfilm; an existing
+#   ~/lemo-opuscar library is still used when ~/wordfilm does not exist). LEMO_OPUSCAR_HOME still works.
 #
 # DeepSeek overlay is REQUIRED on the returned LIB. Pins that land on pre-overlay
 # upstream (e.g. bare 413a6bd) fail. Prefer a full 40-char SHA or tag on this fork.
 # Dual pinning: engine/upstream baseline ≠ control-layer (DeepSeek fork) commit — see DEEPSEEK.md.
 set -e
-REPO=${LEMO_OPUSCAR_REPO:-https://github.com/riversxiao/wordfilm.git}
+REPO=${WORDFILM_REPO:-${LEMO_OPUSCAR_REPO:-https://github.com/riversxiao/wordfilm.git}}
 # Optional: pin to a DeepSeek-era commit/tag (full 40-char SHA preferred)
-PIN=${LEMO_OPUSCAR_PIN:-}
+PIN=${WORDFILM_PIN:-${LEMO_OPUSCAR_PIN:-}}
+HOME_SET=${WORDFILM_HOME:-${LEMO_OPUSCAR_HOME:-}}
 RESOLVED_PIN=
 
-# 1. Which library: $LEMO_OPUSCAR_HOME, else the clone we are standing in, else ~/lemo-opuscar
+# 1. Which library: $WORDFILM_HOME (or $LEMO_OPUSCAR_HOME), else the clone we are standing in,
+#    else ~/wordfilm (or an existing ~/lemo-opuscar library from before the rename)
 is_lib() { [ -f "$1/AGENTS.md" ] && [ -d "$1/core/render" ]; }
 is_deepseek_lib() {
   [ -f "$1/AGENTS.deepseek.md" ] &&
@@ -28,21 +31,22 @@ is_deepseek_lib() {
 }
 require_deepseek_lib() {
   if ! is_lib "$1"; then
-    echo "✗ $1 is not a Lemo-Opuscar library (need AGENTS.md + core/render)."
+    echo "✗ $1 is not a WordFilm library (need AGENTS.md + core/render)."
     exit 1
   fi
   if ! is_deepseek_lib "$1"; then
     echo "✗ $1 is missing the DeepSeek overlay (AGENTS.deepseek.md, DEEPSEEK.md, plugin/skills/lemo-deepseek/)."
-    echo "  This path is not a DeepSeek fork, or LEMO_OPUSCAR_PIN landed on a commit without the overlay"
-    echo "  (e.g. bare upstream 413a6bd). Set LEMO_OPUSCAR_REPO=https://github.com/riversxiao/wordfilm.git"
+    echo "  This path is not a DeepSeek fork, or WORDFILM_PIN landed on a commit without the overlay"
+    echo "  (e.g. bare upstream 413a6bd). Set WORDFILM_REPO=https://github.com/riversxiao/wordfilm.git"
     echo "  and pin a DeepSeek-era commit (full 40-char SHA preferred), not the upstream-only baseline."
     exit 1
   fi
 }
 
-if [ -n "$LEMO_OPUSCAR_HOME" ]; then LIB=$LEMO_OPUSCAR_HOME
+if [ -n "$HOME_SET" ]; then LIB=$HOME_SET
 elif top=$(git rev-parse --show-toplevel 2>/dev/null) && is_lib "$top"; then LIB=$top
-else LIB=$HOME/lemo-opuscar
+elif [ ! -e "$HOME/wordfilm" ] && is_lib "$HOME/lemo-opuscar"; then LIB=$HOME/lemo-opuscar
+else LIB=$HOME/wordfilm
 fi
 case "$LIB" in /*) ;; *) LIB=$(pwd)/$LIB ;; esac
 
@@ -132,7 +136,8 @@ apply_pin() {
 }
 
 if [ "$(git -C "$LIB" config --get lemo.managed 2>/dev/null)" = true ]; then
-  # our own clone (nothing of the user's lives in it): match main or PIN
+  # our own clone (nothing of the user's lives in it): match main or PIN.
+  # A clone made before the rename points at the old upstream URL: origin moves to $REPO here.
   [ "$(git -C "$LIB" remote get-url origin 2>/dev/null)" = "$REPO" ] || git -C "$LIB" remote set-url origin "$REPO"
   if [ -n "$PIN" ]; then
     apply_pin
@@ -142,7 +147,7 @@ if [ "$(git -C "$LIB" config --get lemo.managed 2>/dev/null)" = true ]; then
     echo "! could not update $LIB (offline?); using the local copy. git: $err" | head -3
   fi
 elif ! is_lib "$LIB"; then
-  [ -e "$LIB" ] && [ -n "$(ls -A "$LIB" 2>/dev/null)" ] && { echo "✗ $LIB exists but is not the Lemo-Opuscar library. Set LEMO_OPUSCAR_HOME to another folder."; exit 1; }
+  [ -e "$LIB" ] && [ -n "$(ls -A "$LIB" 2>/dev/null)" ] && { echo "✗ $LIB exists but is not the WordFilm library. Set WORDFILM_HOME to another folder."; exit 1; }
   command -v git >/dev/null || { echo "✗ git is needed to download the library"; exit 1; }
   echo "↓ downloading the style library into $LIB"
   git clone --quiet --depth 1 --filter=blob:none --sparse --branch main "$REPO" "$LIB" || { rm -rf "$LIB"; echo "✗ download failed (offline?)"; exit 1; }
@@ -156,11 +161,11 @@ else
   # If PIN is set, try to honour it; refuse soft-success when pin cannot be applied.
   if [ -n "$PIN" ]; then
     if ! git -C "$LIB" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-      echo "✗ LEMO_OPUSCAR_PIN=$PIN is set, but $LIB is not a git work tree; cannot apply pin safely."
+      echo "✗ WORDFILM_PIN=$PIN is set, but $LIB is not a git work tree; cannot apply pin safely."
       exit 1
     fi
     [ "$(git -C "$LIB" remote get-url origin 2>/dev/null)" = "$REPO" ] || \
-      echo "! $LIB origin differs from LEMO_OPUSCAR_REPO; still attempting pin"
+      echo "! $LIB origin differs from WORDFILM_REPO ($REPO); still attempting pin"
     apply_pin
   fi
 fi

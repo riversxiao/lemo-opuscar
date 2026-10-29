@@ -5,7 +5,7 @@ set -e
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 SETUP="$SCRIPT_DIR/setup.sh"
 REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/../../../.." && pwd)
-REPO_URL=${TEST_LEMO_REPO:-https://github.com/riversxiao/wordfilm.git}
+REPO_URL=${TEST_WORDFILM_REPO:-${TEST_LEMO_REPO:-https://github.com/riversxiao/wordfilm.git}}
 
 # DeepSeek-era tip known on the fork at review time (full SHA).
 DS_PIN=${TEST_DS_PIN:-f3d2e1c934be18ac4cb816ecaa5e9d27176afaae}
@@ -15,7 +15,7 @@ UP_PIN=${TEST_UP_PIN:-413a6bd6d78ebd3bdd5abaec9538a26867f890df}
 PASS=0
 FAIL=0
 SKIP=0
-TMPBASE=$(mktemp -d /tmp/lemo-ds-setup-test.XXXXXX)
+TMPBASE=$(mktemp -d "${TMPDIR:-/tmp}/wordfilm-ds-setup-test.XXXXXX")
 trap 'rm -rf "$TMPBASE"' EXIT
 
 ok() { PASS=$((PASS + 1)); echo "  PASS: $1"; }
@@ -31,8 +31,19 @@ run_setup() {
   # Prints stdout+stderr; returns setup exit code.
   home=$1
   shift
-  # Clear ambient pins from the parent environment.
-  env -u LEMO_OPUSCAR_PIN -u LEMO_OPUSCAR_HOME -u LEMO_OPUSCAR_REPO \
+  # Clear ambient pins (new and old names) from the parent environment.
+  env -u WORDFILM_PIN -u WORDFILM_HOME -u WORDFILM_REPO \
+    -u LEMO_OPUSCAR_PIN -u LEMO_OPUSCAR_HOME -u LEMO_OPUSCAR_REPO \
+    "$@" WORDFILM_HOME="$home" WORDFILM_REPO="$REPO_URL" \
+    sh "$SETUP" 2>&1
+}
+
+run_setup_legacy() {
+  # Same as run_setup, but only with the pre-rename LEMO_OPUSCAR_* names (fallback path).
+  home=$1
+  shift
+  env -u WORDFILM_PIN -u WORDFILM_HOME -u WORDFILM_REPO \
+    -u LEMO_OPUSCAR_PIN -u LEMO_OPUSCAR_HOME -u LEMO_OPUSCAR_REPO \
     "$@" LEMO_OPUSCAR_HOME="$home" LEMO_OPUSCAR_REPO="$REPO_URL" \
     sh "$SETUP" 2>&1
 }
@@ -43,7 +54,7 @@ echo "REPO=$REPO_URL"
 echo "TMP=$TMPBASE"
 
 if ! have_net; then
-  skip "network unreachable (git ls-remote failed) — remaining network cases skipped"
+  skip "network unreachable (git ls-remote failed): remaining network cases skipped"
   echo "RESULT pass=$PASS fail=$FAIL skip=$SKIP"
   [ "$FAIL" -eq 0 ]
   exit 0
@@ -53,9 +64,9 @@ fi
 echo "1) fresh clone + DeepSeek PIN"
 H1="$TMPBASE/t1"
 mkdir -p "$H1"
-# setup clones into LEMO_OPUSCAR_HOME when path is empty / not a lib
+# setup clones into WORDFILM_HOME when path is empty / not a lib
 rmdir "$H1" 2>/dev/null || rm -rf "$H1"
-out=$(run_setup "$H1" LEMO_OPUSCAR_PIN="$DS_PIN") && ec=0 || ec=$?
+out=$(run_setup "$H1" WORDFILM_PIN="$DS_PIN") && ec=0 || ec=$?
 echo "$out" | tail -5
 if [ "$ec" -eq 0 ] \
   && echo "$out" | grep -q "^LIB=" \
@@ -71,7 +82,7 @@ fi
 # --- 2. PIN to upstream-only commit without overlay → must fail ---
 echo "2) pin to pre-overlay upstream commit"
 H2="$TMPBASE/t2"
-out=$(run_setup "$H2" LEMO_OPUSCAR_PIN="$UP_PIN") && ec=0 || ec=$?
+out=$(run_setup "$H2" WORDFILM_PIN="$UP_PIN") && ec=0 || ec=$?
 echo "$out" | tail -8
 if [ "$ec" -ne 0 ] && echo "$out" | grep -qi "DeepSeek overlay\|missing the DeepSeek"; then
   # Must not pretend success
@@ -99,9 +110,9 @@ else
 fi
 
 # --- 3. PIN=nonsense → non-zero, no success LIB ---
-echo "3) nonsense PIN"
+echo "3) nonsense PIN (legacy LEMO_OPUSCAR_* names)"
 H3="$TMPBASE/t3"
-out=$(run_setup "$H3" LEMO_OPUSCAR_PIN="not-a-real-ref-zzzz-deadbeef") && ec=0 || ec=$?
+out=$(run_setup_legacy "$H3" LEMO_OPUSCAR_PIN="not-a-real-ref-zzzz-deadbeef") && ec=0 || ec=$?
 echo "$out" | tail -6
 if [ "$ec" -ne 0 ]; then
   if echo "$out" | grep -q "^LIB="; then
@@ -120,7 +131,7 @@ if [ -d "$H1/.git" ]; then
   cp -a "$H1" "$H4"
   git -C "$H4" config lemo.managed true
   # Point origin at a valid URL but request impossible object
-  out=$(run_setup "$H4" LEMO_OPUSCAR_PIN="0000000000000000000000000000000000000001") && ec=0 || ec=$?
+  out=$(run_setup "$H4" WORDFILM_PIN="0000000000000000000000000000000000000001") && ec=0 || ec=$?
   echo "$out" | tail -6
   if [ "$ec" -ne 0 ] && ! echo "$out" | grep -q "^LIB="; then
     ok "managed + bad PIN exits non-zero"
@@ -143,6 +154,35 @@ if [ "$ec" -ne 0 ] && echo "$out" | grep -qi "DeepSeek overlay"; then
   ok "user-owned missing overlay refused"
 else
   bad "user-owned missing overlay should fail (ec=$ec)"
+fi
+
+# --- 6. Legacy LEMO_OPUSCAR_HOME still resolves an existing library ---
+echo "6) legacy LEMO_OPUSCAR_HOME on an existing library"
+if [ -d "$H1/.git" ]; then
+  out=$(run_setup_legacy "$H1") && ec=0 || ec=$?
+  echo "$out" | tail -3
+  if [ "$ec" -eq 0 ] && echo "$out" | grep -qx "LIB=$(cd "$H1" && pwd -P)"; then
+    ok "LEMO_OPUSCAR_HOME fallback resolves $H1"
+  else
+    bad "LEMO_OPUSCAR_HOME fallback should resolve $H1 (ec=$ec)"
+  fi
+else
+  skip "no successful clone from test 1 to reuse for the legacy-name check"
+fi
+
+# --- 7. WORDFILM_HOME wins over LEMO_OPUSCAR_HOME ---
+echo "7) WORDFILM_HOME takes precedence"
+H7="$TMPBASE/t7-not-a-lib"
+mkdir -p "$H7"; printf 'x\n' > "$H7/stray"
+if [ -d "$H1/.git" ]; then
+  out=$(run_setup "$H1" LEMO_OPUSCAR_HOME="$H7") && ec=0 || ec=$?
+  if [ "$ec" -eq 0 ] && echo "$out" | grep -qx "LIB=$(cd "$H1" && pwd -P)"; then
+    ok "WORDFILM_HOME used before LEMO_OPUSCAR_HOME"
+  else
+    bad "WORDFILM_HOME should win over LEMO_OPUSCAR_HOME (ec=$ec)"
+  fi
+else
+  skip "no successful clone from test 1 to reuse for the precedence check"
 fi
 
 echo "RESULT pass=$PASS fail=$FAIL skip=$SKIP"
