@@ -1067,6 +1067,75 @@ def run_speaker_check(project: Path, has_vo: bool) -> dict[str, Any]:
     return check("speaker_consistency", d["status"], detail, required=True)
 
 
+def _lid_python() -> str | None:
+    import shutil
+    cands = [os.environ.get("LEMO_LID_PYTHON"), str(_repo_root() / ".venv-spk" / "bin" / "python"),
+             str(_repo_root() / ".venv-voice" / "bin" / "python"), shutil.which("python3")]
+    for c in cands:
+        if c and Path(c).exists():
+            r = subprocess.run([c, "-c", "import torch, transformers"], capture_output=True)
+            if r.returncode == 0:
+                return c
+    return None
+
+
+def run_dialect_check(project: Path, has_vo: bool) -> dict[str, Any]:
+    """Mandarin gate for Chinese VO (core/tts/dialect_check.py, MMS-LID-256, local, free).
+
+    FAIL (high) when a zh/mixed line is heard as Cantonese / another Chinese variety or another
+    non-English language (p ≥ 0.5 and above cmn). Intended English (`lang: en`, English runs of
+    split mixed lines) is allowed. Added after the 贝塔 pilot: eleven_v4 without language_code
+    read L06 in 粤语 (yue 0.997) while ASR text still matched.
+    """
+    import dialogue_check as _dc
+
+    if not has_vo:
+        return check("dialect_mandarin", "NOT_APPLICABLE", "no VO", required=False)
+    try:
+        rows = load_json(_dc.find_lines(project))
+    except (OSError, ValueError, FileNotFoundError):
+        return check("dialect_mandarin", "NOT_CHECKED", "lines.json missing", required=True)
+    rows = rows if isinstance(rows, list) else (rows.get("lines") or [])
+    rows = [r for r in rows if isinstance(r, dict) and r.get("id")]
+    cjk = re.compile(r"[\u3400-\u9fff]")
+    if not any(cjk.search(str(r.get("say") or r.get("text") or "")) for r in rows):
+        return check("dialect_mandarin", "NOT_APPLICABLE", "no Chinese VO lines", required=False)
+    voices = project / "voices"
+    ids = [r["id"] for r in rows]
+    missing = [i for i in ids if not (voices / f"{i}.wav").is_file()]
+    if missing:
+        return check("dialect_mandarin", "NOT_CHECKED", f"missing wav: {missing[:5]}", required=True)
+    langs = ",".join(f"{r['id']}={r['lang']}" for r in rows if r.get("lang"))
+    py = _lid_python()
+    if not py:
+        return check("dialect_mandarin", "NOT_CHECKED",
+                     "torch + transformers missing (.venv-spk/bin/pip install transformers) or LEMO_LID_PYTHON",
+                     required=True)
+    script = _repo_root() / "core" / "tts" / "dialect_check.py"
+    cmd = [py, str(script), str(voices), "--ids", ",".join(ids)] + (["--langs", langs] if langs else [])
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+        d = json.loads(r.stdout.strip().splitlines()[-1])
+    except (subprocess.SubprocessError, ValueError, IndexError) as e:
+        return check("dialect_mandarin", "NOT_CHECKED", f"failed: {e}", required=True)
+    (project / "evidence").mkdir(exist_ok=True)
+    (project / "evidence" / "dialect-check.json").write_text(json.dumps(d, ensure_ascii=False, indent=1) + "\n",
+                                                             encoding="utf-8")
+    st = d.get("status")
+    if st not in ("PASS", "WARN", "FAIL"):
+        return check("dialect_mandarin", "NOT_CHECKED", str(d.get("detail") or d), required=True)
+    lines = d.get("lines") or {}
+    why = lambda i: "; ".join(p["why"] for p in lines.get(i, {}).get("parts", []))  # noqa: E731
+    if st == "FAIL":
+        det = "severity=high: not Mandarin — " + ", ".join(f"{i} ({why(i)})" for i in d["fail"])
+        det += " → re-take with language_code=zh (ElevenLabs) — evidence/dialect-check.json"
+        return check("dialect_mandarin", "FAIL", det, required=True)
+    det = f"{d.get('model')}: {len(ids)} lines Mandarin"
+    if d.get("warn"):
+        det += "; WARN " + ", ".join(f"{i} ({why(i)})" for i in d["warn"])
+    return check("dialect_mandarin", "PASS" if st == "PASS" else "WARN", det, required=st == "PASS")
+
+
 def run_pacing_gate(project: Path, media: Path | None, *, enforce: bool = False,
                     skip_visual: bool = False) -> dict[str, Any]:
     """Pacing gate (pacing_check.py). P0 report-only → WARN (never blocks);
@@ -1277,6 +1346,7 @@ def gate(
         checks.append(run_readcheck(project, style=style))
         checks.append(run_asr(project, has_vo, asr_mode=asr_mode))
         checks.append(run_speaker_check(project, has_vo))
+        checks.append(run_dialect_check(project, has_vo))
 
     checks.append(run_acronym_case(project))
     checks.append(run_visual_check_gate(project, media, delivery))

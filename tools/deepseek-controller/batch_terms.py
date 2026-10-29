@@ -2,6 +2,8 @@
 """FRM per-term template films (templates/finance-term/, see its STEPS.md).
 
   python3 batch_terms.py init   --csv /workspace/finance/frm_core100.csv --out /workspace/films/frm [--only 1,5-9] [--skip 42]
+  python3 batch_terms.py from-draft --draft /workspace/films/dialogue-drafts/<name>.lines.json --term <term-dir>
+                                     # 台词教父 draft (read-only) → copy visual / voice / lang into <term>/src/lines.json
   python3 batch_terms.py plan   --term /workspace/films/frm/043-es           # after the expert fills + approves lines.json
   python3 batch_terms.py status --out /workspace/films/frm [--json]
   python3 batch_terms.py build  --out /workspace/films/frm [--only 43-50] [--el-backup]   # approved terms, one at a time
@@ -159,7 +161,11 @@ def build_plan(term_dir: Path) -> tuple[dict, list[str]]:
         row = {"id": ln["id"], "role": ln["role"], "text": strip_cap(ln["cap"]), "cap": ln["cap"], "shotId": ln["shot"]}
         if ln.get("say"):
             row["say"] = ln["say"]
+        if ln.get("lang"):
+            row["lang"] = ln["lang"]
         plan["voice"]["lines"].append(row)
+    if L.get("voice"):   # from-draft: one narrator per film (bare id, `elevenlabs:` prefix stripped)
+        plan["voice"]["voiceId"] = norm_voice(L["voice"])
     plan["brand"] = term_brand(meta, L)
     if L.get("glossary"):
         plan["glossary"] = dict(L["glossary"])
@@ -185,6 +191,59 @@ def term_brand(meta: dict, L: dict) -> dict:
         if k == "keepCase" or (isinstance(v, str) and v.strip()):
             b[k] = v
     return b
+
+
+LANGS = ("zh", "en", "mixed")
+
+
+def norm_voice(v: object) -> str:
+    """台词教父 drafts write `elevenlabs:<voice-id>`; the pipeline uses the bare id."""
+    v = str(v or "").strip()
+    if v.lower().startswith("elevenlabs:"):
+        v = v.split(":", 1)[1].strip()
+    return v
+
+
+def cmd_from_draft(a: argparse.Namespace) -> int:
+    """Copy the per-line `visual`, `voice` (one narrator) and optional `lang` from a 台词教父 draft
+    into <term>/src/lines.json. The draft is read-only. Wording is locked: every draft text/say must
+    equal the approved term line (cap without braces / say) — any difference refuses (no paraphrase)."""
+    draft = json.loads(Path(a.draft).read_text("utf-8"))
+    rows = draft if isinstance(draft, list) else draft.get("lines") or []
+    lp = Path(a.term) / "src" / "lines.json"
+    L = json.loads(lp.read_text("utf-8"))
+    by_id = {x["id"]: x for x in L.get("lines") or []}
+    errs, voices = [], set()
+    for r in rows:
+        x = by_id.get(r.get("id"))
+        if x is None:
+            errs.append(f"{r.get('id')}: not in term lines"); continue
+        if strip_cap(x.get("cap") or "") != str(r.get("text") or ""):
+            errs.append(f"{r['id']}: draft text ≠ approved cap ({r.get('text')!r} vs {strip_cap(x.get('cap') or '')!r})")
+        if (r.get("say") or None) != (x.get("say") or None):
+            errs.append(f"{r['id']}: draft say ≠ approved say")
+        if r.get("lang") and r["lang"] not in LANGS:
+            errs.append(f"{r['id']}: lang must be zh|en|mixed")
+        if r.get("voice"):
+            voices.add(norm_voice(r["voice"]))
+    if len(voices) > 1:
+        errs.append(f"more than one narrator voice in the draft: {sorted(voices)} (series = one voice)")
+    if len(rows) != len(by_id):
+        errs.append(f"draft has {len(rows)} lines, term has {len(by_id)}")
+    if errs:
+        print("from-draft refused (wording is locked — ask 台词教父/金融专家):\n  " + "\n  ".join(errs))
+        return 1
+    for r in rows:
+        x = by_id[r["id"]]
+        for k in ("visual", "lang"):
+            if r.get(k):
+                x[k] = r[k]
+    if voices:
+        L["voice"] = voices.pop()
+    L["draft"] = str(Path(a.draft).resolve())
+    lp.write_text(json.dumps(L, ensure_ascii=False, indent=2) + "\n", "utf-8")
+    print(f"OK from-draft → {lp} ({len(rows)} lines, voice {L.get('voice', '-')})")
+    return 0
 
 
 def cmd_plan(a: argparse.Namespace) -> int:
@@ -282,6 +341,9 @@ def main(argv: list[str] | None = None) -> int:
     i.add_argument("--skip")
     p = sub.add_parser("plan")
     p.add_argument("--term", required=True)
+    f = sub.add_parser("from-draft")
+    f.add_argument("--draft", required=True)
+    f.add_argument("--term", required=True)
     s = sub.add_parser("status")
     s.add_argument("--out", required=True)
     s.add_argument("--json", action="store_true")
@@ -292,7 +354,7 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--el-backup", action="store_true",
                    help="also render an ElevenLabs backup narration + <film>-el.mp4 (off by default)")
     a = ap.parse_args(argv)
-    return {"init": cmd_init, "plan": cmd_plan, "status": cmd_status, "build": cmd_build}[a.cmd](a)
+    return {"init": cmd_init, "plan": cmd_plan, "from-draft": cmd_from_draft, "status": cmd_status, "build": cmd_build}[a.cmd](a)
 
 
 if __name__ == "__main__":

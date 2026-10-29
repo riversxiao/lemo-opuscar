@@ -199,7 +199,7 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
                         _err(errors, f"{lp}: object")
                         continue
                     for k in ln:
-                        if k not in ("id", "text", "shotId", "role", "cap", "say"):
+                        if k not in ("id", "text", "shotId", "role", "cap", "say", "lang"):
                             _err(errors, f"{lp}.{k}: unknown")
                     lid = ln.get("id")
                     if not isinstance(lid, str) or not ID_RE.match(lid):
@@ -217,6 +217,8 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
                         _err(errors, f"{lp}.cap: string max 200")
                     if "say" in ln and (not isinstance(ln["say"], str) or not ln["say"].strip() or len(ln["say"]) > 200):
                         _err(errors, f"{lp}.say: string 1..200 (TTS-only pronunciation of text)")
+                    if "lang" in ln and ln["lang"] not in ("zh", "en", "mixed"):
+                        _err(errors, f"{lp}.lang: zh|en|mixed (TTS language; zh = Mandarin)")
                     sid = ln.get("shotId")
                     if sid is not None:
                         if not isinstance(sid, str) or not ID_RE.match(sid):

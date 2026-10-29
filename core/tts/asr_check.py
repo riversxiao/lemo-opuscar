@@ -101,7 +101,8 @@ def main():
     ap.add_argument('--lang', default='auto'); ap.add_argument('--model'); ap.add_argument('--threshold', type=float, default=0.92)
     a = ap.parse_args()
     lines = json.load(open(a.lines, encoding='utf-8'))
-    want = {L['id']: L.get('asr', L['text']) for L in lines}
+    # reference = what the narrator is asked to say: asr > say (caption-only acronyms like （CAPM） are not spoken) > text
+    want = {L['id']: L.get('asr') or L.get('say') or L['text'] for L in lines}
     lang = detect_lang(list(want.values())) if a.lang == 'auto' else a.lang
     name = a.model or os.environ.get('WHISPER_MODEL') or {'en': 'base.en', 'zh': 'small'}.get(lang, 'base')
     if lang != 'en' and os.path.basename(name.rstrip('/')).endswith('.en'):

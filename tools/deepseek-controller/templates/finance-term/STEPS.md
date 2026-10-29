@@ -42,6 +42,22 @@ TTS_PROVIDER=elevenlabs STYLE_VERSION=finance-v003 \
   `<film>/music/`, no new request; usage recorded in its `meta.json`). Ducked mix → mux −14 LUFS,
   `LEMO_TP_CEIL=-2.8` + retry above −2.0; quality requires TP ≤ −2 dBTP for v003 films.
 - quality adds required `visual_content` + `visual_duplicate` once `content/viz.json` exists.
+- **Language (粤语 drift fix, 2026-10-29)**: eleven_v4 speaks both Mandarin and Cantonese from the same hanzi and guessed
+  per request (beta-v001 L06 came out Cantonese). The provider now sends `language_code` on every line plus
+  `previous_text`/`next_text`. Per-line `lang` in lines.json: `zh` (default for any line with hanzi) · `en` (no hanzi →
+  automatic) · `mixed` (Chinese line with English terms: one `zh` request — Tex still reads the English words naturally,
+  seamless). `LEMO_TTS_ELEVENLABS_MIXED=split` = opt-in per-run split (zh/en runs, 40 ms crossfade). `yue` only if a
+  line explicitly asks for it. `LEMO_TTS_ELEVENLABS_SEED` optional.
+- **Dialect gate** `dialect_mandarin` (required when VO exists): `core/tts/dialect_check.py`, Meta MMS-LID-256
+  (`/workspace/_models/mms-lid-256`, or `LEMO_DIALECT_MODEL`; runs in `.venv-spk`). Chinese (zh/mixed) lines FAIL when
+  a non-Mandarin Chinese label (yue/nan/hak/wuu/…) wins with p ≥ 0.5; `en` lines never fail (WARN if not heard as
+  English). Whisper LID cannot tell yue from zh — don't use it. Evidence: `evidence/dialect-check.json`.
+  Fix a FAIL by re-TTS of that film (language_code makes it deterministic); never re-word the line.
+- **Draft copy**: `batch_terms.py from-draft --draft /workspace/films/dialogue-drafts/<name>.lines.json --term <term>`
+  copies `visual`/`lang`/voice into `<term>/src/lines.json` only if every text/say equals the approved line
+  (draft folder never written). `elevenlabs:<id>` voice prefix accepted.
+- Same-term earlier takes (beta-v001 when building beta-v002) are skipped by `visual_dupe.py`; a delivered film is
+  `--register`ed into the series index after quality, so later films are checked against it.
 
 ## Drafting lines (future)
 
