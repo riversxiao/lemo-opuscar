@@ -1,8 +1,14 @@
 // Engine: palettes, utilities, grid patterns in the style of the official core graphic, athlete skeleton, typography
-// Everything hangs off window.G. Canvas is 1920×1080.
+// Everything hangs off window.G. Canvas is 1920×1080, or 1080×1920 when the page opens in a portrait viewport
+// (core/render --size 1080x1920): PORT is true and the scenes switch to their portrait compositions.
+// A landscape viewport of any size keeps the 1920×1080 frame exactly as before.
 (function () {
-  const W = 1920, H = 1080;
-  const G = (window.G = { W, H });
+  const PORT = typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
+  const W = PORT ? 1080 : 1920, H = PORT ? 1920 : 1080;
+  const LP = (land, port) => (PORT ? port : land); // G.P is taken by the pose props (poses/base.js)
+  // Portrait safe area: platform UI covers about the top 220 px and the bottom 320 px of a 9:16 frame
+  const SAFE = { top: LP(0, 220), bottom: LP(H, H - 320), x: LP(0, 72) };
+  const G = (window.G = { W, H, PORT, LP, SAFE });
 
   // ───────── Maths / easing ─────────
   const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
@@ -272,11 +278,12 @@
   };
 
   // ───────── Text ─────────
+  // Inter Tight and DM Mono have no CJK: Noto Sans SC is the fallback, so a Chinese title from a controller plan is drawn, not shown as boxes
   G.F = {
-    en: (w, px) => `${w} ${px}px "Inter Tight"`,
+    en: (w, px) => `${w} ${px}px "Inter Tight", "Noto Sans SC"`,
     zh: (w, px) => `${w} ${px}px "Noto Sans SC"`,
     jp: (w, px) => `${w} ${px}px "Noto Sans JP"`,
-    mono: (px, w = 500) => `${w} ${px}px "DM Mono"`,
+    mono: (px, w = 500) => `${w} ${px}px "DM Mono", "Noto Sans SC"`,
   };
   // Auto-fit font size: no wider than maxW
   G.fitFont = function (ctx, text, fam, weight, px, maxW, ls = 0) {
@@ -284,6 +291,41 @@
     ctx.letterSpacing = ls ? ls * px + 'px' : '0px';
     const w = ctx.measureText(text).width;
     return w > maxW ? Math.floor(px * maxW / w) : px;
+  };
+  // Two halves for wrapping: at the space nearest the middle, else (CJK) at the middle character
+  const splitTwo = (text) => {
+    const s = String(text).trim();
+    // a " · " separator nearest the middle becomes the line break (the dot is dropped)
+    const seps = [...s.matchAll(/\s+[·・|]\s+/g)];
+    if (seps.length) {
+      const m = seps.reduce((a, b) => (Math.abs(b.index + b[0].length / 2 - s.length / 2) < Math.abs(a.index + a[0].length / 2 - s.length / 2) ? b : a));
+      const a = s.slice(0, m.index).trim(), b = s.slice(m.index + m[0].length).trim();
+      if (a && b) return [a, b];
+    }
+    let best = -1;
+    for (let i = 0; i < s.length; i++) if (s[i] === ' ' && (best < 0 || Math.abs(i - s.length / 2) < Math.abs(best - s.length / 2))) best = i;
+    if (best > 0) { const a = s.slice(0, best).trim(), b = s.slice(best).trim(); if (a && b) return [a, b]; }
+    const chars = [...s];
+    if (chars.length >= 2 && /[\u3000-\u9fff\uff00-\uffef]/.test(s)) { const k = Math.ceil(chars.length / 2); return [chars.slice(0, k).join(''), chars.slice(k).join('')]; }
+    return null;
+  };
+  G.splitTwo = splitTwo;
+  // Portrait text fit (the landscape scenes never call it): step the size down 4% at a time to a floor,
+  // trying one line and then two lines at each size. Still too wide at the floor: console.warn, never a silent clip.
+  // font(px) → CSS font, ls(px) → letter-spacing string. Returns { px, lines, ls }.
+  G.fitLines = function (ctx, text, font, px, maxW, o = {}) {
+    const lsOf = o.ls || (() => '0px'), floor = Math.min(px, o.floor ?? Math.round(px * 0.4)), wrap = o.wrap !== false;
+    text = String(text ?? '');
+    const width = (s, p) => { ctx.font = font(p); ctx.letterSpacing = lsOf(p); return ctx.measureText(s).width; };
+    const two = wrap ? splitTwo(text) : null;
+    for (let p = px; ; p = Math.max(floor, Math.floor(p * 0.96))) {
+      if (width(text, p) <= maxW) return { px: p, lines: [text], ls: lsOf(p) };
+      if (two && width(two[0], p) <= maxW && width(two[1], p) <= maxW) return { px: p, lines: two, ls: lsOf(p) };
+      if (p <= floor) {
+        if (!o.quiet) console.warn(`[pictogram] text does not fit ${Math.round(maxW)} px even at ${p} px: "${text}"`);
+        return { px: p, lines: two || [text], ls: lsOf(p) };
+      }
+    }
   };
   // Mask slide-up entrance: p 0→1
   G.maskText = function (ctx, text, x, y, font, col, p, o = {}) {

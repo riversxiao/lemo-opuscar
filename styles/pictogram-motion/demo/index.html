@@ -6,7 +6,7 @@
 @font-face { font-family: "Noto Sans JP"; src: url(fonts/NotoSansJPwght.ttf); font-weight: 100 900; }
 @font-face { font-family: "DM Mono"; src: url(fonts/DMMono-Medium.ttf); font-weight: 500; }
 html,body { margin:0; background:#000; overflow:hidden; }
-canvas { display:block; width:1920px; height:1080px; }
+canvas { display:block; }
 </style></head>
 <body>
 <canvas id="c" width="1920" height="1080"></canvas>
@@ -22,7 +22,11 @@ canvas { display:block; width:1920px; height:1080px; }
 <script src="poses/asia.js" onerror="0"></script>
 <script src="scenes.js"></script>
 <script>
-const ctx = document.getElementById('c').getContext('2d');
+const cv = document.getElementById('c');
+// engine.js picks the frame from the viewport: 1920x1080, or 1080x1920 in a portrait viewport (scaled to fit when the viewport is another portrait size)
+if (cv.width !== G.W || cv.height !== G.H) { cv.width = G.W; cv.height = G.H; }
+if (G.PORT && (innerWidth !== G.W || innerHeight !== G.H)) { const k = Math.min(innerWidth / G.W, innerHeight / G.H); cv.style.width = G.W * k + 'px'; cv.style.height = G.H * k + 'px'; }
+const ctx = cv.getContext('2d');
 window.DUR = EDL.DUR;
 window.render = (t) => G.renderFrame(ctx, t);
 Promise.all([
