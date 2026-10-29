@@ -4,24 +4,58 @@
   python3 batch_terms.py init   --csv /workspace/finance/frm_core100.csv --out /workspace/films/frm [--only 1,5-9] [--skip 42]
   python3 batch_terms.py plan   --term /workspace/films/frm/043-es           # after the expert fills + approves lines.json
   python3 batch_terms.py status --out /workspace/films/frm [--json]
+  python3 batch_terms.py build  --out /workspace/films/frm [--only 43-50] [--el-backup]   # approved terms, one at a time
   bash templates/finance-term/build_term.sh /workspace/films/frm/043-es       # render + gates + handoffs
 
 init writes <out>/<NNN>-<slug>/src/{term.json, lines.json} (lines skeleton; never overwrites an
 existing lines.json). plan refuses until lines.json has approvedBy and every cap filled, then writes
 src/{plan.json, BRIEF.md, FACTS.md} and validates. No LLM, no network, no TTS here.
+
+Per-term display: eyebrow label (default from the CSV 科目归类, or a CSV column `eyebrow`),
+end card `endTitle` / `endLine` (CSV columns or lines.json "brand"), and `glossary`
+(caption gloss at first use). Titles are uppercased with common.upper_keep (VaR never becomes VAR).
+build --el-backup also renders an ElevenLabs backup narration + <film>-el.mp4 per term
+(off by default; EL_VOICE / EL_MODEL env override the voice and model).
 """
 from __future__ import annotations
 
 import argparse
 import csv
 import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 CTL = Path(__file__).resolve().parent
 TPL = CTL / "templates" / "finance-term"
+SHOT_MAX = 40
 LINE_MAX = 26  # pacing standard single-line advice (WARN only)
+sys.path.insert(0, str(CTL))
+from common import upper_keep  # noqa: E402
+
+# GARP area (CSV 科目归类) → intro eyebrow label; a CSV `eyebrow` column or lines.json brand wins.
+AREA_EYEBROW = {
+    "估值与风险模型": "VALUATION & RISK MODELS",
+    "数量分析": "QUANTITATIVE ANALYSIS",
+    "金融市场与产品": "FINANCIAL MARKETS & PRODUCTS",
+    "风险管理基础": "FOUNDATIONS OF RISK MANAGEMENT",
+    "信用风险": "CREDIT RISK",
+    "市场风险": "MARKET RISK",
+    "操作风险与韧性": "OPERATIONAL RISK & RESILIENCE",
+    "时事专题": "CURRENT ISSUES",
+    "流动性与资金风险": "LIQUIDITY & TREASURY RISK",
+    "风险管理与投资管理": "RISK & INVESTMENT MANAGEMENT",
+}
+BRAND_CSV = ("eyebrow", "eyebrowTop", "endTitle", "endLine")
+
+
+def area_eyebrow(area: str) -> str:
+    for k, v in AREA_EYEBROW.items():
+        if k in (area or ""):
+            return v
+    return "FRM CORE 100"
 
 
 def parse_ids(spec: str | None) -> set[int] | None:
@@ -46,13 +80,18 @@ def term_meta(row: dict[str, str]) -> dict[str, str]:
     short = m.group(1).strip() if m else (en if len(en) <= 12 else "")
     base = short if m else en
     slug = re.sub(r"[^a-z0-9]+", "-", base.lower()).strip("-")[:40] or f"term{seq}"
-    return {"seq": f"{int(seq):03d}", "en": en, "zh": zh, "area": area, "short": short or zh, "slug": slug}
+    meta = {"seq": f"{int(seq):03d}", "en": en, "zh": zh, "area": area, "short": short or zh, "slug": slug,
+            "eyebrow": area_eyebrow(area)}
+    for k in BRAND_CSV:  # optional CSV columns
+        if str(row.get(k) or "").strip():
+            meta[k] = str(row[k]).strip()
+    return meta
 
 
 def _fill(s: str, meta: dict[str, str]) -> str:
     rep = dict(meta)
-    rep["EN_UPPER"] = re.sub(r"\s*\([^)]*\)", "", meta["en"]).upper()
-    rep["SHORT_UPPER"] = meta["short"].upper()
+    rep["EN_UPPER"] = upper_keep(re.sub(r"\s*\([^)]*\)", "", meta["en"]))
+    rep["SHORT_UPPER"] = upper_keep(meta["short"])  # VaR stays VaR
     return re.sub(r"\{\{(\w+)\}\}", lambda m: str(rep.get(m.group(1), m.group(0))), s)
 
 
@@ -112,14 +151,40 @@ def build_plan(term_dir: Path) -> tuple[dict, list[str]]:
         sh["onScreenText"] = c.get("zh") or meta["zh"]
         if c.get("en"):
             sh["onScreenTextEn"] = c["en"][:40]
-        sh["text"] = " ".join(by_shot.get(sh["id"], [])) or sh["onScreenText"]
+        joined = " ".join(by_shot.get(sh["id"], []))
+        # shot text is the plan-level summary (manifest shotMaxChars 40); VO lines carry the full wording
+        sh["text"] = (joined if len(joined) <= SHOT_MAX else by_shot[sh["id"]][0][:SHOT_MAX]) or sh["onScreenText"]
     plan["voice"]["lines"] = []
     for ln in L["lines"]:
         row = {"id": ln["id"], "role": ln["role"], "text": strip_cap(ln["cap"]), "cap": ln["cap"], "shotId": ln["shot"]}
         if ln.get("say"):
             row["say"] = ln["say"]
         plan["voice"]["lines"].append(row)
+    plan["brand"] = term_brand(meta, L)
+    if L.get("glossary"):
+        plan["glossary"] = dict(L["glossary"])
     return plan, warns
+
+
+def term_brand(meta: dict, L: dict) -> dict:
+    """Per-term display strings for pictogram finance-v002: defaults ← CSV columns ← lines.json brand."""
+    short = meta.get("short") or meta["zh"]
+    b = {
+        "eyebrow": meta.get("eyebrow") or area_eyebrow(meta.get("area", "")),
+        "titleEn": short if short != meta["zh"] else upper_keep(re.sub(r"\s*\([^)]*\)", "", meta["en"]))[:48],
+        "titleZh": meta["zh"],
+        "endTitle": f"{meta['zh']} {short}" if short != meta["zh"] else meta["zh"],
+        "sloganEn": upper_keep(re.sub(r"\s*\([^)]*\)", "", meta["en"]))[:48],
+        "sloganZh": meta["zh"],
+        "sloganJp": "",
+    }
+    for k in BRAND_CSV:
+        if meta.get(k):
+            b[k] = meta[k]
+    for k, v in (L.get("brand") or {}).items():
+        if k == "keepCase" or (isinstance(v, str) and v.strip()):
+            b[k] = v
+    return b
 
 
 def cmd_plan(a: argparse.Namespace) -> int:
@@ -145,10 +210,14 @@ def cmd_plan(a: argparse.Namespace) -> int:
     return 0
 
 
+def latest_film(d: Path) -> Path:
+    films = sorted(d.parent.glob(f"{d.name}-v[0-9][0-9][0-9]"))
+    return films[-1] if films else d.parent / f"{d.name}-v001"
+
+
 def term_state(d: Path) -> str:
     src = d / "src"
-    film = d.parent / f"{d.name}-v001"
-    q = film / "quality.json"
+    q = latest_film(d) / "quality.json"
     if q.is_file():
         try:
             return "delivered" if json.loads(q.read_text("utf-8")).get("overall") == "PASS" else "quality-FAIL"
@@ -179,6 +248,30 @@ def cmd_status(a: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_build(a: argparse.Namespace) -> int:
+    """Plan + build every approved term in turn (never in parallel: ASR gates share the CPU)."""
+    only = parse_ids(a.only)
+    env = dict(os.environ, EL_BACKUP="1" if a.el_backup else os.environ.get("EL_BACKUP", "0"))
+    bad = 0
+    for d in sorted(Path(a.out).iterdir()):
+        if not (d / "src" / "term.json").is_file():
+            continue
+        if only is not None and int(d.name.split("-")[0]) not in only:
+            continue
+        st = term_state(d)
+        if st not in ("approved", "planned", "quality-FAIL"):
+            print(f"skip {d.name}: {st}")
+            continue
+        if not (d / "src" / "plan.json").is_file() and cmd_plan(argparse.Namespace(term=str(d))):
+            bad += 1
+            continue
+        film = a.version and d.parent / f"{d.name}-{a.version}" or latest_film(d)
+        r = subprocess.run(["bash", str(TPL / "build_term.sh"), str(d), str(film)], env=env)
+        bad += r.returncode != 0
+        print(f"{'OK ' if r.returncode == 0 else 'FAIL'} {d.name} → {film}")
+    return 1 if bad else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -192,8 +285,14 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("status")
     s.add_argument("--out", required=True)
     s.add_argument("--json", action="store_true")
+    b = sub.add_parser("build")
+    b.add_argument("--out", required=True)
+    b.add_argument("--only")
+    b.add_argument("--version", help="film suffix, e.g. v002 (default: latest existing, else v001)")
+    b.add_argument("--el-backup", action="store_true",
+                   help="also render an ElevenLabs backup narration + <film>-el.mp4 (off by default)")
     a = ap.parse_args(argv)
-    return {"init": cmd_init, "plan": cmd_plan, "status": cmd_status}[a.cmd](a)
+    return {"init": cmd_init, "plan": cmd_plan, "status": cmd_status, "build": cmd_build}[a.cmd](a)
 
 
 if __name__ == "__main__":

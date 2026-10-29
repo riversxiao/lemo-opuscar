@@ -7,6 +7,9 @@ import argparse
 import sys
 from typing import Any
 
+BRAND_KEYS = ("eyebrow", "eyebrowTop", "endTitle", "endLine", "titleEn", "titleZh",
+              "sloganEn", "sloganZh", "sloganJp", "credit")
+
 from common import (
     HEX,
     ID_RE,
@@ -40,6 +43,8 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
         "credits",
         "content_type",
         "pacing",
+        "brand",
+        "glossary",
     }
     for k in plan:
         if k not in allowed_top:
@@ -226,6 +231,27 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
                     _err(errors, f"$.credits.{k}: unknown")
                 elif not isinstance(v, str) or len(v) > 80:
                     _err(errors, f"$.credits.{k}: string")
+
+    if "brand" in plan:
+        br = plan["brand"]
+        if not isinstance(br, dict):
+            _err(errors, "$.brand: object")
+        else:
+            for k, v in br.items():
+                if k == "keepCase":
+                    if not isinstance(v, list) or len(v) > 20 or not all(isinstance(x, str) and 0 < len(x) <= 16 for x in v):
+                        _err(errors, "$.brand.keepCase: array (≤20) of strings 1..16")
+                elif k not in BRAND_KEYS:
+                    _err(errors, f"$.brand.{k}: unknown (one of {', '.join(BRAND_KEYS)}, keepCase)")
+                elif not isinstance(v, str) or len(v) > 48:
+                    _err(errors, f"$.brand.{k}: string max 48")
+
+    if "glossary" in plan:
+        gl = plan["glossary"]
+        if not isinstance(gl, dict) or len(gl) > 20 or not all(
+            isinstance(k, str) and 0 < len(k) <= 16 and isinstance(v, str) and 0 < len(v) <= 24 for k, v in gl.items()
+        ):
+            _err(errors, "$.glossary: object (≤20) term(1..16) → gloss(1..24), shown once in captions at first use")
 
     # Manifest cross-checks
     if strict_manifest and style in STYLES and not any(

@@ -1,10 +1,19 @@
 # finance-term — FRM core100 per-term template films
 
-Worked example: **#42 风险价值 VaR** → `/workspace/films/var-template-v001/`
-(`examples/042-var.lines.json` reproduces its plan byte-for-byte via `batch_terms.py plan`).
+Worked examples: **#42 风险价值 VaR** v001 → `/workspace/films/var-template-v001/` (`examples/042-var.lines.json`);
+**v002** (台词教父 FINAL marks + brand/glossary) → `/workspace/films/var-template-v002/` (+ `-el.mp4` backup) (`examples/042-var-v002.lines.json`).
 
 Source list: `/workspace/finance/frm_core100.csv` (box only; 100 rows,
 `序号,英文术语,中文,科目归类`). Not committed — pass its path to `init`.
+
+
+## Style finance-v002 (default)
+
+Per-term eyebrow + end card via `plan.brand` / `lines.json` `brand` (also CSV columns `eyebrow`,`endTitle`,`endLine`). Acronym-safe uppercase (`upper_keep` / scenes `upKeep`); quality `acronym_case` FAILs VaR→VAR. `plan.glossary` adds （gloss） at first SRT use.
+
+## ElevenLabs backup (optional)
+
+`EL_BACKUP=1` (or `batch_terms.py build --el-backup`) builds `<film>/backup-el/` and muxes `<name>-el.mp4` with Skylar (`uDnTdfbGbx3cHHFnY83O`) + `eleven_v4`. Provider spells Chinese numbers and joins letter spellings (E-S→ES) for ASR. Off by default (uses Creator character quota). Tex failed zh number ASR; Skylar+v4 passed.
 
 ## Files
 
@@ -16,7 +25,7 @@ Source list: `/workspace/finance/frm_core100.csv` (box only; 100 rows,
 | `build_term.sh` | nobody | render + gates + handoffs for one term |
 | `../../batch_terms.py` | nobody | `init` / `plan` / `status` |
 
-Line roles: L01 hook · L02–L04 evidence · L05 turn · L06 evidence · L07 payoff (one line per shot p0–p6).
+Line roles: L01 hook · L02–L04 evidence · L05 turn · L06 evidence · L07a payoff (+ optional L07b on same finale shot). Multiple VO lines per shotId are OK (schedule maps by shot).
 `text` is generated from `cap` (braces stripped). `say` is spoken-only: use it for acronyms the TTS
 blurs (VaR → `V-A-R`, verified ASR "VAR"); captions, srt and ASR expectations keep `text`.
 

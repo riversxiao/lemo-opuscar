@@ -101,6 +101,30 @@
         "year": { "type": "string", "maxLength": 12 },
         "license": { "type": "string", "maxLength": 40 }
       }
+    },
+    "brand": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Per-term display strings (pictogram finance-v002 reads eyebrow/eyebrowTop/endTitle/endLine). keepCase: acronyms never uppercased (VaR, not VAR).",
+      "properties": {
+        "eyebrow": { "type": "string", "maxLength": 48 },
+        "eyebrowTop": { "type": "string", "maxLength": 48 },
+        "endTitle": { "type": "string", "maxLength": 48 },
+        "endLine": { "type": "string", "maxLength": 48 },
+        "titleEn": { "type": "string", "maxLength": 48 },
+        "titleZh": { "type": "string", "maxLength": 48 },
+        "sloganEn": { "type": "string", "maxLength": 48 },
+        "sloganZh": { "type": "string", "maxLength": 48 },
+        "sloganJp": { "type": "string", "maxLength": 48 },
+        "credit": { "type": "string", "maxLength": 48 },
+        "keepCase": { "type": "array", "maxItems": 20, "items": { "type": "string", "minLength": 1, "maxLength": 16 } }
+      }
+    },
+    "glossary": {
+      "type": "object",
+      "maxProperties": 20,
+      "description": "term → 中文 gloss, added once in captions at the term's first appearance (ES → 预期尾部损失).",
+      "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 24 }
     }
   }
 }

@@ -59,3 +59,65 @@ def _ar_repl(m: re.Match) -> str:
 def fold_numbers(s: str) -> str:
     s = _CN.sub(_cn_repl, s)
     return _AR_BIG.sub(_ar_repl, s)
+
+
+# ---------------------------------------------------------------- spell (TTS side)
+# The reverse direction, for voices that read Arabic numerals in English inside Chinese text
+# (ElevenLabs read 97.5% as "ninety-seven point five percent"): 97.5% → 百分之九十七点五.
+_CD = "零一二三四五六七八九"
+
+
+def _sec_cn(n: int) -> str:
+    """0 < n < 10000."""
+    out, zero = "", False
+    for unit, name in ((1000, "千"), (100, "百"), (10, "十"), (1, "")):
+        d = n // unit % 10
+        if d:
+            if zero and out:
+                out += "零"
+            out += _CD[d] + name
+            zero = False
+        elif out:
+            zero = True
+    return out
+
+
+def int_cn(n: int) -> str:
+    if n == 0:
+        return "零"
+    parts, out, need_zero = [(n // 10 ** 8, "亿"), (n // 10 ** 4 % 10 ** 4, "万"), (n % 10 ** 4, "")], "", False
+    for v, unit in parts:
+        if v:
+            if out and (need_zero or v < 1000):
+                out += "零"
+            out += _sec_cn(v) + unit
+            need_zero = False
+        elif out:
+            need_zero = True
+    if out.startswith("一十"):
+        out = out[1:]  # 十五 / 十二万, not 一十五
+    return out
+
+
+def num_cn(tok: str) -> str:
+    whole, _, frac = tok.partition(".")
+    out = int_cn(int(whole))
+    if frac:
+        out += "点" + "".join(_CD[int(c)] for c in frac)
+    return out
+
+
+_SPELL = re.compile(r"(\d+(?:\.\d+)?)\s*(%|％|[万亿])?")
+
+
+def spell_numbers(s: str) -> str:
+    """Arabic numbers → Chinese words: 97.5% → 百分之九十七点五, 100万 → 一百万, 2026 → 二零二六 is NOT
+    done (years are ambiguous) — only percentages, 万/亿 amounts and plain integers/decimals."""
+    def rep(m: re.Match) -> str:
+        n, unit = m.group(1), m.group(2) or ""
+        if unit in ("%", "％"):
+            return "百分之" + num_cn(n)
+        if unit in ("万", "亿"):
+            return num_cn(n) + unit
+        return num_cn(n)
+    return _SPELL.sub(rep, s)

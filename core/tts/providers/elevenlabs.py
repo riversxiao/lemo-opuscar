@@ -16,6 +16,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -141,11 +142,13 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
         speed = float(os.environ["LEMO_TTS_ELEVENLABS_SPEED"])
     os.makedirs(out_dir, exist_ok=True)
     dur: dict[str, float] = {}
+    spoken: dict[str, str] = {}
     for L in lines:
         lid = L["id"]
-        text = str(L.get("say") or L.get("text") or "")
+        text = spoken_text(L)
         if not text.strip():
             sys.exit(f"tts_router: elevenlabs line {lid!r} has empty text")
+        spoken[lid] = text
         line_voice = voice_id(L.get("voice") or voice)
         try:
             raw, ctype = _post_tts(text, voice=line_voice, model=L.get("model") or model, speed=speed)
@@ -158,4 +161,25 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
         print(lid, dur[lid], text)
     with open(os.path.join(out_dir, "dur.json"), "w", encoding="utf-8") as f:
         json.dump(dur, f, indent=1, ensure_ascii=False)
+    with open(os.path.join(out_dir, "spoken.json"), "w", encoding="utf-8") as f:
+        json.dump({"voice": voice, "model": model, "chars": sum(len(t) for t in spoken.values()), "lines": spoken}, f, indent=1, ensure_ascii=False)
     return dur
+
+
+def spoken_text(L: dict[str, Any]) -> str:
+    """say (or text); in Chinese lines Arabic numbers are spelled in Chinese words
+    (97.5% → 百分之九十七点五) — ElevenLabs voices otherwise read them in English.
+    LEMO_TTS_ELEVENLABS_ZH_NUMBERS=0 turns this off."""
+    text = str(L.get("say") or L.get("text") or "")
+    if os.environ.get("LEMO_TTS_ELEVENLABS_ZH_NUMBERS", "1") != "0" and re.search(r"[\u4e00-\u9fff]", text):
+        try:
+            import zh_num  # noqa: PLC0415  (core/tts on sys.path via tts_router)
+        except ImportError:
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            import zh_num  # noqa: PLC0415
+        text = zh_num.spell_numbers(text)
+        # say spells acronyms for StepAudio (V-A-R, E-S); eleven_v4 reads the hyphens as Chinese
+        # syllables (E-S → "意义 S" in ASR) but plain capitals letter by letter (ES → ES).
+        if os.environ.get("LEMO_TTS_ELEVENLABS_JOIN_LETTERS", "1") != "0":
+            text = re.sub(r"(?<![A-Za-z])[A-Z](?:-[A-Z])+(?![A-Za-z])", lambda m: m.group(0).replace("-", ""), text)
+    return text

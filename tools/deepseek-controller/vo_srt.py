@@ -2,6 +2,7 @@
 """Narration .srt for VO-driven films (pictogram-motion's demo srt.cjs exports the demo's
 title cards, not narration): cue start = timeline.json vo[id], length = voices/dur.json.
 Lines longer than --max chars split at sentence/clause punctuation, time shared by chars.
+plan.glossary {"ES": "预期尾部损失"} adds the gloss once, at the term's first appearance: ES（预期尾部损失）.
 
 python3 tools/deepseek-controller/vo_srt.py --project P [--out P/<name>.srt] [--cues-out P/out/cues.json]
 """
@@ -40,18 +41,42 @@ def _chunks(text: str, mx: int) -> list[str]:
     return [o.strip() for o in out if o.strip()]
 
 
+def _glossary(project: Path) -> dict[str, str]:
+    for rel in ("content/plan.json", "plan.json"):
+        p = project / rel
+        if p.is_file():
+            g = json.loads(p.read_text("utf-8")).get("glossary")
+            return g if isinstance(g, dict) else {}
+    return {}
+
+
+def apply_glossary(text: str, gloss: dict[str, str], seen: set[str]) -> str:
+    """First appearance of each glossary term gets （gloss） after it; later ones stay bare."""
+    for term, g in gloss.items():
+        if term in seen:
+            continue
+        pat = (r"(?<![A-Za-z])" + re.escape(term) + r"(?![A-Za-z])") if re.fullmatch(r"[A-Za-z0-9]+", term) else re.escape(term)
+        m = re.search(pat, text)
+        if m:
+            seen.add(term)
+            if not text[m.end():].startswith(("（" + g, "(" + g)):
+                text = text[:m.end()] + "（" + g + "）" + text[m.end():]
+    return text
+
+
 def build_cues(project: Path, mx: int = 18) -> list[dict]:
     tl = json.loads((project / "timeline.json").read_text("utf-8"))
     dur = json.loads((project / "voices" / "dur.json").read_text("utf-8"))
     raw = json.loads((project / "lines.json").read_text("utf-8"))
     lines = raw["lines"] if isinstance(raw, dict) else raw
     cues = []
+    gloss, seen = _glossary(project), set()
     for L in lines:
         lid = L["id"]
         if lid not in tl.get("vo", {}) or lid not in dur:
             continue
         t0, d = float(tl["vo"][lid]), float(dur[lid])
-        text = re.sub(r"[{}]", "", str(L.get("cap") or L.get("text") or ""))
+        text = apply_glossary(re.sub(r"[{}]", "", str(L.get("cap") or L.get("text") or "")), gloss, seen)
         chunks = _chunks(text, mx)
         total = sum(len(c) for c in chunks) or 1
         t = t0

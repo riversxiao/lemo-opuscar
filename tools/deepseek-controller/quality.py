@@ -54,7 +54,11 @@ def _repo_root() -> Path:
 
 
 def _norm_zh(s: str) -> str:
-    s = _fold_numbers(unicodedata.normalize("NFKC", s)).lower()  # 一百万 ≡ 100万 (core/tts/zh_num.py)
+    # NFKC + traditional finance forms Whisper sometimes emits (萬/單); collapse spaces so
+    # "100 万元" still folds like "100万元" (一百万 ≡ 100万).
+    s = unicodedata.normalize("NFKC", s).replace("萬", "万").replace("億", "亿").replace("單", "单")
+    s = re.sub(r"\s+", "", s)
+    s = _fold_numbers(s).lower()
     # Whisper writes spoken 百分之六 / 零点五 as 6% / 0.5 — same words, different notation.
     s = re.sub(r"(\d+(?:\.\d+)?)%", r"百分之\1", s)
     s = re.sub(r"(\d)\.(\d)", r"\1点\2", s)
@@ -600,6 +604,62 @@ def _parse_asr_diffs(detail: str) -> list[tuple[str, str, str]]:
         if m:
             out.append((m.group(1), m.group(2).strip(), m.group(3).strip()))
     return out
+
+
+def run_acronym_case(project: Path) -> dict[str, Any]:
+    """Mixed-case acronyms must reach the screen as written: VaR, never VAR (= vector
+    autoregression). Scans every drawable string (edl_runtime + brand_strings) and the srt, and
+    flags a scenes.js that still uppercases titles outside the acronym-safe upKeep()."""
+    from common import acronym_case_violations, mixed_acronyms_in  # noqa: PLC0415
+
+    plan = None
+    for rel in ("content/plan.json", "plan.json"):
+        if (project / rel).is_file():
+            try:
+                plan = json.loads((project / rel).read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                plan = None
+            break
+    if not isinstance(plan, dict):
+        return check("acronym_case", "NOT_APPLICABLE", "no plan.json", required=False)
+    texts = []
+    for sh in plan.get("shots") or []:
+        if isinstance(sh, dict):
+            texts += [str(sh.get(k) or "") for k in ("text", "onScreenText", "onScreenTextEn")]
+    for ln in (plan.get("voice") or {}).get("lines") or []:
+        if isinstance(ln, dict):
+            texts += [str(ln.get("text") or ""), str(ln.get("cap") or "")]
+    texts.append(str((plan.get("credits") or {}).get("title") or ""))
+    acr = mixed_acronyms_in(texts) | set(((plan.get("brand") or {}).get("keepCase")) or [])
+    if not acr:
+        return check("acronym_case", "PASS", "no mixed-case acronyms in the plan", required=False)
+    shown: list[str] = []
+    for rel in ("edl_runtime.json", "brand_strings.json"):
+        p = project / rel
+        if not p.is_file():
+            continue
+        try:
+            d = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if rel == "edl_runtime.json":
+            for sh in d.get("shots") or []:
+                shown += [str(sh.get(k)) for k in ("zh", "en", "jp", "title", "sub", "family", "tag", "cname") if sh.get(k)]
+        else:
+            shown += [str(v) for k, v in d.items() if isinstance(v, str) and k not in ("note", "topic")]
+            shown += [str(r.get("to") or "") for r in d.get("replace") or [] if isinstance(r, dict)]
+    for srt in project.glob("*.srt"):
+        shown += srt.read_text(encoding="utf-8", errors="replace").splitlines()
+    bad = acronym_case_violations(shown, acr)
+    scenes = project / "scenes.js"
+    if scenes.is_file():
+        src = scenes.read_text(encoding="utf-8", errors="replace")
+        raw_up = [ln.strip()[:80] for ln in src.splitlines() if ".toUpperCase()" in ln and "upKeep" not in ln]
+        if raw_up:
+            bad.append(f"scenes.js uppercases outside upKeep(): {raw_up[0]!r} (use style version finance-v002+)")
+    if bad:
+        return check("acronym_case", "FAIL", f"{len(bad)} uppercase-transformed acronym(s) {sorted(acr)}: " + "; ".join(bad[:4]))
+    return check("acronym_case", "PASS", f"{sorted(acr)} shown as written in {len(shown)} display strings + srt")
 
 
 def run_asr(
@@ -1173,6 +1233,7 @@ def gate(
         checks.append(run_asr(project, has_vo, asr_mode=asr_mode))
         checks.append(run_speaker_check(project, has_vo))
 
+    checks.append(run_acronym_case(project))
     checks.append(run_visual_check_gate(project, media, delivery))
     if delivery or pacing_enforce:
         checks.append(run_pacing_gate(project, media_path if media_path.is_file() else None,

@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from common import dump_json, load_json
+from common import acronym_case_violations, dump_json, load_json, mixed_acronyms_in, upper_keep
 
 # Fixture / adapt may emit aliases not present in poses/*. Remap to real POSES keys.
 POSE_ALIASES: dict[str, str] = {
@@ -76,11 +76,12 @@ def _en_title(zh: str, fallback: str = "") -> str:
     if zh in EN_GLOSS:
         return EN_GLOSS[zh]
     # already Latin
+    # upper_keep: VaR stays VaR (VAR reads as vector autoregression)
     if zh and re.fullmatch(r"[A-Za-z0-9 .·\-&/,']+", zh):
-        return zh.upper()
+        return upper_keep(zh)
     if fallback and re.fullmatch(r"[A-Za-z0-9 .·\-&/,']+", fallback):
-        return fallback.upper()
-    return (fallback or zh or "ITEM").upper()[:24]
+        return upper_keep(fallback)
+    return upper_keep(fallback or zh or "ITEM")[:24]
 
 
 def _pal(raw: Any) -> str:
@@ -278,7 +279,7 @@ def build_brand_strings(
         if to and to != frm:
             replace.append({"from": frm, "to": str(to)})
 
-    return {
+    out = {
         "note": (
             "Runtime rewrite of Olympics literals inside eval(scenes.js) by "
             "core/render/page.mjs when demo scenes.js is locked. "
@@ -302,6 +303,48 @@ def build_brand_strings(
         "chapterCount": chap_n,
         "replace": replace,
     }
+    # Per-term overrides (plan.brand): eyebrow label, end card title/line, titles, slogans.
+    # finance-v002 scenes.js reads eyebrow/eyebrowTop/endTitle/endLine; older versions ignore them.
+    brand = plan.get("brand") if isinstance(plan.get("brand"), dict) else {}
+    for k in BRAND_KEYS:
+        if isinstance(brand.get(k), str):
+            out[k] = brand[k]
+    out["keepCase"] = sorted(set(brand.get("keepCase") or []) | _plan_acronyms(plan))
+    return out
+
+
+BRAND_KEYS = ("eyebrow", "eyebrowTop", "endTitle", "endLine", "titleEn", "titleZh",
+              "sloganEn", "sloganZh", "sloganJp", "credit")
+
+
+def _plan_texts(plan: dict[str, Any]) -> list[str]:
+    t: list[str] = []
+    for sh in plan.get("shots") or []:
+        if isinstance(sh, dict):
+            t += [str(sh.get(k) or "") for k in ("text", "onScreenText", "onScreenTextEn")]
+    for ln in ((plan.get("voice") or {}).get("lines") or []):
+        if isinstance(ln, dict):
+            t += [str(ln.get("text") or ""), str(ln.get("cap") or "")]
+    t += [str((plan.get("credits") or {}).get("title") or "")]
+    return t
+
+
+def _plan_acronyms(plan: dict[str, Any]) -> set[str]:
+    return mixed_acronyms_in(_plan_texts(plan))
+
+
+def display_strings(runtime: dict[str, Any], brand: dict[str, Any]) -> list[str]:
+    """Every string the renderer can draw (EDL shot fields + brand strings + replacement targets)."""
+    t: list[str] = []
+    for s in runtime.get("shots") or []:
+        t += [str(s.get(k)) for k in ("zh", "en", "jp", "title", "sub", "family", "tag", "cname") if s.get(k)]
+    t += [str(brand.get(k)) for k in BRAND_KEYS if brand.get(k)]
+    t += [str(r.get("to") or "") for r in brand.get("replace") or []]
+    return t
+
+
+def case_guard(runtime: dict[str, Any], brand: dict[str, Any]) -> list[str]:
+    return acronym_case_violations(display_strings(runtime, brand), set(brand.get("keepCase") or []))
 
 
 def apply_pictogram_edl(
@@ -424,6 +467,7 @@ def apply_pictogram_edl(
                 plan = None
             break
     brand = build_brand_strings(plan if isinstance(plan, dict) else None, compiled)
+    brand["caseViolations"] = case_guard(runtime, brand)
     brand_path = project / "brand_strings.json"
     dump_json(brand_path, brand)
 
@@ -436,6 +480,7 @@ def apply_pictogram_edl(
         "voCount": len(vo),
         "beat": beat,
         "bpm": bpm_v,
+        "caseViolations": brand["caseViolations"],
     }
 
 
@@ -452,6 +497,8 @@ def main(argv: list[str] | None = None) -> int:
         f"OK edl_runtime shots={info['shotCount']} dur={info['dur']}s "
         f"vo={info['voCount']} → {info['runtimePath']}"
     )
+    for v in info["caseViolations"]:
+        print(f"WARN acronym case: {v} (quality acronym_case FAILs)", file=sys.stderr)
     return 0
 
 

@@ -30,6 +30,36 @@ FORBIDDEN_VALUE_RE = re.compile(
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 ID_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_-]{0,31}$")
 
+# Mixed-case acronyms (VaR, CoVaR, mVaR, iTraxx) change meaning when uppercased: VAR is a
+# different model (vector autoregression). Any word with a capital after its first letter is kept.
+_MIXED_RE = re.compile(r"^(?=.*[a-z])(?:[a-z]+[A-Z]|[A-Z][A-Za-z]*[a-z][A-Za-z]*[A-Z]|[A-Z][a-z]+[A-Z])[A-Za-z0-9]*$")
+
+
+def is_mixed_acronym(word: str) -> bool:
+    return bool(_MIXED_RE.match(word or ""))
+
+
+def upper_keep(s: str, keep: "list[str] | tuple[str, ...] | set[str]" = ()) -> str:
+    """str.upper() that leaves mixed-case acronyms (and any word in `keep`) as written."""
+    keep_set = {k for k in keep if k}
+    return re.sub(r"[A-Za-z][A-Za-z0-9]*", lambda m: m.group(0) if (m.group(0) in keep_set or is_mixed_acronym(m.group(0))) else m.group(0).upper(), s or "")
+
+
+def acronym_case_violations(texts: "list[str]", acronyms: "set[str]") -> list[str]:
+    """Strings that show an acronym uppercased (VAR for VaR). Words written in upper case on
+    purpose elsewhere (e.g. a separate real acronym VAR) can't be told apart — so a plan that
+    uses VaR must not show VAR anywhere."""
+    out = []
+    for t in texts:
+        for a in acronyms:
+            if a.upper() != a and re.search(r"(?<![A-Za-z])" + re.escape(a.upper()) + r"(?![A-Za-z])", t or ""):
+                out.append(f"{a}→{a.upper()}: {t[:60]!r}")
+    return out
+
+
+def mixed_acronyms_in(texts: "list[str]") -> set[str]:
+    return {w for t in texts for w in re.findall(r"[A-Za-z][A-Za-z0-9]*", t or "") if is_mixed_acronym(w)}
+
 
 def load_json(path: Path) -> Any:
     with path.open(encoding="utf-8") as f:

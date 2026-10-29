@@ -1,10 +1,12 @@
 {
-  "_doc": "Expert fills cards + lines, then sets approvedBy/approvedAt. text = cap with {} stripped (generated). say = TTS-only pronunciation (e.g. VaR → V-A-R); captions/srt/ASR keep text. Never let dialogue-loop rewrite these: it runs --check-only.",
+  "_doc": "Expert fills cards + lines, then sets approvedBy/approvedAt. text = cap with {} stripped (generated). say = TTS-only pronunciation (e.g. VaR → V-A-R); captions/srt/ASR keep text. Never let dialogue-loop rewrite these: it runs --check-only. brand: eyebrow label (default from 科目归类), endTitle/endLine of the end card (empty = default); acronyms keep their case (VaR). glossary: {\"ES\": \"预期尾部损失\"} adds the gloss in captions at first use. Two lines may share a shot (L07a/L07b on p6).",
   "seq": "{{seq}}",
   "term": "{{en}}",
   "zh": "{{zh}}",
   "approvedBy": "",
   "approvedAt": "",
+  "brand": {"eyebrow": "{{eyebrow}}", "endTitle": "", "endLine": ""},
+  "glossary": {},
   "cards": [
     {"shot": "p0", "zh": "{{zh}}", "en": "{{EN_UPPER}}"},
     {"shot": "p1", "zh": "{{short}}", "en": "{{SHORT_UPPER}}"},

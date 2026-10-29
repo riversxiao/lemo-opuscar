@@ -2,7 +2,8 @@
 """Finance term template mocks (no network, temp ledgers): dialogue-loop --check-only on locked
 wording (FLAGGED + approval/sha gate), plan say/role/cap + VaR validator, zh number folding for ASR,
 spoken-syllable pacing count, pictogram beatsAuthored (no re-schedule ratchet), narration srt,
-handoff timebase probe, StepAudio take reuse + second ASR pass, batch_terms init/plan."""
+handoff timebase probe, StepAudio take reuse + second ASR pass, batch_terms init/plan;
+v002: acronym-safe uppercase + case gate, per-term brand/glossary, EL number spelling, --el-backup."""
 from __future__ import annotations
 
 import json
@@ -216,5 +217,52 @@ ok(BT.term_state(root / "042-var") == "planned" and BT.term_state(root / "043-es
 ok("金融专家" in (root / "042-var" / "src" / "FACTS.md").read_text("utf-8"), "FACTS records the approver")
 ok(BT.main(["init", "--csv", str(csvp), "--out", str(root)]) == 0 and
    json.loads((root / "042-var" / "src" / "lines.json").read_text("utf-8"))["approvedBy"], "re-init never overwrites approved lines")
+
+# 10) v002: acronyms keep their case; per-term brand + glossary; EL spells numbers
+import common as CM  # noqa: E402
+ok(CM.upper_keep("Beyond VaR, CVaR and CoVaR value") == "BEYOND VaR, CVaR AND CoVaR VALUE", "upper_keep keeps mixed-case acronyms")
+ok(CM.acronym_case_violations(["风险价值 VAR"], {"VaR"}) and not CM.acronym_case_violations(["风险价值 VaR", "VARIANCE"], {"VaR"}),
+   "case guard: VAR flagged, VaR / VARIANCE not")
+import apply_pictogram_edl as APE  # noqa: E402
+ok(APE._en_title("VaR") == "VaR" and APE._en_title("beyond VaR") == "BEYOND VaR", "pictogram titles: no VaR→VAR")
+ok(BT.term_meta({"a": "42", "b": "Value at Risk (VaR)", "c": "风险价值", "d": "P1 估值与风险模型"})["eyebrow"] == "VALUATION & RISK MODELS",
+   "eyebrow default from 科目归类")
+m66 = BT.term_meta({"a": "66", "b": "Liquidity-Adjusted VaR", "c": "流动性调整VaR", "d": "P2 市场风险", "eyebrow": "LIQUIDITY RISK"})
+ok(m66["eyebrow"] == "LIQUIDITY RISK" and BT._fill("{{EN_UPPER}}", m66) == "LIQUIDITY-ADJUSTED VaR", "CSV eyebrow column wins; EN_UPPER keeps VaR")
+v2 = root / "042-var"
+shutil.copy(CTL / "templates" / "finance-term" / "examples" / "042-var-v002.lines.json", v2 / "src" / "lines.json")
+ok(BT.main(["plan", "--term", str(v2)]) == 0, "v002 example (8 lines, L07a/L07b share p6) → plan validates")
+pl2 = json.loads((v2 / "src" / "plan.json").read_text("utf-8"))
+ok(pl2["brand"]["eyebrow"] == "Valuation and Risk Models" and pl2["brand"]["endTitle"] == "风险价值 VaR"
+   and pl2["brand"]["endLine"] == "→ 预期尾部损失 ES" and pl2["glossary"] == {"ES": "预期尾部损失"}, "v002 brand + glossary in plan")
+ok([ln["shotId"] for ln in pl2["voice"]["lines"]][-2:] == ["p6", "p6"] and all(len(s["text"]) <= 40 for s in pl2["shots"]),
+   "two lines on the finale shot; shot text ≤ 40")
+bs = APE.build_brand_strings(pl2, [])
+ok(bs["eyebrow"] == "Valuation and Risk Models" and "VaR" in bs["keepCase"] and not bs["titleEn"].isupper(), "brand_strings carries the per-term labels")
+bad = APE.case_guard({"shots": [{"en": "VAR"}]}, bs)
+ok(bad and not APE.case_guard({"shots": [{"en": "VaR"}]}, bs), "case_guard flags an uppercased VaR in the EDL")
+gs = set()
+ok(vo_srt.apply_glossary("97.5% 的 ES。", {"ES": "预期尾部损失"}, gs) == "97.5% 的 ES（预期尾部损失）。"
+   and vo_srt.apply_glossary("ES 又一次", {"ES": "预期尾部损失"}, gs) == "ES 又一次", "glossary once, at first use")
+ok(zh_num.spell_numbers("97.5% 的 ES，最差 2.5%，99%，100万，15") == "百分之九十七点五 的 ES，最差 百分之二点五，百分之九十九，一百万，十五",
+   "spell_numbers for ElevenLabs")
+
+from providers import elevenlabs as EL  # noqa: E402
+ok(EL.spoken_text({"text": "97.5% 的 ES。", "say": "所以 97.5% 的 E-S。"}) == "所以 百分之九十七点五 的 ES。", "EL spoken text: numbers spelled, E-S joined")
+ok(EL.spoken_text({"text": "VaR is 1%"}) == "VaR is 1%", "EL: non-Chinese lines untouched")
+scn = (REPO / "styles" / "pictogram-motion" / "versions" / "finance-v002" / "scenes.js").read_text("utf-8")
+ok(all(".toUpperCase()" not in ln or "upKeep" in ln for ln in scn.splitlines()) and "EYEBROW" in scn and "END_LINE" in scn,
+   "finance-v002 scenes: eyebrow/end card from brand, no raw toUpperCase")
+import quality as QQ  # noqa: E402
+qp = td / "qcase"
+(qp / "content").mkdir(parents=True)
+(qp / "content" / "plan.json").write_text(json.dumps(pl2, ensure_ascii=False), "utf-8")
+(qp / "brand_strings.json").write_text(json.dumps({"titleEn": "风险价值 VAR"}, ensure_ascii=False), "utf-8")
+ok(QQ.run_acronym_case(qp)["status"] == "FAIL", "quality acronym_case FAILs on VAR")
+(qp / "brand_strings.json").write_text(json.dumps(bs, ensure_ascii=False), "utf-8")
+ok(QQ.run_acronym_case(qp)["status"] == "PASS", "quality acronym_case PASS on VaR")
+ok("EL_BACKUP" in (CTL / "templates" / "finance-term" / "build_term.sh").read_text("utf-8")
+   and BT.main(["build", "--out", str(td / "empty-out")]) == 0 if (td / "empty-out").mkdir() is None else False,
+   "build --el-backup wired (off by default)")
 
 print(f"term template mock: {n} checks OK")
