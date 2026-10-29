@@ -128,17 +128,20 @@ This path is the dialogue TTS layer only — not a full podcast pipeline like po
   `ELEVENLABS_VOICE_GUEST`) → `ELEVENLABS_VOICE_ID` default.
 - CLI: `python3 tools/deepseek-controller/cli.py tts --project P --provider elevenlabs-dialogue`
   (same key as single-speaker; explicit only, not in `auto`).
-- **Default pair (zh + English finance terms)** — shared Voice Library voices, already added to the
-  account via `POST /v1/voices/add/{public_owner_id}/{voice_id}` (ids are not secrets):
+- **Default host (zh + English finance terms)** — shared Voice Library voice, added to the account via
+  `POST /v1/voices/add/{public_owner_id}/{voice_id}` (ids are not secrets):
   ```sh
-  export ELEVENLABS_VOICE_HOST=uDnTdfbGbx3cHHFnY83O   # Skylar — Mandarin teaching tone
-  export ELEVENLABS_VOICE_GUEST=8uceOSflAGVvQuMt4HPh  # Shasha — Beijing news/narration
+  export ELEVENLABS_VOICE_HOST=TKaUqol7GKx4m7enpCpP   # Tex — English-leaning tech male (approved)
+  # ELEVENLABS_VOICE_GUEST=TBD — pick from round-2 female candidates below
   ```
-  Alternates (also added): Loh `LtsCwaGioUKf3ipISxqZ` (male host), Jerry `pz7hOfW7kgI9kF818eDS`
-  (male, broadcast), Kathy `GE494ib77Hxb5fJC33Ib` (female casual), Tex `TKaUqol7GKx4m7enpCpP`
-  (English-leaning tech male). Deliberately avoid high-usage premade/library voices (Rachel, Adam Li, …)
-  so output doesn't sound like everyone else's. Audition samples: `films/elevenlabs-voice-audition/`
-  (outside git). Shared voices must be added to the account before `text-to-dialogue` accepts them.
+  Round-2 female guest candidates (all added; audition `films/elevenlabs-voice-audition/round2/`, outside git):
+  Linda `t5SIDRTVMdbNUqrSAycs` (warm mature Mandarin, business/finance news),
+  Ladaisy `8RCmdqih4CKjJ7Bd3ZxT` (crisp standard Mandarin + British English),
+  Shusita `iCrb0E1mQG2baVhfLIGF` (Taiwanese Mandarin podcast/radio, conversational),
+  Joan `qgrPcGqsZG6TpPzso4fK` (Chinese-native, American English).
+  Rejected after round 1: Skylar, Shasha, Kathy (female); Loh, Jerry remain male alternates.
+  Deliberately avoid high-usage premade/library voices (Rachel, Adam Li, Xiaoxi, …) so output doesn't
+  sound like everyone else's. Shared voices must be added to the account before `text-to-dialogue` accepts them.
 
 
 ### Enable kokoro (offline second path)
