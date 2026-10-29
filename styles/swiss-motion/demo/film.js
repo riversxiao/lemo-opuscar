@@ -75,51 +75,92 @@ function wordTimes(L) {
 }
 // Portrait statements wrap at LY.measure but keep to MAX_BIG_LINES (the TEXTS boxes in
 // apply_swiss_texts.POS_BOX_PORTRAIT hold the small line + two big lines): longer copy, or a
-// word (a CJK run) wider than the measure, steps the type down instead of spilling out of the box.
+// word wider than the measure, steps the type down instead of spilling out of the box.
+// Spaces are the break points, plus those inside CJK runs (Chinese copy has no spaces): between
+// any two characters when either is CJK, never before closing or after opening punctuation.
 const MAX_BIG_LINES = 2, BIG_MIN = 36, SMALL_MIN = 20;
-function wrapLines(g, words, measure) {   // the same rule drawLine uses; Infinity if a word cannot fit
-  let n = 1, cx = 0;
-  for (const wd of words) {
-    const w = textW(g, wd);
-    if (w > measure) return Infinity;
-    if (cx > 0 && cx + w > measure) { cx = 0; n++; }
-    cx += textW(g, wd + ' ');
+const CJK = /[\u2E80-\u9FFF\uAC00-\uD7AF\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFFEF]/;
+const NO_START = /[、。，．：；？！）」』》〉】〕〗”’…‥・ー々〜,.:;?!)\]}%]/, NO_END = /[（「『《〈【〔〖“‘([{]/;
+export function breakPieces(wd) {   // a word split at its CJK break points; a word without any stays whole
+  const ch = [...wd], out = [];
+  let cur = '';
+  for (let k = 0; k < ch.length; k++) {
+    cur += ch[k];
+    const b = ch[k + 1];
+    if (b !== undefined && (CJK.test(ch[k]) || CJK.test(b)) && !NO_START.test(b) && !NO_END.test(ch[k])) { out.push(cur); cur = ''; }
   }
-  return n;
+  out.push(cur);
+  return out;
 }
-function fitLine(g, L, bigSize) {
+// The big words laid out from x at the measure: runs [{s, wi (word index), x, line}]. A word that
+// would cross the measure starts the next line; a CJK run fills the line and carries on below.
+// lines is Infinity if a word (or, in a CJK run, a piece) is wider than the measure.
+export function layBig(g, words, x, measure) {
+  const runs = [];
+  let cx = x, line = 0, fit = true, split = false;
+  words.forEach((wd, wi) => {
+    const w = textW(g, wd), ps = cx + w > x + measure ? breakPieces(wd) : [wd];
+    if (ps.length === 1) {
+      if (w > measure) fit = false;
+      if (cx > x && cx + w > x + measure) { cx = x; line++; }
+      runs.push({ s: wd, wi, x: cx, line }); cx += textW(g, wd + ' ');
+      return;
+    }
+    split = true;
+    let run = '';
+    for (const pc of ps) {
+      if ((cx > x || run) && cx + textW(g, run + pc) > x + measure) {
+        if (run) runs.push({ s: run, wi, x: cx, line });
+        cx = x; line++; run = '';
+      }
+      if (textW(g, pc) > measure) fit = false;
+      run += pc;
+    }
+    runs.push({ s: run, wi, x: cx, line }); cx += textW(g, run + ' ');
+  });
+  return { runs, lines: fit ? line + 1 : Infinity, split };
+}
+export function fitLine(g, L, bigSize) {   // exported for tools/deepseek-controller/tests/swiss_fit.mjs
   if (L.fit && L.fit.ly === LY && L.fit.base === bigSize) return L.fit;
-  const f = { ly: LY, base: bigSize, big: bigSize, lineH: LY.lineH, small: 30, lines: 1 };
+  const f = { ly: LY, base: bigSize, big: bigSize, lineH: LY.lineH, small: 30, lines: 1, measure: LY.measure };
   if (LY.measure !== Infinity) {
     const words = L.big.split(' ');
     for (; f.big > BIG_MIN; f.big -= 2) {
       font(g, L.soft ? 400 : 700, f.big);
-      if (wrapLines(g, words, LY.measure) <= MAX_BIG_LINES) break;
+      if (layBig(g, words, 0, LY.measure).lines <= MAX_BIG_LINES) break;
     }
-    font(g, L.soft ? 400 : 700, f.big); f.lines = wrapLines(g, words, LY.measure);
+    font(g, L.soft ? 400 : 700, f.big);
+    const lay = layBig(g, words, 0, LY.measure);
+    f.lines = lay.lines;
+    // a CJK run broken over two lines: narrow the measure as far as the line count allows, so the
+    // second line is not a lone character or two (English copy keeps its measure)
+    if (lay.split && f.lines > 1 && f.lines !== Infinity) {
+      let lo = Math.ceil(LY.measure / f.lines), hi = LY.measure;
+      while (lo < hi) { const m = (lo + hi) >> 1; if (layBig(g, words, 0, m).lines <= f.lines) hi = m; else lo = m + 1; }
+      f.measure = hi;
+    }
     f.lineH = Math.round(LY.lineH * f.big / bigSize);
     if (L.small) {
       font(g, 500, 30);
       const w = textW(g, L.small);
       if (w > LY.measure) f.small = Math.max(SMALL_MIN, Math.floor(30 * LY.measure / w));
     }
-    if (f.lines > MAX_BIG_LINES) console.warn(`swiss-motion: ${L.id} needs ${f.lines} lines at ${f.big}px in 9:16; shorten it`);
+    if (f.lines === Infinity) console.warn(`swiss-motion: ${L.id} has a word wider than the 9:16 measure at ${f.big}px; shorten it`);
+    else if (f.lines > MAX_BIG_LINES) console.warn(`swiss-motion: ${L.id} needs ${f.lines} lines at ${f.big}px in 9:16; shorten it`);
   }
   return (L.fit = f);
 }
 function drawLine(g, L, t, x, ySmall, yBig, bigSize = 76) {
   if (t < L.t - .1 || t > L.end + .2) return;
-  const ts = wordTimes(L), sm = L.small ? L.small.split(' ') : [], bg = L.big.split(' ');
+  const ts = wordTimes(L), sm = L.small ? L.small.split(' ') : [];
   const q = snap(t, L.end, E8), F = fitLine(g, L, bigSize);
   let i = 0, cx = x;
   font(g, 500, F.small); g.fillStyle = C.mute;
   for (const wd of sm) { revealText(g, wd, cx, ySmall, F.small, snap(t, ts[i] + E16, E16), q); cx += textW(g, wd + ' '); i++; }
-  cx = x; font(g, L.soft ? 400 : 700, F.big); g.fillStyle = C.ink;
-  let y = yBig;   // portrait: a word that would cross the measure starts the next line
-  for (const wd of bg) {
-    if (cx > x && cx + textW(g, wd) > x + LY.measure) { cx = x; y += F.lineH; }
-    revealText(g, wd, cx, y, F.big, snap(t, ts[i] + E16, E16), q); cx += textW(g, wd + ' '); i++;
-  }
+  font(g, L.soft ? 400 : 700, F.big); g.fillStyle = C.ink;
+  // portrait: a word that would cross the measure starts the next line (a CJK run breaks inside)
+  for (const r of layBig(g, L.big.split(' '), x, F.measure).runs)
+    revealText(g, r.s, r.x, yBig + r.line * F.lineH, F.big, snap(t, ts[i + r.wi] + E16, E16), q);
 }
 
 // ======================================================================

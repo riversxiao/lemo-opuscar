@@ -1916,6 +1916,18 @@ else
   skip "core/three/post.js sizing" "node or node_modules/three missing (npm ci)"
 fi
 
+# swiss-motion 9:16 statements: Chinese copy (no spaces) breaks inside CJK runs and stays within
+# the measure on two lines; English and landscape layouts are unchanged. Stub canvas, no fonts needed.
+if command -v node >/dev/null 2>&1; then
+  if node "$CTL/tests/swiss_fit.mjs" >/tmp/dc-swiss-fit.out 2>&1; then
+    ok "swiss-motion 9:16 fit wraps CJK statements ($(grep -c '^ok ' /tmp/dc-swiss-fit.out) checks)"
+  else
+    bad "swiss-motion 9:16 fit: $(grep -v '^ok ' /tmp/dc-swiss-fit.out | head -20)"
+  fi
+else
+  skip "swiss-motion 9:16 fit" "node missing"
+fi
+
 # handoff pytest suite (frame size / fps); one command covers everything
 if python3 -c "import pytest" 2>/dev/null; then
   if (cd "$ROOT" && python3 -m pytest tools/handoff/tests -q -p no:cacheprovider >/tmp/dc-pytest.out 2>&1); then

@@ -58,7 +58,9 @@ POS_BOX: dict[str, tuple[float, float, float, float]] = {
 # small line y 350, big lines 440/530. Center and wall bands (poster above them):
 # small y 1340, big lines 1430/1520. film.js keeps a statement to those two big lines
 # (fitLine steps the type down from 76 px, min 36 px, when copy would wrap to a third
-# line), so the boxes hold any copy within the manifest limits. Keep in sync with film.js PORT.
+# line; Chinese copy breaks between characters, so it wraps like English), so the boxes
+# hold about 50 hanzi of big copy (two lines at 36 px), more for Latin text; past that
+# film.js warns and draws a third line. Keep in sync with film.js PORT.
 FX0_PORTRAIT = 72.0
 POS_BOX_PORTRAIT: dict[str, tuple[float, float, float, float]] = {
     "page": (FX0_PORTRAIT, 300.0, 1008.0, 560.0),
