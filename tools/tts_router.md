@@ -75,8 +75,18 @@ Defaults: **`edge`** (Yunxi). Env overrides: `LEMO_TTS_PROVIDER`, `LEMO_TTS_FALL
   `LEMO_TTS_STEPAUDIO_ROLE` (voice description), `LEMO_TTS_STEPAUDIO_SPEED`, `LEMO_TTS_STEPAUDIO_TAKES` (default 4),
   `LEMO_TTS_STEPAUDIO_F0_TOL_ST` (default 2.0). Edge voice ids in `lines.json` are ignored.
 - Limits: ≤4 concurrent, ≥0.7 s between requests (<100 RPM); 429/5xx retried with backoff; 401/402/404 stop.
-- No voice id/seed exists in the preview, so the provider measures median F0 per line, sets the film target to the median
-  of medians, and re-takes lines >2 semitones off (keeps the closest take). `voices/stepaudio_meta.json` records it.
+- The preview has no voice lock: `voice` / `voice_label` are documented as unsupported (a `voice` field is accepted
+  with HTTP 200 but ignored — measured: a female voice id returns the same default male voice), reference_to_audio is
+  not open, and voice cloning is paid-TTS only. Separate requests therefore come back as different speakers.
+- `LEMO_TTS_STEPAUDIO_MODE=session` (default): every line goes into ONE request as consecutive scripts of the same
+  speaker (≤1000 chars total), then the take is cut per line by aligning local faster-whisper character timings to the
+  script and snapping cuts into pauses (`providers/vo_split.py`; <85% aligned chars → hard fail, no fallback).
+  `per-line`: one request per line, median-F0 retakes (>2 semitones off, ≤`LEMO_TTS_STEPAUDIO_TAKES`) — kept for
+  comparison only. `voices/stepaudio_meta.json` records mode, bounds and alignment.
+- One-voice gate: `cli.py quality` runs `core/tts/speaker_check.py` (Resemblyzer GE2E, CPU) — every line vs the others'
+  centroid ≥0.80 and every pair ≥0.70, else high FAIL. Setup (not committed):
+  `python3 -m venv /workspace/.venv-spk && /workspace/.venv-spk/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu && /workspace/.venv-spk/bin/pip install --no-deps resemblyzer && /workspace/.venv-spk/bin/pip install webrtcvad-wheels librosa`
+  then `ln -s /workspace/.venv-spk .venv-spk` (or set `LEMO_SPK_PYTHON`).
 
 ### Enable kokoro (offline second path)
 

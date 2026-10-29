@@ -64,6 +64,18 @@
       "required": true
     },
     {
+      "name": "speaker_consistency",
+      "status": "NOT_CHECKED",
+      "detail": "skipped (--skip-heavy)",
+      "required": true
+    },
+    {
+      "name": "visual_check",
+      "status": "NOT_CHECKED",
+      "detail": "evidence/visual-check.json missing — run `cli.py visual-check --project P --media M`",
+      "required": false
+    },
+    {
       "name": "fixture_forced_fail",
       "status": "FAIL",
       "detail": "forced by fixture / --force-fail",

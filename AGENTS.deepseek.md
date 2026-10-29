@@ -47,8 +47,12 @@ write TREATMENT.md
 → tts (+ asr_check) ∥ sampler/sfx
 → video.mjs --fps 24
 → mix.py → mux.sh
-→ sheet.py + blackdetect + ebur128 → 一轮修复 → 交付
+→ cli.py visual-check --project <film> --media <mp4> --rework（看成片：抽帧 OCR 对照排期字幕/大字、字幕≠正在说的那句、出画/安全框、黑帧/坏帧/冻结、对比度、阅读时长 + 免费视觉模型看每镜联系表；high 自动修 ≤2 轮、只重渲受影响帧段，修不好标 BEST_EFFORT）
+→ cli.py quality --delivery（visual_check、speaker_consistency 都是必过项）→ 交付
 ```
+
+- visual-check 只用免费：本地 ffmpeg/OpenCV/RapidOCR；语义层只调 OpenRouter `:free` 视觉模型（默认 `dots-studio/dots-3-note-preview:free`，`provider.max_price=0`），每镜前后读 `/api/v1/key` usage，任何增量立即停；没有免费模型可用就标 NOT_AVAILABLE，不回落付费。证据：`evidence/visual-check.json` + `evidence/visual-check/{sheets,issues,frames}`。
+- 多句旁白必须是**同一个人**：`quality` 的 `speaker_consistency`（Resemblyzer GE2E，本地 CPU，`.venv-spk`）每句对其余句质心余弦 ≥0.80、两两 ≥0.70，否则 high FAIL。
 
 无旁白：TREATMENT 写明「无 VO」，跳过「台词定稿」与 tts。
 
@@ -89,7 +93,7 @@ MVP CLI：[`tools/deepseek-controller/README.md`](tools/deepseek-controller/READ
 - 默认中文旁白：`python core/tts/tts_zh.py`（edge-tts 云希/晓晓）或 `python core/tts/tts_router.py … --provider edge`。
 - 第二条真路径：**kokoro**（离线；`.venv-voice` 或 `LEMO_TTS_PYTHON`）。`python core/tts/tts_router.py --list` 看 ready。
 - 控制器：`python3 tools/deepseek-controller/cli.py tts --project <film> [--provider auto|kokoro|edge|stepaudio]`。`tts` 先查 `dialogue-check` PASS **且** `evidence/dialogue-loop.json` PASS（sha 锁定台词）；任一不满足即拒绝。
-- `stepaudio`：阶跃星辰 **限时免费预览** `stepaudio-3-gen-preview`（`/v1/audio/generate`，按文字描述设定音色）；只在显式 `--provider stepaudio` 时用，不进 auto。Key 只读环境变量 `STEPFUN_API_KEY`。**禁止**调付费 TTS（`/v1/audio/speech`、`stepaudio-3-tts`、`step-tts-*`）与 ASR；代码里已白名单拒绝。预览接口无固定音色 id，provider 按全片中位音高给偏离 > 2 半音的句子重录（≤4 次，取最近）。可用 `LEMO_TTS_STEPAUDIO_SPEED` 调速以塞进目标时长。
+- `stepaudio`：阶跃星辰 **限时免费预览** `stepaudio-3-gen-preview`（`/v1/audio/generate`，按文字描述设定音色）；只在显式 `--provider stepaudio` 时用，不进 auto。Key 只读环境变量 `STEPFUN_API_KEY`。**禁止**调付费 TTS（`/v1/audio/speech`、`stepaudio-3-tts`、`step-tts-*`）与 ASR；代码里已白名单拒绝。预览接口**没有音色锁定**：文档写明 gen-preview 不支持 `voice`/`voice_label`，reference_to_audio「暂未开放」，复刻音色只给付费 TTS；实测传 `voice`（boyinnansheng / qinqienvsheng）HTTP 200 但被忽略（女声 id 出来仍是同一男声，embedding 0.885–0.953）。逐句请求 = 每句一个新说话人（speaker 门禁 0.746/0.589 FAIL）。所以默认 **session 模式**（`LEMO_TTS_STEPAUDIO_MODE=session`）：全片台词作为同一说话人的连续 scripts **一次请求**（≤1000 字），本地 faster-whisper 字级时间对齐 + 停顿处切句（`providers/vo_split.py`，对齐 <85% 直接失败）；实测 speaker 0.887/0.784 PASS（Yunxi 0.866/0.785）。`per-line` 模式（按中位音高重录）仅作对照。可用 `LEMO_TTS_STEPAUDIO_SPEED` 调速以塞进目标时长。
 - 配乐：`cli.py mix --project <film> --bed-source stepaudio` 调 `stepaudio-3-music-preview`（限时免费，`instrumental:true` 纯器乐），原始 1–3 min 输出存 `music/stepaudio_raw.wav`，裁到片长 + 淡入淡出 + RMS 对齐 → 走原有 ducking。有缓存，不重复请求。
 - `qwen3` / `omnivoice`：HTTP 客户端已接；仅当设置 `LEMO_TTS_QWEN3_BASE` / `LEMO_TTS_OMNIVOICE_BASE` 时为 ready（不臆造 Key）。见 [`tools/tts_router.md`](tools/tts_router.md)。
 - **「中文跳过 ASR 词对齐」只影响词级时间事件，不影响语音内容完整性检查。** 无论哪个 provider：`lines.json` 每句都要有非静音 WAV + `dur.json`；成片混音须保留这些语音；画面/字幕中文与朗读内容一致（可标点），禁止默默缩短意译。

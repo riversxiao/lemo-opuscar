@@ -247,6 +247,21 @@ def cmd_quality(args: argparse.Namespace) -> int:
 
 
 
+def cmd_visual_check(args: argparse.Namespace) -> int:
+    import visual_check as _vc
+
+    argv = ["--project", args.project]
+    if args.media:
+        argv += ["--media", args.media]
+    if args.rework:
+        argv.append("--rework")
+    if args.no_semantic:
+        argv.append("--no-semantic")
+    for m in args.model or []:
+        argv += ["--model", m]
+    return _vc.main(argv)
+
+
 def cmd_handoff(args: argparse.Namespace) -> int:
     """OpenFilm / HyperFrames / Premiere-XML export from a finished film dir."""
     import json
@@ -545,6 +560,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     q.add_argument("-o", "--output")
     q.set_defaults(func=cmd_quality)
+
+    vc = sub.add_parser("visual-check", help="look at the rendered film: OCR/frames (+ free vision model), optional rework")
+    vc.add_argument("--project", required=True)
+    vc.add_argument("--media")
+    vc.add_argument("--rework", action="store_true", help="auto-fix high issues (max 2 rounds), re-render only changed frames")
+    vc.add_argument("--no-semantic", action="store_true", help="deterministic layer only (no network)")
+    vc.add_argument("--model", action="append", help="OpenRouter vision model; must end in :free")
+    vc.set_defaults(func=cmd_visual_check)
 
     m = sub.add_parser(
         "mix",

@@ -1423,9 +1423,16 @@ fi
 
 # stepaudio provider + music bed source: local mock StepFun API, fake key, no network
 if env -u STEP_API_KEY python3 "$CTL/tests/stepaudio_mock.py" >/tmp/dc_stepaudio_mock.log 2>&1; then
-  ok "stepaudio: free gen-preview only (paid /audio/speech + non-free models refused), pitch retakes, 402 stops, music bed cut/fade/RMS + cache"
+  ok "stepaudio: free gen-preview only (paid /audio/speech + non-free models refused), pitch retakes, session mode = 1 request split by ASR timings, 402 stops, music bed cut/fade/RMS + cache"
 else
   bad "stepaudio mock (see /tmp/dc_stepaudio_mock.log)"
+fi
+
+# visual-check: synthetic film with known defects (OCR/ffmpeg local), semantic layer mocked, quality gate, speaker metric
+if env -u OPENROUTER_API_KEY python3 "$CTL/tests/visual_check_mock.py" >/tmp/dc_visual_check_mock.log 2>&1; then
+  ok "visual-check: wrong caption chars / corrupt frame / clipped text / subtitle≠VO → high; no false positive on correct text; :free-only + billing-delta stop; hook-subs rework; quality gate; speaker metric"
+else
+  bad "visual-check mock (see /tmp/dc_visual_check_mock.log)"
 fi
 
 # budget ledger: tests write to \$DC_BUDGET_LEDGER, never the real fixtures ledger

@@ -41,6 +41,13 @@ class H(BaseHTTPRequestHandler):
             if STATE["mode"] == "402":
                 return self._send(402, b'{"error":{"type":"insufficient_credit"}}')
             STATE["gen"] += 1
+            if len(body["scripts"]) > 1:  # session mode: one take, lines separated by 0.4 s pauses
+                sr = 24000; parts = []
+                for _ in body["scripts"]:
+                    t = np.arange(int(1.0 * sr)) / sr
+                    parts += [0.3 * np.sin(2 * np.pi * 140 * t), np.zeros(int(0.4 * sr))]
+                b = io.BytesIO(); sf.write(b, np.concatenate(parts).astype(np.float32), sr, format="WAV")
+                return self._send(200, b.getvalue(), "audio/wav")
             text = body["scripts"][0]["text"]
             # line "B" drifts high on its first take, then comes back in range
             f0 = 240 if ("B" in text and STATE["gen"] <= 3) else 140
@@ -62,6 +69,7 @@ srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 os.environ.update({"LEMO_TTS_STEPAUDIO_BASE": f"http://127.0.0.1:{srv.server_port}/v1", "STEPFUN_API_KEY": "sk-mock"})
 os.environ.pop("STEP_API_KEY", None)
+os.environ["LEMO_TTS_STEPAUDIO_MODE"] = "perline"
 from providers import stepaudio as S  # noqa: E402
 S.MIN_INTERVAL = 0.0
 
@@ -77,6 +85,23 @@ gens = [b for m, p, b in HITS if p.endswith("/audio/generate")]
 assert all(b["model"] == "stepaudio-3-gen-preview" and "voice" not in b for b in gens)
 assert any("B二说" in b["scripts"][0]["text"] for b in gens), "say must be voiced"
 assert not any("/audio/speech" in p or "asr" in p for _, p, _ in HITS)
+# session mode: ONE request with every line as consecutive scripts, split by (injected) ASR timings
+os.environ["LEMO_TTS_STEPAUDIO_MODE"] = "session"
+n0 = len([1 for _, p, _ in HITS if p.endswith("/audio/generate")])
+sl = [{"id": "S1", "text": "甲乙丙"}, {"id": "S2", "text": "丁戊己"}, {"id": "S3", "text": "庚辛壬"}]
+def fake_words(a, sr, texts):
+    return [(i * 1.4 + k * 0.3, i * 1.4 + k * 0.3 + 0.25, ch) for i, t in enumerate(texts) for k, ch in enumerate(t)]
+sd = S.synthesize(sl, str(tmp / "vs"), words_fn=fake_words)
+sgen = [b for _, p, b in HITS if p.endswith("/audio/generate")][n0:]
+assert len(sgen) == 1 and len(sgen[0]["scripts"]) == 3 and "voice" not in sgen[0], sgen
+assert set(sd) == {"S1", "S2", "S3"} and all(0.7 < d < 1.5 for d in sd.values()), sd
+sm = json.loads((tmp / "vs" / "stepaudio_meta.json").read_text())
+assert sm["mode"] == "session" and sm["requests"] == 1 and sm["split"]["matchedChars"] >= 0.99, sm
+try:  # unusable take (ASR matches nothing) → stop, no silent per-line fallback
+    S.synthesize(sl, str(tmp / "vs2"), words_fn=lambda a, sr, t: [(0.1, 0.3, "x")]); raise AssertionError("bad split not fatal")
+except SystemExit as e:
+    assert "session" in str(e)
+os.environ["LEMO_TTS_STEPAUDIO_MODE"] = "perline"
 # refusing paid models / routes
 for bad in (lambda: S._post("/audio/speech", {"model": "stepaudio-3-gen-preview"}),
             lambda: S._post("/audio/generate", {"model": "stepaudio-3-tts"})):

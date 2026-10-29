@@ -169,6 +169,32 @@ python3 tools/deepseek-controller/cli.py quality --project "$P" --require-vo \
 - When `content/engine.lock.json` protects `film.js`, `media_duration` uses **`style_locked_duration`**: compare mux length to engine `DUR` (±1s). Plan `targetDurationSec` stays the schedule budget.
 - `--asr-mode=zh-homophone-tolerant` uses `asr_homophones.json` v2 (`members` + optional `short` truncations, longest-match).
 
+### Visual check (look at the finished film) + rework
+
+```bash
+python3 tools/deepseek-controller/cli.py visual-check --project "$P" --media "$P/film.mp4" [--rework] [--no-semantic]
+```
+
+- **Deterministic (local, free):** frames sampled per shot (3) + per VO line + per caption; whole-video 160×90 luma scan
+  (black ≥0.5 s, blank, frozen = identical frames ≥4 s, single-frame corrupt spikes, ffmpeg decode errors); RapidOCR on
+  every sample vs `window.TEXTS(t)` (`texts_dump.mjs`) + `timeline.json` caps/hook (char recall <0.75 → high, <0.9 →
+  medium; best of two frames; lone glyphs are not OCR-verified); the subtitle OCR'd during each VO line must be that line
+  (`subtitle_vo_mismatch` / `subtitle_missing` / `subtitle_not_rendered` → high); text touching the frame edge → high,
+  inside the 5% title-safe margin → medium; overlapping text boxes → medium; Otsu/WCAG contrast <2 high, <3 medium;
+  caption on-screen time vs readcheck rule (<0.75×need high).
+- **Semantic (free only):** per-shot contact sheet + VO + captions to an OpenRouter `:free` vision model (topic, explicit
+  contradiction, overcrowding, visual errors, tofu/garbled glyphs). Non-`:free` ids are refused, `provider.max_price=0`,
+  key usage read before/after every shot → any delta stops the layer. No free model → `NOT_AVAILABLE` (not a block).
+  A contradiction / garbled glyphs with confidence ≥0.7 is high; everything else from the model is medium.
+- **Rework (`--rework`, max 2 rounds):** hook subtitle follows the VO line (`TL.hook.subs` + project `main.js` reads it,
+  only when `content/engine.lock.json` unlocks `main.js`; cues/srt split; the VO-synced hook line is then the subtitle bar, so its
+  `hook-say` TEXTS entry is dropped per readcheck's "don't report the subtitle bar" rule — subtitle correctness stays covered by OCR), caption size (`caps[i].big`), caption timing
+  (`caps[i].t1`), re-render for black/corrupt frames. Only the changed frame ranges are re-rendered (`render_range.mjs`,
+  keyframe-aligned lossless splice into `out/video.mp4`, frame count verified), then `mux.sh` and a full re-check.
+  Anything left high → `finalStatus=BEST_EFFORT`.
+- `quality --delivery` requires `visual_check`: reads `evidence/visual-check.json`; it must be for the same media file,
+  not older than the media, and have no high issue. Also requires `speaker_consistency` for ≥3 VO lines.
+
 ### Handoff (OpenFilm / HyperFrames)
 
 ```bash

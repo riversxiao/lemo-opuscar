@@ -184,10 +184,83 @@ def _st(a: float | None, b: float) -> float:
     return 99.0 if not a else abs(12 * np.log2(a / b))
 
 
+SESSION_INSTRUCTION = ("安静录音棚，同一位男声旁白从头到尾连续念完整篇解说词，每句之间停顿约半秒，"
+                       "纯人声，无背景音乐，无音效")
+
+
+def _asr_words(a: np.ndarray, sr: int, texts: list[str]) -> list[tuple[float, float, str]]:
+    """Local faster-whisper word timings (free, offline) used only to locate line boundaries."""
+    import soxr
+    from faster_whisper import WhisperModel
+
+    a16 = soxr.resample(a, sr, 16000).astype(np.float32)
+    m = WhisperModel(os.environ.get("LEMO_ASR_MODEL", "small"), device="cpu", compute_type="int8")
+    segs, _ = m.transcribe(a16, language="zh", word_timestamps=True, initial_prompt="".join(texts)[:200])
+    return [(w.start, w.end, w.word) for sg in segs for w in sg.words]
+
+
+def synthesize_session(lines: list[dict[str, Any]], out_dir: str, *, role: str, speed: float,
+                       words_fn=None) -> tuple[dict[str, float], dict[str, Any]]:
+    """ONE request carries every line as consecutive `scripts` of the same speaker, so the
+    whole narration comes from a single generation (one voice). gen-preview has no
+    reference-audio / voice-id conditioning (reference_to_audio not open), so this is the
+    only free way to hold one timbre. The take is split per line by aligning local-ASR
+    character timings to the script and snapping cuts into pauses (providers/vo_split.py).
+    """
+    from . import vo_split  # noqa: PLC0415
+
+    texts = [str(L.get("say") or L.get("text") or "") for L in lines]
+    if sum(len(t) for t in texts) + len(DEFAULT_TONE) > 1000:
+        raise StepFunError("script > 1000 chars: session mode needs one request; split the film or use per-line")
+    body = {"model": GEN_MODEL, "task": "text_to_audio",
+            "roles": [{"name": "旁白", "description": role[:480]}],
+            "scripts": [{"speaker": "旁白", "text": (DEFAULT_TONE if i == 0 else "") + t} for i, t in enumerate(texts)],
+            "instruction": SESSION_INSTRUCTION, "response_format": "wav", "sample_rate": SR}
+    if speed and abs(speed - 1.0) > 1e-3:
+        body["speed"] = round(float(speed), 3)
+    raw, _ = _post("/audio/generate", body, timeout=900)
+    if raw[:4] != b"RIFF":
+        raise StepFunError(f"/audio/generate returned non-WAV ({raw[:120]!r})")
+    a = _decode(raw)
+    sf.write(os.path.join(out_dir, "_session.wav"), a, SR)
+    words = (words_fn or _asr_words)(a, SR, texts)
+    bounds, rep = vo_split.align_bounds(a, SR, texts, words)
+    if rep["matchedChars"] < 0.85:
+        raise StepFunError(f"session split: only {rep['matchedChars']:.0%} of script chars aligned — take is unusable")
+    dur = {}
+    for (t0, t1), L in zip(bounds, lines):
+        clip = _trim(a[int(t0 * SR): int(t1 * SR)])
+        sf.write(os.path.join(out_dir, f"{L['id']}.wav"), clip, SR)
+        dur[L["id"]] = round(len(clip) / SR, 3)
+    return dur, {"mode": "session", "requests": 1, "sessionSec": round(len(a) / SR, 3),
+                 "split": rep, "bounds": [[round(x, 3), round(y, 3)] for x, y in bounds]}
+
+
 def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[str, float]:
-    """tts_router provider entry: writes <id>.wav (24 kHz mono) + dur.json."""
+    """tts_router provider entry: writes <id>.wav (24 kHz mono) + dur.json.
+
+    LEMO_TTS_STEPAUDIO_MODE=session (default: whole script in one request → one voice)
+    or per-line (one request per line + pitch retakes; voices can drift between lines).
+    """
     if not api_key():
         sys.exit("tts_router: provider 'stepaudio' needs STEPFUN_API_KEY in the environment")
+    if (opts.get("mode") or os.environ.get("LEMO_TTS_STEPAUDIO_MODE") or "session") == "session":
+        role = os.environ.get("LEMO_TTS_STEPAUDIO_ROLE") or DEFAULT_ROLE
+        speed = float(opts.get("speed") or os.environ.get("LEMO_TTS_STEPAUDIO_SPEED") or 1.0)
+        os.makedirs(out_dir, exist_ok=True)
+        try:
+            dur, info = synthesize_session(lines, out_dir, role=role, speed=speed, words_fn=opts.get("words_fn"))
+        except (StepFunError, ValueError) as e:
+            sys.exit(f"tts_router: stepaudio session failed: {e}")
+        for L in lines:
+            print(L["id"], dur[L["id"]], str(L.get("say") or L.get("text") or ""))
+        with open(os.path.join(out_dir, "dur.json"), "w", encoding="utf-8") as f:
+            json.dump(dur, f, indent=1, ensure_ascii=False)
+        with open(os.path.join(out_dir, "stepaudio_meta.json"), "w", encoding="utf-8") as f:
+            json.dump({"model": GEN_MODEL, "route": "/v1/audio/generate", "role": role, "speed": speed,
+                       "instruction": SESSION_INSTRUCTION, "pricing": "限时免费 (preview)", **info}, f,
+                      ensure_ascii=False, indent=1)
+        return dur
     role = os.environ.get("LEMO_TTS_STEPAUDIO_ROLE") or DEFAULT_ROLE
     v = opts.get("voice")
     if v and not str(v).startswith(("zh-", "en-")) and len(str(v)) > 8:

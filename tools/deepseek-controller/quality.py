@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -839,6 +840,101 @@ def _dialogue_loop_check(project: Path) -> dict[str, Any]:
     return check("dialogue_loop", "PASS" if ok else "FAIL", why, required=True)
 
 
+def _spk_python() -> str | None:
+    import shutil
+    cands = [os.environ.get("LEMO_SPK_PYTHON"), str(_repo_root() / ".venv-spk" / "bin" / "python"),
+             str(_repo_root() / ".venv-voice" / "bin" / "python"), shutil.which("python3")]
+    for c in cands:
+        if c and Path(c).exists():
+            r = subprocess.run([c, "-c", "import resemblyzer"], capture_output=True)
+            if r.returncode == 0:
+                return c
+    return None
+
+
+
+def run_visual_check_gate(project: Path, media: Path | None, delivery: bool) -> dict[str, Any]:
+    """Reads evidence/visual-check.json written by `cli.py visual-check` (it is not re-run here:
+    OCR + optional free vision model are heavy). Required for --delivery.
+
+    PASS only when the report belongs to this media file, the media was not changed after the
+    check, and no high-severity issue is left (finalStatus PASS). BEST_EFFORT / FAIL → FAIL.
+    Semantic layer NOT_AVAILABLE does not block (it is reported in the detail)."""
+    p = Path(project) / "evidence" / "visual-check.json"
+    req = bool(delivery)
+    if not p.is_file():
+        return check("visual_check", "NOT_CHECKED", "evidence/visual-check.json missing — run `cli.py visual-check --project P --media M`", required=req)
+    try:
+        rep = load_json(p)
+    except Exception as e:  # noqa: BLE001
+        return check("visual_check", "FAIL", f"unreadable visual-check.json: {e}", required=req)
+    if media is not None:
+        rm = rep.get("media")
+        if not rm or Path(rm).resolve() != Path(media).resolve():
+            return check("visual_check", "NOT_CHECKED", f"visual-check.json is for {rm}, not {media}", required=req)
+        try:
+            if Path(media).stat().st_mtime > p.stat().st_mtime + 1:
+                return check("visual_check", "NOT_CHECKED", "media changed after visual-check — re-run it", required=req)
+        except OSError:
+            pass
+    fs = rep.get("finalStatus") or rep.get("status")
+    sem = (rep.get("semantic") or {})
+    tail = f"; semantic={sem.get('status')} model={sem.get('model')}"
+    hi = [i for i in rep.get("issues", []) if i.get("severity") == "high"]
+    if fs == "PASS" and not hi:
+        return check("visual_check", "PASS", f"0 high, {rep.get('medium', 0)} medium{tail}", required=req)
+    kinds = sorted({i.get("kind") for i in hi})
+    return check("visual_check", "FAIL", f"severity=high: {fs}, {len(hi)} high ({', '.join(kinds)}){tail}", required=req)
+
+def run_speaker_check(project: Path, has_vo: bool) -> dict[str, Any]:
+    """ONE-narrator gate for multi-line VO: speaker-embedding cosine (Resemblyzer, local, free).
+
+    FAIL (high) when any line's similarity to the other lines' centroid is < 0.80 or any
+    pair < 0.70 (calibrated: edge Yunxi 22 lines → min 0.866 / pair 0.785; per-line
+    StepAudio gen-preview requests → 0.746 / 0.589, audibly different speakers).
+    """
+    import dialogue_check as _dc
+
+    if not has_vo:
+        return check("speaker_consistency", "NOT_APPLICABLE", "no VO", required=False)
+    try:
+        rows = load_json(_dc.find_lines(project))
+    except (OSError, ValueError, FileNotFoundError):
+        return check("speaker_consistency", "NOT_CHECKED", "lines.json missing", required=True)
+    rows = rows if isinstance(rows, list) else (rows.get("lines") or [])
+    ids = [r["id"] for r in rows if isinstance(r, dict) and r.get("id")]
+    if len(ids) < 3:
+        return check("speaker_consistency", "NOT_APPLICABLE", f"{len(ids)} VO line(s) (<3)", required=False)
+    voices = project / "voices"
+    missing = [i for i in ids if not (voices / f"{i}.wav").is_file()]
+    if missing:
+        return check("speaker_consistency", "NOT_CHECKED", f"missing wav: {missing[:5]}", required=True)
+    py = _spk_python()
+    if not py:
+        return check("speaker_consistency", "NOT_CHECKED",
+                     "resemblyzer not installed (python -m venv .venv-spk && .venv-spk/bin/pip install torch "
+                     "--index-url https://download.pytorch.org/whl/cpu resemblyzer webrtcvad-wheels librosa); "
+                     "or LEMO_SPK_PYTHON", required=True)
+    script = _repo_root() / "core" / "tts" / "speaker_check.py"
+    try:
+        r = subprocess.run([py, str(script), str(voices), "--ids", ",".join(ids)],
+                           capture_output=True, text=True, timeout=900)
+        d = json.loads(r.stdout.strip().splitlines()[-1])
+    except (subprocess.SubprocessError, ValueError, IndexError) as e:
+        return check("speaker_consistency", "NOT_CHECKED", f"failed: {e}", required=True)
+    (project / "evidence").mkdir(exist_ok=True)
+    (project / "evidence" / "speaker-check.json").write_text(json.dumps(d, ensure_ascii=False, indent=1) + "\n",
+                                                             encoding="utf-8")
+    if d.get("status") not in ("PASS", "FAIL"):
+        return check("speaker_consistency", "NOT_CHECKED", str(d.get("detail") or d), required=True)
+    lo = min(d["lines"].items(), key=lambda kv: kv[1])
+    detail = (f"{d['model']}: {len(ids)} lines, min line→centroid {lo[1]:.3f} ({lo[0]}) vs ≥{d['minSim']}, "
+              f"pair min {d['pairMin']:.3f} vs ≥{d['minPair']}, pair mean {d['pairMean']:.3f}")
+    if d["status"] == "FAIL":
+        detail = f"severity=high: narration is not one consistent voice — below: {d['belowMin']}; " + detail
+    return check("speaker_consistency", d["status"], detail, required=True)
+
+
 def gate(
     project: Path,
     *,
@@ -1012,6 +1108,9 @@ def gate(
             checks.append(
                 check("asr_check", "NOT_CHECKED", "skipped (--skip-heavy)", required=True)
             )
+            checks.append(
+                check("speaker_consistency", "NOT_CHECKED", "skipped (--skip-heavy)", required=True)
+            )
         else:
             checks.append(
                 check(
@@ -1024,6 +1123,9 @@ def gate(
     else:
         checks.append(run_readcheck(project, style=style))
         checks.append(run_asr(project, has_vo, asr_mode=asr_mode))
+        checks.append(run_speaker_check(project, has_vo))
+
+    checks.append(run_visual_check_gate(project, media, delivery))
 
     for name in force_fail:
         checks.append(check(name, "FAIL", "forced by fixture / --force-fail"))
