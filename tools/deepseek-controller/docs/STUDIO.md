@@ -34,7 +34,7 @@ This inventory re-checked the box on **2026-10-29 (Asia/Shanghai)**. The sibling
 | Check | Result |
 |---|---|
 | `/workspace/opuscar-studio` | **absent** |
-| `/home/box/opuscar-studio` | **absent** |
+| `~/opuscar-studio` (home of the box user) | **absent** |
 | Relative `../../opuscar-studio` from repo / workspace | **absent** |
 | `opuscar` / Studio binary on `PATH` | **absent** |
 | Installed HyperFrames CLI (`hyperframes`) | **absent** |

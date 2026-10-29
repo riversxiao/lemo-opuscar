@@ -6,8 +6,14 @@ CLI=(python3 "$CTL/cli.py")
 FIX="$CTL/fixtures"
 pass=0
 fail=0
-# Headless Chrome for page.mjs readcheck smoke (texts_runtime overlay test).
-export PLAYWRIGHT_CHROME="${PLAYWRIGHT_CHROME:-/usr/bin/google-chrome}"
+skipped=0
+cd "$ROOT"
+# Headless Chrome for page.mjs readcheck smoke (texts_runtime overlay test): keep the
+# caller's PLAYWRIGHT_CHROME, else a system Chrome when there is one, else leave it unset
+# so playwright-core finds its own chromium-headless-shell (core/render/browser.mjs).
+if [ -z "${PLAYWRIGHT_CHROME:-}" ] && [ -x /usr/bin/google-chrome ]; then
+  export PLAYWRIGHT_CHROME=/usr/bin/google-chrome
+fi
 
 # Never let tests append to the real fixtures/budget-ledger.jsonl (handoff etc. log $0 rows).
 export DC_BUDGET_LEDGER="${DC_BUDGET_LEDGER:-/tmp/dc-test-budget-ledger.jsonl}"
@@ -15,6 +21,51 @@ rm -f "$DC_BUDGET_LEDGER"
 
 ok() { echo "PASS: $*"; pass=$((pass+1)); }
 bad() { echo "FAIL: $*"; fail=$((fail+1)); }
+# skip <what> <why>: a prerequisite of this machine is missing (not a code failure)
+skip() { echo "SKIP: $1 ($2)"; skipped=$((skipped+1)); }
+
+# Everything the harness writes goes to a scratch dir, never into tracked fixtures.
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/dc-mvp.XXXXXX")"
+trap 'rm -rf "$WORK"' EXIT
+export WORDFILM_BUDGET_LEDGER="$WORK/budget-ledger.jsonl"
+SWISS_PROJ="$WORK/out-swiss-motion"
+cp -a "$FIX/out-swiss-motion" "$SWISS_PROJ"
+
+# Prerequisites of the environmental checks (each check SKIPs with a reason when absent).
+FILMS="$(PYTHONPATH="$CTL" python3 -c 'from common import films_root; print(films_root())')"
+have_films() { test -d "$FILMS"; }
+have_py() { python3 -c "import $1" >/dev/null 2>&1; }
+have_ffmpeg() { command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1; }
+have_net() {
+  python3 -c "import urllib.request; urllib.request.urlopen('https://raw.githubusercontent.com/google/fonts/main/ofl/intertight/OFL.txt', timeout=8).read(64)" >/dev/null 2>&1
+}
+have_chromium() {
+  test -d "$ROOT/node_modules/playwright-core" || return 1
+  command -v node >/dev/null 2>&1 || return 1
+  node --input-type=module -e "
+import { chromium } from 'playwright-core';
+const b = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROME || undefined }).catch(() => null);
+if (!b) process.exit(1); await b.close();" >/dev/null 2>&1
+}
+NET=0; have_net && NET=1
+# Offline without a font cache: scaffold still needs font files to exist, so give it
+# stand-ins (right names and sizes, not real fonts). Font checks then SKIP.
+FONTS_STANDIN=0
+if [ "$NET" = 0 ] && [ -z "${LEMO_FONT_CACHE:-}" ]; then
+  export LEMO_FONT_CACHE="$WORK/font-standins"
+  PYTHONPATH="$CTL" python3 -c "
+import sys
+from pathlib import Path
+from fetch_fonts import STYLE_FONTS
+d = Path(sys.argv[1]); d.mkdir(parents=True, exist_ok=True)
+for pack in STYLE_FONTS.values():
+    for name, _url, mn in pack:
+        (d / name).write_bytes(b'0' * mn)
+" "$LEMO_FONT_CACHE"
+  FONTS_STANDIN=1
+  echo "NOTE: offline and no LEMO_FONT_CACHE: scaffold checks use stand-in font files"
+fi
+FIX_STATUS_BEFORE="$(git -C "$ROOT" status --porcelain -- tools/deepseek-controller/fixtures 2>/dev/null || true)"
 
 # 1) invalid plan rejected
 if "${CLI[@]}" validate "$FIX/plan-invalid.json" >/tmp/dc-val.out 2>/tmp/dc-val.err; then
@@ -50,7 +101,8 @@ else
 fi
 
 # 4) schedule fails when VO too long
-if "${CLI[@]}" schedule --project "$FIX/schedule-too-long" --require-vo >/tmp/dc-sch.out 2>/tmp/dc-sch.err; then
+cp -a "$FIX/schedule-too-long" "$WORK/schedule-too-long"
+if "${CLI[@]}" schedule --project "$WORK/schedule-too-long" --require-vo >/tmp/dc-sch.out 2>/tmp/dc-sch.err; then
   bad "schedule should fail when VO too long"
 else
   if grep -q "exceeds target" /tmp/dc-sch.err; then
@@ -61,15 +113,15 @@ else
 fi
 
 # 5) schedule OK with short durs
-if "${CLI[@]}" schedule --project "$FIX/out-swiss-motion" --require-vo >/tmp/dc-sch2.out 2>/tmp/dc-sch2.err; then
+if "${CLI[@]}" schedule --project "$SWISS_PROJ" --require-vo >/tmp/dc-sch2.out 2>/tmp/dc-sch2.err; then
   ok "schedule OK with measured short VO"
 else
   bad "schedule short VO: $(cat /tmp/dc-sch2.err)"
 fi
 
 # 6) quality fails on forced FAIL
-if "${CLI[@]}" quality --project "$FIX/out-swiss-motion" --skip-heavy --allow-unchecked \
-  --force-fail fixture_forced_fail -o "$FIX/quality-fail/quality.json" \
+if "${CLI[@]}" quality --project "$SWISS_PROJ" --skip-heavy --allow-unchecked \
+  --force-fail fixture_forced_fail -o "$WORK/quality-fail/quality.json" \
   >/tmp/dc-q.out 2>/tmp/dc-q.err; then
   bad "quality should fail with --force-fail"
 else
@@ -81,7 +133,7 @@ else
 fi
 
 # 7) quality can PASS content-stage with allow-unchecked (no force)
-if "${CLI[@]}" quality --project "$FIX/out-swiss-motion" --skip-heavy --allow-unchecked \
+if "${CLI[@]}" quality --project "$SWISS_PROJ" --skip-heavy --allow-unchecked \
   -o /tmp/dc-quality-pass.json >/tmp/dc-q2.out 2>/tmp/dc-q2.err; then
   ok "quality PASS with --allow-unchecked at content stage"
 else
@@ -241,7 +293,7 @@ if test -f /tmp/dc-scaffold-swiss/voices/words_rel.json \
 else
   # re-scaffold if earlier run was before fix
   rm -rf /tmp/dc-scaffold-swiss2
-  export LEMO_FONT_CACHE="/workspace/films/fuli-controller-e2e/fonts"
+  export LEMO_FONT_CACHE="${LEMO_FONT_CACHE:-$FILMS/fuli-controller-e2e/fonts}"
   if "${CLI[@]}" scaffold "$FIX/plan-swiss-motion.json" -o /tmp/dc-scaffold-swiss2 --lib "$ROOT" --force >/tmp/dc-sc-zh.out 2>/tmp/dc-sc-zh.err \
     && test -f /tmp/dc-scaffold-swiss2/voices/words_rel.json; then
     ok "scaffold swiss writes zh words_rel.json"
@@ -253,12 +305,14 @@ fi
 # 14) scaffold swiss fonts present (Archivo-VF etc.)
 FONT_PROJ=/tmp/dc-scaffold-swiss2
 test -d "$FONT_PROJ" || FONT_PROJ=/tmp/dc-scaffold-swiss
-if test -f "$FONT_PROJ/fonts/Archivo-VF.ttf" \
+if [ "$FONTS_STANDIN" = 1 ]; then
+  skip "scaffold swiss .ttf fonts" "no network to raw.githubusercontent.com and no font cache (LEMO_FONT_CACHE)"
+elif test -f "$FONT_PROJ/fonts/Archivo-VF.ttf" \
   && test -f "$FONT_PROJ/fonts/DMSerifDisplay-Regular.ttf" \
   && test -f "$FONT_PROJ/fonts/UnifrakturMaguntia-Regular.ttf"; then
   ok "scaffold swiss fetches/copies required .ttf fonts"
 else
-  export LEMO_FONT_CACHE="/workspace/films/fuli-controller-e2e/fonts"
+  export LEMO_FONT_CACHE="${LEMO_FONT_CACHE:-$FILMS/fuli-controller-e2e/fonts}"
   rm -rf /tmp/dc-scaffold-fonts
   if "${CLI[@]}" scaffold "$FIX/plan-swiss-motion.json" -o /tmp/dc-scaffold-fonts --lib "$ROOT" --force >/tmp/dc-sc-f.out 2>/tmp/dc-sc-f.err \
     && test -f /tmp/dc-scaffold-fonts/fonts/Archivo-VF.ttf; then
@@ -289,11 +343,15 @@ class R:
     stderr = fake
     stdout = ""
 _real = subprocess.run
+_which = quality.shutil.which
 subprocess.run = lambda *a, **k: R()
+# parser-only test: pretend ffmpeg exists so it runs on machines without it
+quality.shutil.which = lambda name: "/bin/" + name
 try:
     r = quality.ebur128(Path("/etc/hosts"))
 finally:
     subprocess.run = _real
+    quality.shutil.which = _which
 assert r["ok"] and r["integrated_lufs"] == -14.0, r
 assert r["true_peak_dbtp"] == -1.0, r
 PY
@@ -424,6 +482,33 @@ then
   ok "zh-homophone-tolerant handles 利息→力 short; rejects 蝙蝠"
 else
   bad "zh-homophone-tolerant tokenize"
+fi
+
+# 17b) MATRIX-18 M14: Whisper hears 复利 as 复立; the lexicon entry clears that residual
+if python3 - <<'PY'
+import json, sys
+sys.path.insert(0, "tools/deepseek-controller")
+import quality
+raw = json.load(open("tools/deepseek-controller/asr_homophones.json", encoding="utf-8"))
+fuli = [g for g in raw["classes"] if "复利" in g.get("members", [])]
+assert fuli and "复立" in fuli[0]["members"], fuli
+classes = quality._load_homophone_classes()
+want = "复利靠的是留下，而不是赌一把。"
+ok, a, b, _ = quality._homophone_tolerant_match(want, "复立靠的是留下,而不是赌一把。", classes)
+assert ok and a == b, (a, b)
+detail = "DIFF L05 | 复利靠的是留下，而不是赌一把。 → 复立靠的是留下,而不是赌一把。    (similarity 0.93 < 0.95)\nmismatches: 1\n"
+diffs = quality._parse_asr_diffs(detail)
+assert [d[0] for d in diffs] == ["L05"], diffs
+assert all(quality._homophone_tolerant_match(w, g, classes)[0] for _, w, g in diffs)
+# without the entry the same line stays a residual (the M14 failure)
+bare = [{"members": c["members"] - {"复立"}, "short": c["short"]} for c in classes]
+assert not quality._homophone_tolerant_match(want, "复立靠的是留下,而不是赌一把。", bare)[0]
+print("ok")
+PY
+then
+  ok "asr_homophones maps 复立 to 复利 (M14 L05 residual cleared)"
+else
+  bad "asr_homophones 复立 to 复利"
 fi
 
 
@@ -580,6 +665,100 @@ else
   bad "apply_caption_timeline"
 fi
 
+# 21b) MATRIX-18 M14/M16: caption copy that overruns the locked caption-news DUR fails
+#      schedule before render, even when the target (plan or --target) would allow it
+CAP_OVR="$WORK/caption-overrun"
+python3 - "$CAP_OVR" <<'PY'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+(p / "content").mkdir(parents=True)
+(p / "voices").mkdir()
+(p / "main.js").write_text("const W = innerWidth, H = innerHeight, FPS = 30, DUR = 30;\n", encoding="utf-8")
+ids = [f"c{i}" for i in range(1, 8)]
+caps = [{"id": c, "zh": "复利", "en": "compound", "k": "cap", "role": "hook" if c == "c1" else "explain"} for c in ids]
+(p / "content" / "timeline_content.json").write_text(json.dumps({"caps": caps}, ensure_ascii=False))
+(p / "content" / "lines.json").write_text(json.dumps(
+    [{"id": f"L0{i}", "shotId": c, "text": "复利"} for i, c in enumerate(ids, 1)], ensure_ascii=False))
+# six 5.00s shots + one 2.25s shot = 32.25s against the 30s lock (the M14 numbers)
+durs = {f"L0{i}": (4.0 if i < 7 else 1.25) for i in range(1, 8)}
+(p / "voices" / "dur.json").write_text(json.dumps(durs))
+(p / "content" / "plan.json").write_text(json.dumps({"style": "caption-news", "targetDurationSec": 30}))
+(p / "timeline.json").write_text(json.dumps({"dur": 30, "vo": {}, "caps": []}))
+PY
+cp "$CAP_OVR/timeline.json" "$WORK/caption-overrun.timeline.before"
+if "${CLI[@]}" schedule --project "$CAP_OVR" --require-vo >/tmp/dc-ovr.out 2>/tmp/dc-ovr.err; then
+  bad "schedule should fail: caption copy 32.25s > locked 30s"
+elif grep -q 'copy overruns the locked caption-news timeline by 2.25s: content 32.25s > locked 30.00s' /tmp/dc-ovr.err \
+  && grep -q 'trim shots: c7 (30.00-32.25s)' /tmp/dc-ovr.err \
+  && cmp -s "$CAP_OVR/timeline.json" "$WORK/caption-overrun.timeline.before" \
+  && python3 -c "
+import json;t=json.load(open('$CAP_OVR/timeline.parsed.json'))
+assert t['ok'] is False and t['lockedDurationSec']==30 and t['lockOverrunSec']==2.25, t"; then
+  ok "schedule rejects 32.25s caption copy against the locked 30s caption-news DUR (names c7)"
+else
+  bad "caption overrun message: $(cat /tmp/dc-ovr.err)"
+fi
+
+if "${CLI[@]}" schedule --project "$CAP_OVR" --require-vo --target 33 >/tmp/dc-ovr2.out 2>/tmp/dc-ovr2.err; then
+  bad "schedule --target 33 must still fail against the 30s caption lock"
+elif grep -q 'copy overruns the locked caption-news timeline by 2.25s' /tmp/dc-ovr2.err \
+  && ! grep -q 'exceeds target' /tmp/dc-ovr2.err \
+  && cmp -s "$CAP_OVR/timeline.json" "$WORK/caption-overrun.timeline.before"; then
+  ok "caption lock guard holds when the target alone would pass (--target 33)"
+else
+  bad "caption overrun with --target 33: $(cat /tmp/dc-ovr2.err)"
+fi
+
+if PYTHONPATH="$CTL" python3 - "$CAP_OVR" <<'PY'
+import sys
+from pathlib import Path
+from apply_caption_timeline import apply_caption_timeline, main
+p = Path(sys.argv[1])
+try:
+    apply_caption_timeline(p)
+except ValueError as e:
+    assert "schedule did not pass" in str(e), e
+else:
+    raise SystemExit("apply accepted a failed schedule")
+parsed = {"ok": True, "scheduledDurationSec": 32.25, "contentDurationSec": 32.25, "shots": [], "cues": []}
+try:
+    apply_caption_timeline(p, parsed=parsed)
+except ValueError as e:
+    assert "overruns the locked caption-news timeline by 2.25s" in str(e), e
+else:
+    raise SystemExit("apply accepted an overrunning schedule")
+assert main(["--project", str(p)]) == 1
+assert apply_caption_timeline(p, parsed=parsed, force=True)["dur"] == 30.0
+print("ok")
+PY
+then
+  ok "apply_caption_timeline refuses failed/overrunning schedules unless --force"
+else
+  bad "apply_caption_timeline overrun refusal"
+fi
+
+# trimmed copy (c7 cut) fits the lock and applies
+python3 - "$CAP_OVR" <<'PY'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+tc = json.loads((p / "content" / "timeline_content.json").read_text())
+tc["caps"] = tc["caps"][:6]
+(p / "content" / "timeline_content.json").write_text(json.dumps(tc, ensure_ascii=False))
+lines = json.loads((p / "content" / "lines.json").read_text())[:6]
+(p / "content" / "lines.json").write_text(json.dumps(lines, ensure_ascii=False))
+PY
+if "${CLI[@]}" schedule --project "$CAP_OVR" --require-vo >/tmp/dc-ovr3.out 2>/tmp/dc-ovr3.err \
+  && grep -q 'OK applied caption timeline.json' /tmp/dc-ovr3.out \
+  && python3 -c "
+import json;t=json.load(open('$CAP_OVR/timeline.parsed.json'))
+assert t['ok'] and t['contentDurationSec']==30.0 and t['lockOverrunSec']==0, t"; then
+  ok "trimmed caption copy (30.00s) passes the lock and applies"
+else
+  bad "trimmed caption copy: $(cat /tmp/dc-ovr3.out /tmp/dc-ovr3.err)"
+fi
+
 # 22) caption locked-main readcheck helper
 if python3 - <<'PY'
 import sys, tempfile
@@ -682,36 +861,58 @@ else
   bad "pictogram edl_runtime apply"
 fi
 
-# 24) scaffold pictogram + caption fetch/copy fonts (via LEMO_FONT_CACHE)
-if python3 - <<'PY'
-import os, sys, shutil
+# 24) fetch_fonts: pictogram downloads (or copies from a cache); caption woff2 subsets have
+#     no raw URL, so they come from LEMO_FONT_CACHE / sibling films (synthetic cache when absent)
+PICTO_CACHE="${LEMO_FONT_CACHE:-$FILMS/fensan-controller-e2e/fonts}"
+if [ "$FONTS_STANDIN" = 1 ] || { [ "$NET" = 0 ] && ! test -f "$PICTO_CACHE/InterTightwght.ttf"; }; then
+  skip "fetch_fonts pictogram" "no network to raw.githubusercontent.com and no real font cache (LEMO_FONT_CACHE)"
+elif LEMO_FONT_CACHE="$PICTO_CACHE" python3 - "$WORK/font-pictogram" <<'PY'
+import sys
 from pathlib import Path
 sys.path.insert(0, "tools/deepseek-controller")
 from fetch_fonts import ensure_fonts
 
-td = Path("/tmp/dc-font-pictogram")
-shutil.rmtree(td, ignore_errors=True)
+td = Path(sys.argv[1])
 (td / "fonts").mkdir(parents=True)
-os.environ["LEMO_FONT_CACHE"] = "/workspace/films/fensan-controller-e2e/fonts"
 acts = ensure_fonts(td / "fonts", "pictogram-motion", project=td)
 assert (td / "fonts" / "InterTightwght.ttf").is_file()
 assert (td / "fonts" / "DMMono-Medium.ttf").is_file()
 assert (td / "fonts" / "NotoSansSCwght.ttf").is_file()
 assert any(("copied-fallback" in a) or a.startswith("ok ") or a.startswith("fetched ") for a in acts)
-
-td2 = Path("/tmp/dc-font-caption")
-shutil.rmtree(td2, ignore_errors=True)
-(td2 / "fonts").mkdir(parents=True)
-os.environ["LEMO_FONT_CACHE"] = "/workspace/films/liudong-controller-e2e/fonts"
-acts2 = ensure_fonts(td2 / "fonts", "caption-news", project=td2)
-for name in ("it500.woff2", "it800.woff2", "sc900.woff2"):
-    assert (td2 / "fonts" / name).is_file(), name
 print("ok")
 PY
 then
-  ok "fetch_fonts pictogram+caption via LEMO_FONT_CACHE"
+  ok "fetch_fonts pictogram (download or LEMO_FONT_CACHE)"
 else
-  bad "fetch_fonts pictogram/caption"
+  bad "fetch_fonts pictogram"
+fi
+
+CAP_CACHE="${LEMO_FONT_CACHE:-$FILMS/liudong-controller-e2e/fonts}"
+CAP_KIND="real cache $CAP_CACHE"
+if [ "$FONTS_STANDIN" = 1 ] || ! test -f "$CAP_CACHE/it500.woff2"; then
+  # No rendered caption film here: prove the cache copy path with stand-in subsets.
+  CAP_CACHE="$WORK/font-cache-caption"; CAP_KIND="synthetic cache"
+  mkdir -p "$CAP_CACHE"
+  for n in it500 it600i it800 sc500 sc900; do head -c 4096 /dev/zero >"$CAP_CACHE/$n.woff2"; done
+fi
+if LEMO_FONT_CACHE="$CAP_CACHE" python3 - "$WORK/font-caption" <<'PY'
+import sys
+from pathlib import Path
+sys.path.insert(0, "tools/deepseek-controller")
+from fetch_fonts import ensure_fonts
+
+td = Path(sys.argv[1])
+(td / "fonts").mkdir(parents=True)
+acts = ensure_fonts(td / "fonts", "caption-news", project=td)
+for name in ("it500.woff2", "it600i.woff2", "it800.woff2", "sc500.woff2", "sc900.woff2"):
+    assert (td / "fonts" / name).is_file(), name
+    assert f"copied-fallback {name}" in acts or f"ok {name}" in acts, acts
+print("ok")
+PY
+then
+  ok "fetch_fonts caption woff2 subsets via LEMO_FONT_CACHE ($CAP_KIND)"
+else
+  bad "fetch_fonts caption ($CAP_KIND)"
 fi
 
 # 25) brand_strings builder maps topic + hudTicks from cards
@@ -801,7 +1002,9 @@ fi
 
 
 # 27) music_bed synthesizes placeholder + mixes VO; cli mix works
-if python3 - <<'PY'
+if ! have_py numpy || ! have_py soundfile; then
+  skip "music_bed / cli mix" "numpy + soundfile not installed (pip install -r requirements.txt)"
+elif python3 - <<'PY'
 import json, sys, tempfile, shutil, subprocess
 from pathlib import Path
 import numpy as np, soundfile as sf
@@ -916,7 +1119,9 @@ fi
 
 
 # 29) swiss texts_runtime overlay: LAYOUT boxes + holdPad; quality skips N/A when present
-if python3 - <<'PY'
+if ! have_chromium; then
+  skip "swiss texts_runtime overlay + quality N/A gate" "no playwright-core in node_modules (npm ci) or no launchable Chromium (node node_modules/playwright-core/cli.js install chromium-headless-shell, or PLAYWRIGHT_CHROME)"
+elif python3 - <<'PY'
 import json, sys, tempfile, shutil
 from pathlib import Path
 sys.path.insert(0, "tools/deepseek-controller")
@@ -981,7 +1186,9 @@ fi
 
 
 # 30) tts router --list + kokoro one-line when .venv-voice ready; qwen3 needs-server without BASE
-if python3 - <<'PY'
+if ! have_py edge_tts; then
+  skip "tts router list + kokoro/qwen3 honesty" "edge-tts not installed (pip install edge-tts)"
+elif python3 - <<'PY'
 import json, os, subprocess, sys, tempfile
 from pathlib import Path
 root = Path(".").resolve()
@@ -1087,20 +1294,21 @@ else
   bad "matrix list: $(cat /tmp/dc-matrix.err /tmp/dc-matrix.out)"
 fi
 
-if "${CLI[@]}" matrix --id M01 --json >/tmp/dc-matrix-m01.json 2>/tmp/dc-matrix-m01.err \
-  && python3 -c "import json;d=json.load(open('/tmp/dc-matrix-m01.json')); assert d['id']=='M01' and d['status']=='delivery-pass' and d['mp4Exists']"; then
-  ok "matrix --id M01 --json"
-else
-  bad "matrix M01 json: $(cat /tmp/dc-matrix-m01.err /tmp/dc-matrix-m01.json)"
-fi
-
-# Flash natives promoted to delivery-pass
-for mid in M02 M06 M10; do
+# M01 + flash natives promoted to delivery-pass. The rendered films live under the films
+# root (WORDFILM_FILMS, <repo>/films or /workspace/films); without it only the status is checked.
+for mid in M01 M02 M06 M10; do
   if "${CLI[@]}" matrix --id "$mid" --json >/tmp/dc-matrix-$mid.json 2>/tmp/dc-matrix-$mid.err \
-    && python3 -c "import json;d=json.load(open('/tmp/dc-matrix-$mid.json')); assert d['id']=='$mid' and d['status']=='delivery-pass' and d['mp4Exists']"; then
-    ok "matrix --id $mid delivery-pass"
+    && python3 -c "import json;d=json.load(open('/tmp/dc-matrix-$mid.json')); assert d['id']=='$mid' and d['status']=='delivery-pass'"; then
+    ok "matrix --id $mid --json delivery-pass"
   else
     bad "matrix $mid: $(cat /tmp/dc-matrix-$mid.err /tmp/dc-matrix-$mid.json)"
+  fi
+  if ! have_films; then
+    skip "matrix $mid mp4 on disk" "films root $FILMS not present (set WORDFILM_FILMS)"
+  elif python3 -c "import json;d=json.load(open('/tmp/dc-matrix-$mid.json')); assert d['mp4Exists'] and d['evidenceExists'], d" 2>/tmp/dc-matrix-$mid.ev; then
+    ok "matrix $mid mp4 + evidence on disk"
+  else
+    bad "matrix $mid mp4/evidence missing under $FILMS: $(tail -1 /tmp/dc-matrix-$mid.ev)"
   fi
 done
 
@@ -1201,18 +1409,33 @@ fi
 # Cross-style x flash cells (M13-M18): every cell has a real mp4 + evidence, flash path
 "${CLI[@]}" matrix --path flash >/tmp/dc-matrix-flash.out 2>/tmp/dc-matrix-flash.err || true
 if python3 -c "
-import json,os
+import json
 d=json.load(open('$CTL/fixtures/matrix-18.json'))
 cells=d['cells']; assert len(cells)==18
 keys={(c['topic'],c['style'],c['path']) for c in cells}; assert len(keys)==18
 new=[c for c in cells if c['id'] in ('M13','M14','M15','M16','M17','M18')]
 assert len(new)==6 and all(c['path']=='flash' and c['role']=='cross' for c in new)
-assert all(c['status']!='empty' and os.path.exists(c['mp4']) and os.path.exists(c['evidence']) for c in new)
-assert all(c['status']!='delivery-pass' or json.load(open(c['evidence'])).get('deliveryAllowed') for c in new)
+assert all(c['status']!='empty' and c.get('mp4') and c.get('evidence') for c in new)
+st={c['id']:c['status'] for c in new}
+assert st['M14']=='muxed' and st['M16']=='muxed', st  # not delivered until re-rendered with trimmed copy
 " && grep -q 'M13' /tmp/dc-matrix-flash.out && ! grep -q ' controller ' /tmp/dc-matrix-flash.out; then
   ok "matrix-18 full factorial; M13-M18 cross x flash honest status + --path flash"
 else
   bad "matrix-18 cross x flash: $(cat /tmp/dc-matrix-flash.err)"
+fi
+if ! have_films; then
+  skip "matrix-18 M13-M18 mp4 + evidence on disk" "films root $FILMS not present (set WORDFILM_FILMS)"
+elif PYTHONPATH="$CTL" python3 -c "
+import json
+from common import film_path
+d=json.load(open('$CTL/fixtures/matrix-18.json'))
+new=[c for c in d['cells'] if c['id'] in ('M13','M14','M15','M16','M17','M18')]
+assert all(film_path(c['mp4']).is_file() and film_path(c['evidence']).is_file() for c in new)
+assert all(c['status']!='delivery-pass' or json.load(open(film_path(c['evidence']))).get('deliveryAllowed') for c in new)
+" 2>/tmp/dc-matrix-flash.ev; then
+  ok "matrix-18 M13-M18 mp4 + evidence on disk; delivery-pass cells allow delivery"
+else
+  bad "matrix-18 M13-M18 evidence under $FILMS: $(tail -1 /tmp/dc-matrix-flash.ev)"
 fi
 
 # Loader rejects a non-factorial tracker
@@ -1624,7 +1847,7 @@ assert d['premiere']['fps']==30 and d['premiere']['fpsSource']=='probe'" \
     bad "handoff probe portrait: $(cat /tmp/dc-hob.err)"
   fi
 else
-  echo "SKIP: handoff ffprobe portrait (ffmpeg/ffprobe not installed)"
+  skip "handoff ffprobe portrait" "ffmpeg/ffprobe not installed"
 fi
 
 # handoff pytest suite (frame size / fps); one command covers everything
@@ -1635,10 +1858,22 @@ if python3 -c "import pytest" 2>/dev/null; then
     bad "pytest tools/handoff/tests: $(tail -20 /tmp/dc-pytest.out)"
   fi
 else
-  echo "SKIP: pytest not installed (python3 -m pip install pytest; then python3 -m pytest tools/handoff/tests)"
+  skip "pytest tools/handoff/tests" "pytest not installed (python3 -m pip install -r requirements-dev.txt)"
+fi
+
+# The harness must not touch tracked files (fixtures are copied into a scratch dir).
+if command -v git >/dev/null 2>&1 && git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+  DIRTY="$(git -C "$ROOT" status --porcelain -- tools/deepseek-controller/fixtures)"
+  if [ "$DIRTY" = "$FIX_STATUS_BEFORE" ]; then
+    ok "harness left tools/deepseek-controller/fixtures untouched"
+  else
+    bad "harness modified fixtures: before [$FIX_STATUS_BEFORE] after [$DIRTY]"
+  fi
+else
+  skip "fixture cleanliness" "not a git checkout"
 fi
 
 echo
-echo "Results: $pass passed, $fail failed"
+echo "Results: $pass passed, $fail failed, $skipped skipped"
 
 test "$fail" -eq 0

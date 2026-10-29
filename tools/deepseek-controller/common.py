@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,32 @@ ASPECT_SIZES: dict[str, tuple[int, int]] = {"16:9": (1920, 1080), "9:16": (1080,
 DEFAULT_ASPECT = "16:9"
 # Output frame rate of each locked demo (STYLE.md / build.sh); --fps for video.mjs + mux.sh
 STYLE_FPS: dict[str, int] = {"swiss-motion": 24, "caption-news": 30, "pictogram-motion": 60}
+
+
+# Where rendered films live (outside git). The matrix tracker and older notes record
+# them under LEGACY_FILMS_ROOT; on other machines set WORDFILM_FILMS or use <repo>/films.
+LEGACY_FILMS_ROOT = "/workspace/films"
+
+
+def films_root() -> Path:
+    """$WORDFILM_FILMS, else <repo>/films when it exists, else /workspace/films.
+
+    The result may not exist (callers check is_dir() and skip)."""
+    env = os.environ.get("WORDFILM_FILMS", "").strip()
+    if env:
+        return Path(env).expanduser()
+    local = ROOT.parent.parent / "films"
+    if local.is_dir():
+        return local
+    return Path(LEGACY_FILMS_ROOT)
+
+
+def film_path(raw: str | Path) -> Path:
+    """Map a recorded /workspace/films/... path onto films_root()."""
+    s = str(raw)
+    if s == LEGACY_FILMS_ROOT or s.startswith(LEGACY_FILMS_ROOT + "/"):
+        return films_root() / s[len(LEGACY_FILMS_ROOT):].lstrip("/")
+    return Path(s)
 
 
 def load_json(path: Path) -> Any:

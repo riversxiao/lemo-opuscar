@@ -49,8 +49,10 @@ python3 $CTL/cli.py tts --project /tmp/film-fuli --provider kokoro   # offline
 # or: --provider auto --fallback kokoro,edge
 python3 $CTL/cli.py schedule --project /tmp/film-fuli --require-vo
 python3 $CTL/cli.py quality  --project /tmp/film-fuli --skip-heavy
-bash $CTL/tests/test_mvp.sh          # also runs: python3 -m pytest tools/handoff/tests -q
+bash $CTL/tests/test_mvp.sh          # or: npm test; also runs python3 -m pytest tools/handoff/tests -q
 ```
+
+The harness prints PASS / FAIL / SKIP lines and exits non-zero only on FAIL. Checks whose prerequisite is missing on this machine SKIP with the reason: ffmpeg/ffprobe, pytest, numpy/soundfile, edge-tts, playwright-core + a launchable Chromium (`PLAYWRIGHT_CHROME` if set, else `/usr/bin/google-chrome` if present, else playwright's own headless shell), network for font downloads, and rendered films under the films root (`$WORDFILM_FILMS`, else `<repo>/films`, else `/workspace/films`) for the matrix evidence checks. Fixtures are copied to a temp dir and the budget ledger goes to a temp file (`$WORDFILM_BUDGET_LEDGER`), so `git status` stays clean.
 
 Do **not** full-render MP4 in CI — glue + hash tests are enough.
 
@@ -172,6 +174,8 @@ python3 tools/deepseek-controller/cli.py quality --project "$P" --require-vo \
 - Scaffold fetches OFL fonts via `fetch_fonts.py` for **all three styles** (Swiss `.ttf`, Pictogram `.ttf`, Caption `.woff2` subsets via cache/sibling/`tools/fonts.sh`). Override with `$LEMO_FONT_CACHE`. Swiss also writes `voices/words_rel.json` for zh (`zh_words_rel.py` / `post_tts.py`). Do **not** run English `tools/words.py` on CJK.
 - Pictogram: `edl_runtime.json` + optional `brand_strings.json` (HUD/intro/finale literal rewrite at eval time). Disk `edl.js`/`scenes.js` hashes stay locked on default scaffold. Audio: **`cli mix` / `music_bed.py`** writes `music/bed.wav` + ducked VO → `out/mix.wav` (locked Olympics `music.py` unused). See `docs/MUSIC-BED.md`.
 - Pictogram **style version** `finance-v001`: `apply_pictogram_style_version.py --version finance-v001` replaces `scenes.js` with content-driven intro/finale (see `styles/pictogram-motion/versions/finance-v001/VERSION.md`). Demo lock path unchanged.
+- Caption **style versions**: `apply_caption_style_version.py --version <id>` replaces `main.js` (DUR 32 s, topic SHOTS/TEXTS): `liquidity-v001` (see `styles/caption-news/versions/liquidity-v001/VERSION.md`), `compound-v001` (`styles/caption-news/versions/compound-v001/VERSION.md`), `diversify-v001` (`styles/caption-news/versions/diversify-v001/VERSION.md`).
+- Caption: `main.js` `DUR` is the locked picture length. `schedule` hard-fails when the caption/VO content runs past it, even if `targetDurationSec` or `--target` would allow it ("copy overruns the locked caption-news timeline by N s ... trim shots: ..."), and `apply_caption_timeline.py` refuses a failed or overrunning `timeline.parsed.json` unless `--force` (diagnostics only).
 - Swiss: `texts_runtime.json` + `page.mjs` installs `window.TEXTS(t)` (no film.js unlock). Without overlay → `NOT_APPLICABLE` (`swiss-demo-without-registry`), not eternal `NOT_CHECKED`.
 - When `content/engine.lock.json` protects `film.js`, `media_duration` uses **`style_locked_duration`**: compare mux length to engine `DUR` (±1s). Plan `targetDurationSec` stays the schedule budget.
 - `--asr-mode=zh-homophone-tolerant` uses `asr_homophones.json` v2 (`members` + optional `short` truncations, longest-match).

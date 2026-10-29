@@ -10,7 +10,8 @@ swiss-motion, pictogram-motion, and caption-news.
 Fallback copy order when network fails (or for caption woff2 subsets with no
 stable raw URL):
   1) $LEMO_FONT_CACHE/<name>
-  2) sibling /workspace/films/*/fonts/<name>
+  2) sibling <films root>/*/fonts/<name>, films root = $WORDFILM_FILMS, else
+     <repo>/films, else /workspace/films (skipped when it does not exist)
   3) for caption: run <project>/tools/fonts.sh when present
 """
 from __future__ import annotations
@@ -23,6 +24,8 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+from common import films_root
 
 # (dest_name, raw_url_or_None, min_bytes)
 # url=None → copy-only / fonts.sh (caption glyph subsets)
@@ -109,7 +112,7 @@ def _copy_fallback(name: str, dest: Path, min_bytes: int) -> bool:
     candidates: list[Path] = []
     if cache:
         candidates.append(Path(cache) / name)
-    films = Path("/workspace/films")
+    films = films_root()
     if films.is_dir():
         for p in films.glob(f"*/fonts/{name}"):
             candidates.append(p)

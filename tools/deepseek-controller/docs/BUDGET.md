@@ -10,6 +10,8 @@ Append-only JSONL:
 
 `tools/deepseek-controller/fixtures/budget-ledger.jsonl`
 
+`--ledger PATH` or `$WORDFILM_BUDGET_LEDGER` writes elsewhere (the test harness uses a temp ledger so it never appends to the tracked one). `import-opencode` reads `$LEMO_OPENCODE_DB`, default `~/.local/share/opencode/opencode.db`.
+
 ```sh
 # summarize
 python3 tools/deepseek-controller/cli.py budget summary

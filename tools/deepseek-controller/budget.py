@@ -14,15 +14,17 @@ from pathlib import Path
 from typing import Any, Iterable
 
 ROOT = Path(__file__).resolve().parent
-DEFAULT_LEDGER = ROOT / "fixtures" / "budget-ledger.jsonl"
+# $WORDFILM_BUDGET_LEDGER points runs (and the test harness) at another ledger
+# so they do not append to the tracked fixture.
+DEFAULT_LEDGER = Path(
+    os.environ.get("WORDFILM_BUDGET_LEDGER") or ROOT / "fixtures" / "budget-ledger.jsonl"
+)
 SHANGHAI = timezone(timedelta(hours=8))
 
-# OpenCode session DB on this box (optional seed import).
+# OpenCode session DB of the current user (optional seed import).
 DEFAULT_OPENCODE_DB = Path(
-    os.environ.get(
-        "LEMO_OPENCODE_DB",
-        "/home/box/.local/share/opencode/opencode.db",
-    )
+    os.environ.get("LEMO_OPENCODE_DB")
+    or Path.home() / ".local" / "share" / "opencode" / "opencode.db"
 )
 
 

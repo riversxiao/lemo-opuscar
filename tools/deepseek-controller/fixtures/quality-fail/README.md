@@ -11,3 +11,5 @@ python3 tools/deepseek-controller/cli.py quality \
 ```
 
 Expect exit 1 and `overall=FAIL`.
+
+`tests/test_mvp.sh` runs the same command on a scratch copy of `out-swiss-motion` and writes its report to a temp dir, so the committed `quality.json` is a sample report only (its absolute paths come from the machine that produced it).
