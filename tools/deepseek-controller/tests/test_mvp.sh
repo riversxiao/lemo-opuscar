@@ -9,6 +9,10 @@ fail=0
 # Headless Chrome for page.mjs readcheck smoke (texts_runtime overlay test).
 export PLAYWRIGHT_CHROME="${PLAYWRIGHT_CHROME:-/usr/bin/google-chrome}"
 
+# Never let tests append to the real fixtures/budget-ledger.jsonl (handoff etc. log $0 rows).
+export DC_BUDGET_LEDGER="${DC_BUDGET_LEDGER:-/tmp/dc-test-budget-ledger.jsonl}"
+rm -f "$DC_BUDGET_LEDGER"
+
 ok() { echo "PASS: $*"; pass=$((pass+1)); }
 bad() { echo "FAIL: $*"; fail=$((fail+1)); }
 
@@ -422,6 +426,24 @@ else
   bad "zh-homophone-tolerant tokenize"
 fi
 
+
+# 17b) zh tolerant: Whisper 6% / 0.5 notation == spoken 百分之六 / 零点五; wrong number still fails
+if python3 - <<'PY'
+import sys
+sys.path.insert(0, "tools/deepseek-controller")
+import quality
+c = quality._load_homophone_classes()
+ok, a, b, r = quality._homophone_tolerant_match("官方贴现率从百分之六，降到百分之零点五。", "官方贴线率从6%降到0.5%。", c)
+assert ok and a == b, (a, b, r)
+bad_ok, *_ = quality._homophone_tolerant_match("官方贴现率从百分之六，降到百分之零点五。", "官方贴现率从9%降到3%。", c)
+assert not bad_ok
+print("ok")
+PY
+then
+  ok "zh tolerant normalizes 6%/0.5 to 百分之6/0点5; wrong number fails"
+else
+  bad "zh tolerant percent/decimal normalization"
+fi
 
 # 18) schedule pads under-target (hold-last-beat); under-target still in metadata
 if python3 - <<'PY'
@@ -990,7 +1012,8 @@ if venv_py.is_file() and by["kokoro"]["state"] == "ready":
     out = td / "kokoro"
     r4 = subprocess.run(
         cli + ["tts", "--project", str(td), "--lines", str(lines), "--out", str(out),
-               "--provider", "kokoro", "--fallback", "", "--no-post-words"],
+               "--provider", "kokoro", "--fallback", "", "--no-post-words",
+               "--skip-dialogue-gate"],
         capture_output=True, text=True,
     )
     assert r4.returncode == 0, r4.stderr + r4.stdout
@@ -1206,6 +1229,140 @@ raise SystemExit(1)
   ok "matrix loader rejects 12-cell tracker"
 else
   bad "matrix docs/fixture missing"
+fi
+
+# ---- DIALOGUE.md gate (dialogue_check.py / cli dialogue-check / TTS block) ----
+DLG="$FIX/dialogue/pass"
+DT=/tmp/dc-dialogue
+rm -rf "$DT"; mkdir -p "$DT"
+if "${CLI[@]}" dialogue-check --project "$DLG" >/tmp/dc-dlg.out 2>&1 && grep -q 'PASS' /tmp/dc-dlg.out \
+  && python3 -c "import json;d=json.load(open('$DLG/evidence/dialogue-check.json'));assert d['status']=='PASS' and d['duration']['totalChars']==92"; then
+  ok "dialogue-check PASS fixture (92字 vs 22s ±15%)"
+else
+  bad "dialogue-check pass fixture: $(cat /tmp/dc-dlg.out)"
+fi
+rm -rf "$DLG/evidence"
+
+mk_case() {  # $1 name, $2 python mutation of list L
+  mkdir -p "$DT/$1/content"; cp "$DLG/content/plan.json" "$DT/$1/content/"
+  python3 -c "
+import json; L=json.load(open('$DLG/content/lines.json'))
+$2
+json.dump(L, open('$DT/$1/content/lines.json','w'), ensure_ascii=False)"
+}
+mk_case nofn "del L[1]['function']"
+mk_case long "L[1]['text']='利率已经低到几乎为零了，可是家家户户还是宁愿把现金攥在手里，既不去花也不去投资更不去借钱。'"
+mk_case latehook "L[0]['function']='evidence'; L[4]['function']='hook'"
+mk_case short "L[:]=L[:3]+[dict(L[4])]"
+mk_case jinju "L[5]['text']='让我们一起记住这个流动性陷阱。'"
+mk_case nopayoff "L[4]['function']='evidence'"
+mk_case advice "L[5]['text']='别急着抄底，先看懂流动性陷阱。'"
+dlg_ok=1
+for c in nofn long latehook short jinju nopayoff; do
+  if "${CLI[@]}" dialogue-check --project "$DT/$c" >"$DT/$c.out" 2>&1; then dlg_ok=0; echo "  case $c unexpectedly PASS"; fi
+done
+grep -q "function=None" "$DT/nofn.out" || dlg_ok=0
+grep -q "> 35字" "$DT/long.out" || dlg_ok=0
+grep -q "first 3 VO beats" "$DT/latehook.out" || dlg_ok=0
+grep -q "outside ±15%" "$DT/short.out" || dlg_ok=0
+grep -q "金句升华" "$DT/jinju.out" || dlg_ok=0
+grep -q "coverage" "$DT/nopayoff.out" || dlg_ok=0
+if [ "$dlg_ok" = 1 ]; then
+  ok "dialogue-check FAILs: missing function / >35字 / late hook / ±15% / 金句 / coverage"
+else
+  bad "dialogue-check fail cases: $(cat $DT/*.out)"
+fi
+if "${CLI[@]}" dialogue-check --project "$DT/advice" >"$DT/advice.out" 2>&1 && grep -q "WARN .*advice tone" "$DT/advice.out"; then
+  ok "dialogue-check advice tone is WARN (not FAIL)"
+else
+  bad "dialogue-check advice warn: $(cat $DT/advice.out)"
+fi
+
+# TTS is blocked before any synthesis when the gate fails
+if "${CLI[@]}" tts --project "$DT/long" --provider edge --out "$DT/long/voices" >"$DT/tts-block.out" 2>&1; then
+  bad "tts should be blocked by dialogue-check FAIL"
+elif grep -q "TTS blocked" "$DT/tts-block.out" && [ ! -e "$DT/long/voices" ]; then
+  ok "cli tts blocked by dialogue gate (no voices written)"
+else
+  bad "tts gate: $(cat $DT/tts-block.out)"
+fi
+
+# quality: dialogue_gate required for dialogue-layer lines, NOT_APPLICABLE for legacy
+if PYTHONPATH="$CTL" python3 -c "
+import quality
+from pathlib import Path
+c=quality._dialogue_check(Path('$DT/long')); assert c['name']=='dialogue_gate' and c['status']=='FAIL' and c['required'], c
+c=quality._dialogue_check(Path('$DLG')); assert c['status']=='PASS', c
+import json,os; os.makedirs('$DT/legacy/content',exist_ok=True)
+json.dump([{'id':'L01','text':'旧片台词。'}],open('$DT/legacy/content/lines.json','w'))
+c=quality._dialogue_check(Path('$DT/legacy')); assert c['status']=='NOT_APPLICABLE' and not c['required'], c
+"; then
+  ok "quality dialogue_gate: FAIL/PASS for function lines, NOT_APPLICABLE legacy"
+else
+  bad "quality dialogue_gate"
+fi
+rm -rf "$DLG/evidence"
+
+# schedule: multi-line shots play lines back to back (no stacked VO cues)
+if PYTHONPATH="$CTL" python3 -c "
+import schedule as S
+lines=[{'id':'L01','shotId':'a'},{'id':'L02','shotId':'b'},{'id':'L03','shotId':'b'}]
+shots=[{'id':'a','text':'甲'},{'id':'b','text':'乙'}]
+tl,err=S.schedule(lines=lines,shots=shots,target_duration=20,beat_grid=0.25,durs={'L01':2.0,'L02':3.0,'L03':2.5},require_all_vo=True)
+cue={c['id']:c['t'] for c in tl['cues']}
+b=[s for s in tl['shots'] if s['id']=='b'][0]
+assert abs(cue['L02']-(b['t0']+0.35))<1e-6 and abs(cue['L03']-(b['t0']+0.35+3.0+0.2))<1e-6, cue
+assert abs(b['voDur']-5.7)<1e-6 and cue['L01']==0.35
+"; then
+  ok "schedule multi-line shot cues sequential (+0.2s gap)"
+else
+  bad "schedule multi-line cues"
+fi
+
+# apply_caption_timeline: capsMode per-line + syncShots only on unlocked style-version main.js
+if PYTHONPATH="$CTL" python3 -c "
+import json, tempfile
+from pathlib import Path
+import apply_caption_timeline as A
+td=Path(tempfile.mkdtemp()); (td/'content').mkdir()
+(td/'main.js').write_text(\"const W = 1920, H = 1080, FPS = 30, DUR = 32;\nconst SHOTS = [\n  { a: 0.0,  b: 4.0,  k: 'hook' },\n  { a: 4.0, b: 9.0, k: 'stress' },\n];\n\",encoding='utf-8')
+json.dump({'hook':{'zh':'钩'},'caps':[],'capsMode':'per-line','syncShots':True},open(td/'timeline.json','w'))
+json.dump([{'id':'L01','text':'甲。','shotId':'h'},{'id':'L02','text':'乙句。','cap':'{乙}','shotId':'s'},{'id':'L03','text':'丙句。','shotId':'s'}],open(td/'content/lines.json','w'),ensure_ascii=False)
+parsed={'scheduledDurationSec':90,'shots':[{'id':'h','t0':0,'t1':3.5,'role':'hook','voIds':['L01']},{'id':'s','t0':3.5,'t1':90,'role':'evidence','voIds':['L02','L03']}],
+ 'cues':[{'type':'voice','id':'L01','t':0.35},{'type':'voice','id':'L02','t':3.85},{'type':'voice','id':'L03','t':6.0}]}
+try:
+    A.apply_caption_timeline(td, parsed=parsed); raise SystemExit('locked main.js must refuse')
+except ValueError as e:
+    assert 'refused' in str(e)
+json.dump({'unlocked':['main.js'],'protectedSha256':{'index.html':'x'}},open(td/'content/engine.lock.json','w'))
+info=A.apply_caption_timeline(td, parsed=parsed)
+src=(td/'main.js').read_text(); tl=json.load(open(td/'timeline.json'))
+assert info['shotsSynced'] and 'DUR = 90;' in src and '{ a: 3.50, b: 90.00,' in src and \"k: 'stress'\" in src, src
+assert [c['id'] for c in tl['caps']]==['L02','L03'] and tl['caps'][0]['zh']=='{乙}' and tl['caps'][0]['t1']==6.0 and tl['caps'][1]['t1']==90, tl['caps']
+assert tl['dur']==90
+"; then
+  ok "apply_caption_timeline per-line caps + syncShots (refuses locked main.js)"
+else
+  bad "apply_caption_timeline per-line/syncShots"
+fi
+
+# caption-news manifest allows a 90s plan (schema cap 90)
+if python3 -c "
+import json;m=json.load(open('$CTL/manifests/caption-news.json'));assert m['durationSec']['max']==90 and m['durationSec']['demo']==59.5
+s=json.load(open('$CTL/plan.schema.json'));assert s['properties']['targetDurationSec']['maximum']==90"; then
+  ok "caption-news durationSec.max=90 (demo still 59.5)"
+else
+  bad "caption manifest max"
+fi
+
+# budget ledger: tests write to \$DC_BUDGET_LEDGER, never the real fixtures ledger
+if PYTHONPATH="$CTL" python3 -c "
+import budget,os
+assert str(budget.ledger_path())==os.path.realpath('$DC_BUDGET_LEDGER')
+" && ! grep -q 'fixtures/handoff-mini' "$CTL/fixtures/budget-ledger.jsonl"; then
+  ok "budget ledger honors DC_BUDGET_LEDGER; no handoff-mini noise in real ledger"
+else
+  bad "budget ledger env override / noise"
 fi
 
 echo

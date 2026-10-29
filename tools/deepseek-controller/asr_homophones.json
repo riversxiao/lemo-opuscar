@@ -209,6 +209,20 @@
         "急用",
         "即用"
       ]
+    },
+    {
+      "members": [
+        "贴现率",
+        "贴线率"
+      ],
+      "note": "tiē xiàn lǜ identical pinyin; M19 L08 small+medium both write 贴线率"
+    },
+    {
+      "members": [
+        "零利率",
+        "林立律"
+      ],
+      "note": "líng lì lǜ vs lín lì lǜ (ing/in); M19 L09 small heard 林立律, whisper-medium cross-check heard 零利率"
     }
   ]
 }

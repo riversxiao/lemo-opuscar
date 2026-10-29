@@ -113,6 +113,20 @@ python3 tools/deepseek-controller/cli.py quality --project /tmp/film-fuli --medi
 
 见 [`docs/NEXT-ROUND.md`](../../docs/NEXT-ROUND.md) P1。12 支对照与完整 Playwright 出片不在本 PR。
 
+## Dialogue gate (DIALOGUE.md §5)
+
+```bash
+python3 $CTL/cli.py dialogue-check --project <film> [--target 90]   # PASS/FAIL → evidence/dialogue-check.json
+python3 $CTL/cli.py tts --project <film> --provider edge             # runs the gate first; FAIL blocks TTS
+```
+Lines need `function` (hook|turn|evidence|payoff|sting), ≤35字 each, hook in the first 3 beats,
+Σ字/4.5 within ±15% of `targetDurationSec`, no 金句升华. Legacy films: `tts --skip-dialogue-gate`.
+
+Caption long-form (90 s): `timeline.json` `"capsMode": "per-line"` (one caption card per VO line, `cap` field)
+and `"syncShots": true` (schedule rewrites the project-copy style-version `main.js` SHOTS a/b + DUR; refused on hash-locked main.js).
+Multi-line shots now play lines back to back (+0.2 s gap) instead of stacking at shot start.
+Tests write spend rows to `$DC_BUDGET_LEDGER` (default in tests: /tmp), never `fixtures/budget-ledger.jsonl`.
+
 ## Quality flags (post E2E fixes)
 
 ```bash

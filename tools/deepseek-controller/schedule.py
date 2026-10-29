@@ -93,6 +93,7 @@ def schedule(
     settle: float = 0.35,
     require_all_vo: bool = False,
     pad_under_target: bool = True,
+    line_gap: float = 0.2,
 ) -> tuple[dict[str, Any], list[str]]:
     """Return (timeline, errors). Over-target → error (no silent K-scale).
 
@@ -120,9 +121,13 @@ def schedule(
         vo_list = by_shot.get(sid, [])
         vo_dur = 0.0
         vo_ids = []
+        vo_offsets: list[float] = []  # start offset of each line within the shot VO run
         for ln in vo_list:
             lid = ln["id"]
+            if vo_ids:
+                vo_dur += line_gap  # multi-line shot: lines play back to back, never stacked
             if lid in durs:
+                vo_offsets.append(round(vo_dur, 4))
                 vo_dur += durs[lid]
                 vo_ids.append(lid)
             elif require_all_vo:
@@ -130,6 +135,7 @@ def schedule(
             else:
                 # estimate from text if no wav yet (planning mode)
                 est = read_time_sec(ln.get("text") or "", pad=0.2)
+                vo_offsets.append(round(vo_dur, 4))
                 vo_dur += est
                 vo_ids.append(lid)
                 errors.append(f"WARN: estimated VO for '{lid}' (no measured duration)")
@@ -146,6 +152,7 @@ def schedule(
                 "t1": round(t + length, 4),
                 "dur": round(length, 4),
                 "voIds": vo_ids,
+                "voOffsets": vo_offsets,
                 "voDur": round(vo_dur, 4),
                 "readSec": round(read, 4),
                 "text": text,
@@ -211,9 +218,10 @@ def schedule(
         "warnings": list(warns),
         "shots": parsed_shots,
         "cues": [
-            {"type": "voice", "id": vid, "shotId": s["id"], "t": s["t0"] + enter}
+            {"type": "voice", "id": vid, "shotId": s["id"],
+             "t": round(s["t0"] + enter + (s["voOffsets"][i] if i < len(s["voOffsets"]) else 0.0), 4)}
             for s in parsed_shots
-            for vid in s["voIds"]
+            for i, vid in enumerate(s["voIds"])
         ],
     }
     return timeline, all_errors

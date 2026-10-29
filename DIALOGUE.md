@@ -76,7 +76,9 @@ Swiss / Caption News / Whiteboard / Data Storytelling 等 **信息图 · 讲解*
 
 ## 5. 门禁清单（改编自 novel-script 思路：代码可检优先于自评）
 
-定稿后、TTS 前过一遍。能脚本化的以后再挂工具；现在至少人工 / agent 逐条勾。
+定稿后、TTS 前过一遍。**已脚本化：** `python3 tools/deepseek-controller/cli.py dialogue-check --project <film>`（`dialogue_check.py`，写 `evidence/dialogue-check.json`）。`cli.py tts` 默认先跑它，FAIL 直接拒绝合成；只有旧片（无 `function` 字段）才可显式 `--skip-dialogue-gate`。`quality` 对带 `function` 的项目把 `dialogue_gate` 设为必过项。
+
+脚本检查（FAIL）：`function` 缺失/非法、单条 > 35 字（不计标点）、前 3 条无 `hook`、功能覆盖缺 hook/(evidence|turn)/payoff、4.5 字/秒估时超出目标 ±15%、强金句模式（让我们…/其实…才是…/才是真正的/归根结底/说到底/记住：/唯有…才…）、`say` 比 `text` 短 20% 以上。仅 WARN：真正的/永远/本质等弱套话、投资建议口吻（建议你/抄底/稳赚…）、末句感叹号。
 
 | 门禁 | 规则 |
 |---|---|

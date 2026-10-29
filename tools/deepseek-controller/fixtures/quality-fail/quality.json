@@ -22,6 +22,12 @@
       "required": true
     },
     {
+      "name": "dialogue_gate",
+      "status": "NOT_APPLICABLE",
+      "detail": "legacy lines without `function` (pre-DIALOGUE project)",
+      "required": false
+    },
+    {
       "name": "ffprobe_media",
       "status": "NOT_CHECKED",
       "detail": "no out.mp4/final.mp4 yet",

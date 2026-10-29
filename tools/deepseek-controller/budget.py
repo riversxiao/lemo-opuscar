@@ -31,6 +31,9 @@ def now_iso_shanghai() -> str:
 
 
 def ledger_path(path: Path | None = None) -> Path:
+    """Explicit path > $DC_BUDGET_LEDGER (tests point this at /tmp) > fixtures ledger."""
+    if path is None and os.environ.get("DC_BUDGET_LEDGER"):
+        path = Path(os.environ["DC_BUDGET_LEDGER"])
     return (path or DEFAULT_LEDGER).resolve()
 
 

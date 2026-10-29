@@ -37,7 +37,11 @@ def _repo_root() -> Path:
 
 
 def _norm_zh(s: str) -> str:
-    s = unicodedata.normalize("NFKC", s).lower().translate(_DIGITS)
+    s = unicodedata.normalize("NFKC", s).lower()
+    # Whisper writes spoken 百分之六 / 零点五 as 6% / 0.5 — same words, different notation.
+    s = re.sub(r"(\d+(?:\.\d+)?)%", r"百分之\1", s)
+    s = re.sub(r"(\d)\.(\d)", r"\1点\2", s)
+    s = s.translate(_DIGITS)
     return "".join(c for c in s if unicodedata.category(c)[0] in "LN")
 
 
@@ -792,6 +796,33 @@ def resolve_delivery_asr_mode(
     return "strict"
 
 
+def _dialogue_check(project: Path) -> dict[str, Any]:
+    """DIALOGUE.md gate: required once lines carry `function` (dialogue-layer projects)."""
+    import dialogue_check as _dc
+
+    try:
+        lp = _dc.find_lines(project)
+        raw = load_json(lp)
+    except (OSError, ValueError, FileNotFoundError):
+        return check("dialogue_gate", "NOT_APPLICABLE", "no lines.json", required=False)
+    rows = raw if isinstance(raw, list) else []
+    if not any(isinstance(r, dict) and "function" in r for r in rows):
+        return check("dialogue_gate", "NOT_APPLICABLE",
+                     "legacy lines without `function` (pre-DIALOGUE project)", required=False)
+    try:
+        rep = _dc.run(project, write=True)
+    except (OSError, ValueError) as e:
+        return check("dialogue_gate", "NOT_CHECKED", f"failed: {e}", required=True)
+    d = rep.get("duration") or {}
+    detail = f"{d.get('totalChars')}字 ≈ {d.get('estSec')}s vs target {d.get('targetSec')}s"
+    if rep["fails"]:
+        detail += "; " + " | ".join(rep["fails"][:4])
+    if rep["warns"]:
+        detail += f"; {len(rep['warns'])} warn"
+    st = "PASS" if rep["status"] in ("PASS", "SKIP") else "FAIL"
+    return check("dialogue_gate", st, detail, required=True)
+
+
 def gate(
     project: Path,
     *,
@@ -829,6 +860,7 @@ def gate(
     asr_mode = resolve_delivery_asr_mode(plan, asr_mode=asr_mode, delivery=delivery)
 
     checks.append(_schedule_check(project, plan, require_vo=require_vo))
+    checks.append(_dialogue_check(project))
 
     media_path = media.resolve() if media else project / "out.mp4"
     if not media_path.is_file():

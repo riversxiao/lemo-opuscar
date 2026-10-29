@@ -144,6 +144,27 @@ def cmd_tts(args: argparse.Namespace) -> int:
             ready = [r['id'] for r in rows if r['ready']]
             print(f"ready: {', '.join(ready) if ready else '(none)'}")
         return 0
+    if not args.project:
+        print("ERROR: --project required (or --list)", file=sys.stderr)
+        return 2
+    if getattr(args, "skip_dialogue_gate", False):
+        print("WARN dialogue gate SKIPPED (--skip-dialogue-gate; legacy lines, not DIALOGUE-checked)", file=sys.stderr)
+    else:
+        import dialogue_check
+        try:
+            rep = dialogue_check.run(
+                Path(args.project),
+                lines_path=Path(args.lines) if args.lines else None,
+                target=getattr(args, "target", None),
+            )
+        except (OSError, ValueError) as e:
+            print(f"ERROR: dialogue gate: {e}", file=sys.stderr)
+            return 1
+        print(dialogue_check.format_report(rep))
+        if rep["status"] not in ("PASS", "SKIP"):
+            print("ERROR: TTS blocked — dialogue-check FAIL (fix lines per DIALOGUE.md, "
+                  "or --skip-dialogue-gate for legacy projects)", file=sys.stderr)
+            return 1
     from run_tts import run_tts
     try:
         meta = run_tts(
@@ -166,6 +187,18 @@ def cmd_tts(args: argparse.Namespace) -> int:
     if meta.get('wordsRel'):
         print(f"  words_rel: {meta['wordsRel']}")
     return 0
+
+
+def cmd_dialogue_check(args: argparse.Namespace) -> int:
+    import dialogue_check
+    argv = ["--project", args.project, "--rate", str(args.rate), "--tolerance", str(args.tolerance)]
+    if args.lines:
+        argv += ["--lines", args.lines]
+    if args.target:
+        argv += ["--target", str(args.target)]
+    if args.json:
+        argv.append("--json")
+    return dialogue_check.main(argv)
 
 
 def cmd_quality(args: argparse.Namespace) -> int:
@@ -431,7 +464,22 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--no-post-words", action="store_true", help="skip zh words_rel refresh")
     t.add_argument("--list", dest="list_providers", action="store_true", help="show provider readiness")
     t.add_argument("--json", action="store_true", help="with --list, JSON output")
+    t.add_argument("--target", type=float, default=None, help="dialogue gate target sec (default plan.json)")
+    t.add_argument(
+        "--skip-dialogue-gate",
+        action="store_true",
+        help="legacy projects only: bypass the DIALOGUE.md pre-TTS gate (logged as SKIPPED)",
+    )
     t.set_defaults(func=cmd_tts)
+
+    dc = sub.add_parser("dialogue-check", help="DIALOGUE.md §4–§5 gate on lines.json (run before TTS)")
+    dc.add_argument("--project", required=True)
+    dc.add_argument("--lines")
+    dc.add_argument("--target", type=float, default=None, help="seconds (default content/plan.json)")
+    dc.add_argument("--rate", type=float, default=4.5, help="字/秒 estimate (default 4.5)")
+    dc.add_argument("--tolerance", type=float, default=0.15)
+    dc.add_argument("--json", action="store_true")
+    dc.set_defaults(func=cmd_dialogue_check)
 
     q = sub.add_parser("quality", help="write quality.json and gate delivery")
     q.add_argument("--project", required=True)

@@ -39,6 +39,84 @@ def _engine_dur(project: Path) -> float | None:
         return None
 
 
+def _project_lines(project: Path) -> list[dict[str, Any]]:
+    for rel in ("content/lines.json", "audio/lines.json", "lines.json"):
+        lp = project / rel
+        if lp.is_file():
+            raw = load_json(lp)
+            if isinstance(raw, list):
+                return [r for r in raw if isinstance(r, dict)]
+    return []
+
+
+def _per_line_caps(project: Path, shot_list: list[dict[str, Any]], vo: dict[str, float]) -> list[dict[str, Any]]:
+    """capsMode=per-line: one caption card per VO line (zh = line.cap keyword blocks,
+    en row = the full spoken sentence), timed from the line cue to the next cue in
+    the same shot (or the shot end). Hook-role shots keep TL.hook instead."""
+    lines = {str(ln.get("id")): ln for ln in _project_lines(project)}
+    caps: list[dict[str, Any]] = []
+    for sh in shot_list:
+        if sh.get("role") == "hook":
+            continue
+        ids = [str(i) for i in (sh.get("voIds") or []) if str(i) in vo]
+        for j, lid in enumerate(ids):
+            ln = lines.get(lid, {})
+            t0 = vo[lid]
+            t1 = vo[ids[j + 1]] if j + 1 < len(ids) else float(sh["t1"])
+            text = str(ln.get("text") or "")
+            caps.append({
+                "id": lid,
+                "t0": round(max(float(sh["t0"]), t0 - 0.1), 4),
+                "t1": round(t1, 4),
+                "zh": str(ln.get("cap") or text),
+                "en": text,
+            })
+    return caps
+
+
+def _main_js_unlocked(project: Path) -> bool:
+    lock_p = project / "content" / "engine.lock.json"
+    if not lock_p.is_file():
+        return False
+    try:
+        lock = load_json(lock_p)
+    except (OSError, ValueError):
+        return False
+    return "main.js" in (lock.get("unlocked") or []) and "main.js" not in (lock.get("protectedSha256") or {})
+
+
+def sync_main_shots(project: Path, shot_list: list[dict[str, Any]], dur: float) -> bool:
+    """timeline.json syncShots=true: rewrite project-copy main.js SHOTS a/b (in order)
+    and DUR from the schedule. Only when engine.lock.json lists main.js as unlocked
+    (style-version overlay); a hash-locked demo main.js is never touched."""
+    import re
+
+    main = project / "main.js"
+    if not main.is_file() or not shot_list:
+        return False
+    if not _main_js_unlocked(project):
+        raise ValueError("syncShots refused: main.js is not an unlocked style-version copy")
+    src = main.read_text(encoding="utf-8")
+    m = re.search(r"const SHOTS = \[(.*?)\n\];", src, re.S)
+    if not m:
+        raise ValueError("syncShots: `const SHOTS = [ ... ];` block not found in main.js")
+    body = m.group(1)
+    entries = list(re.finditer(r"\{\s*a:\s*[0-9.]+\s*,\s*b:\s*[0-9.]+\s*,", body))
+    if len(entries) != len(shot_list):
+        raise ValueError(f"syncShots: main.js has {len(entries)} SHOTS but schedule has {len(shot_list)} shots")
+    out, last = [], 0
+    for e, sh in zip(entries, shot_list):
+        out.append(body[last:e.start()])
+        out.append(f"{{ a: {float(sh['t0']):.2f}, b: {float(sh['t1']):.2f},")
+        last = e.end()
+    out.append(body[last:])
+    src = src[:m.start(1)] + "".join(out) + src[m.end(1):]
+    if dur > 0:
+        src = re.sub(r"\bDUR = [0-9.]+", f"DUR = {dur:g}", src, count=1)
+    main.write_text(src, encoding="utf-8")
+    return True
+
+
 def apply_caption_timeline(
     project: Path,
     *,
@@ -129,9 +207,14 @@ def apply_caption_timeline(
                     "en": s.get("text") or "",
                 }
             )
+    if tl.get("capsMode") == "per-line":
+        caps_out = _per_line_caps(project, shot_list, vo)
     tl["caps"] = caps_out
 
     scheduled = float(parsed.get("scheduledDurationSec") or 0.0)
+    shots_synced = False
+    if tl.get("syncShots"):
+        shots_synced = sync_main_shots(project, shot_list, scheduled)
     engine_dur = _engine_dur(project)
     # Mix/audio length should cover the full engine render when DUR is locked.
     if engine_dur and engine_dur > 0:
@@ -169,6 +252,7 @@ def apply_caption_timeline(
         "dur": tl["dur"],
         "engineDurSec": engine_dur,
         "scheduledDurationSec": scheduled,
+        "shotsSynced": shots_synced,
     }
 
 

@@ -1,0 +1,8 @@
+[
+  {"id": "L01", "speaker": "VO", "want": "反常识开场", "function": "hook", "text": "央行把利率降到零，钱却还是不肯动。", "shotId": "s1"},
+  {"id": "L02", "speaker": "VO", "want": "给出定义", "function": "evidence", "text": "利率已经很低，人们宁可把现金攥在手里。", "shotId": "s2"},
+  {"id": "L03", "speaker": "VO", "want": "给出例子", "function": "evidence", "text": "九十年代的日本，利率一路降到接近零。", "shotId": "s3"},
+  {"id": "L04", "speaker": "VO", "want": "翻转", "function": "turn", "text": "可企业不借钱，家庭也不敢多花。", "shotId": "s3"},
+  {"id": "L05", "speaker": "VO", "want": "收束", "function": "payoff", "text": "降息这条路走到头，就要靠财政和信心接力。", "shotId": "s4"},
+  {"id": "L06", "speaker": "VO", "want": "回扣开场", "function": "sting", "text": "这就是凯恩斯说的流动性陷阱。", "shotId": "s4"}
+]
