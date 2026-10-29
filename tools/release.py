@@ -16,8 +16,10 @@ Which GitHub repo: films and web cuts go to $WORDFILM_RELEASE_REPO (default rive
 packs stay on the repo that already hosts them, the `repo` field of tools/assets.json (today the upstream
 lemomo-ai/lemo-opuscar, which tools/fetch.sh downloads from); `pack` keeps that field. Only an explicitly set
 WORDFILM_RELEASE_REPO moves the packs: then pack writes it into assets.json and upload/verify use it for the packs too.
-Films the upstream already hosts keep their upstream links: upload records each film it puts on REPO in tools/films.json
-(commit it), styleboard/build.py links every full film from there, and pages.yml lays REPO's web cuts over the upstream's.
+Films the upstream already hosts keep their upstream links: upload/verify compare each film and web cut against the repo
+tools/films.json names for it (the file's default, the upstream, when it is not listed) and push to REPO only what that host
+lacks or holds at another size. upload records each film it puts on REPO in tools/films.json (commit it), styleboard/build.py
+links every full film from there, and pages.yml lays REPO's web cuts over the upstream's.
 """
 import glob, hashlib, json, os, re, shutil, subprocess, sys, tarfile, tempfile
 
@@ -321,18 +323,27 @@ def gh(*a, check=True, repo=None):
     return r
 
 
-def remote(tag):
-    """{name: (size, sha256 or None)} of a release; {} when the release doesn't exist yet."""
-    r = gh('release', 'view', tag, '--json', 'assets', check=False, repo=asset_repo() if tag == 'assets' else REPO)
+def remote(tag, repo=None):
+    """{name: (size, sha256 or None)} of a release (on REPO, or asset_repo() for the packs); {} when it doesn't exist yet."""
+    r = gh('release', 'view', tag, '--json', 'assets', check=False, repo=repo or (asset_repo() if tag == 'assets' else REPO))
     if r.returncode: return {}
     return {a['name']: (a['size'], (a.get('digest') or '').removeprefix('sha256:') or None) for a in json.loads(r.stdout).get('assets', [])}
 
 
+def film_host(slug):
+    """the repo whose films/web releases host <slug> today: its tools/films.json entry, else the file's default."""
+    hosts = load('tools/films.json', {})
+    return hosts.get('films', {}).get(slug) or hosts.get('default') or 'lemomo-ai/lemo-opuscar'
+
+
 def plan():
     """[(tag, local path, why)] of everything the releases lack. Packs are compared by sha256 (a changed tar is often the
-    same size), films and web cuts by size."""
+    same size), films and web cuts by size, against the repo tools/films.json names for that film: a film its host (the
+    upstream, say) already has at this size is left there; one it lacks, or holds at another size, goes to REPO."""
     if not shutil.which('gh'): sys.exit('✗ the GitHub CLI (gh) is needed: https://cli.github.com, then gh auth login')
     rel = {t: remote(t) for t in ('assets', 'films', 'web')}
+    hosted = {}                                                          # (tag, repo) -> remote(tag, repo), fetched once
+    def on(tag, repo): return rel[tag] if repo == REPO else hosted.setdefault((tag, repo), remote(tag, repo))
     todo = []
     styles = style_slugs()
     features = [os.path.basename(f)[:-4] for f in glob.glob(os.path.join(OUT, 'films', '*.mp4')) if os.path.basename(f)[:-4] not in styles]
@@ -341,8 +352,15 @@ def plan():
         if not os.path.isfile(film): continue                            # unfinished, or its film is on another machine
         for tag, path in (('films', film), ('web', os.path.join(OUT, 'web', slug + '.mp4'))):
             if not os.path.isfile(path): todo.append((tag, None, f'{slug}.mp4: no local file (sh tools/web_cuts.sh)')); continue
-            have = rel[tag].get(slug + '.mp4')
-            if not have or have[0] != os.path.getsize(path): todo.append((tag, path, 'missing' if not have else 'size differs'))
+            host = film_host(slug)
+            have = on(tag, host).get(slug + '.mp4')
+            if have and have[0] == os.path.getsize(path): continue
+            if host != REPO:                                             # not on its host as it is here: does REPO have it?
+                have = rel[tag].get(slug + '.mp4')
+                if have and have[0] == os.path.getsize(path):
+                    if tag == 'films': todo.append(('films.json', path, f'on {REPO} but tools/films.json names {host}'))
+                    continue
+            todo.append((tag, path, 'missing' if not have else 'size differs'))
     for p in load('tools/assets.json', {}).get('packs', {}).values():
         have, path = rel['assets'].get(p['file']), os.path.join(OUT, p['file'])
         if have and (have[1] == p['sha256'] if have[1] else have[0] == p['size']): continue
@@ -360,6 +378,7 @@ def upload():
         if gh('release', 'view', tag, check=False, repo=repo).returncode:
             gh('release', 'create', tag, '--title', title, '--notes', 'Rolling release, updated by tools/publish.sh.', '--latest=false', repo=repo)
     for tag, path, why in sorted(todo, key=lambda x: x[0] == 'assets'):   # films first: the gallery streams them
+        if tag == 'films.json': record_film_host(os.path.basename(path)[:-4]); continue   # already uploaded, just not recorded
         if tag == 'assets' and sha(path) != next(p['sha256'] for p in load('tools/assets.json', {})['packs'].values() if p['file'] == os.path.basename(path)):
             sys.exit(f'✗ {path} changed since `pack`: run python3 tools/release.py pack again')
         print(f'  ↑ {tag}/{os.path.basename(path)}  {os.path.getsize(path) / 1e6:.0f} MB  ({why})')

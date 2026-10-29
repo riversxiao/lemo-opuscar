@@ -36,7 +36,7 @@ Rules for library demos only (a user's film follows `DIRECTOR.md`, not these):
 
 ## Publish
 
-1. `sh tools/publish.sh` uploads the full films (`films` release) and the 720p web cuts (`web` release, used by the gallery) to this fork, then verifies them. Per-demo resource packs are no longer published.
+1. `sh tools/publish.sh` uploads the full films (`films` release) and the 720p web cuts (`web` release, used by the gallery) to this fork, then verifies them. Each local film is compared against the repo `tools/films.json` names for it, so a film the upstream already hosts at the same size stays there and is not copied; only new or changed films go to the fork. Per-demo resource packs are no longer published.
 2. `git status --short`, `git add -A`, commit. This includes `tools/films.json`: upload records there each film it put on the fork, and the gallery's "full quality" link for that film follows it. Films that are not listed stay on the upstream `films` release (the file's `default`).
 3. Push `main`, then watch CI (`gh run watch`): Pages takes every web cut from the upstream `web` release, lays the fork's own cuts over them, and fails when a card links a film that is in neither.
 

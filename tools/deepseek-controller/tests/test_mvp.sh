@@ -1879,6 +1879,31 @@ else
   bad "release.py record_film_host"
 fi
 
+# release.py plan(): each local film is compared against the repo tools/films.json names for it, so
+# films the upstream already hosts are not copied to the fork (scratch root, fake releases, no gh calls)
+RP="$WORK/release-plan"; rm -rf "$RP"; mkdir -p "$RP/tools" "$RP/.release/web"
+for s in up new fork moved; do mkdir -p "$RP/styles/$s"; printf 'film-%s' "$s" >"$RP/styles/$s/$s.mp4"; printf 'web-%s' "$s" >"$RP/.release/web/$s.mp4"; done
+printf '{"default": "up/stream", "films": {"fork": "me/fork"}}\n' >"$RP/tools/films.json"
+if python3 -c "
+import os, sys; sys.path.insert(0, '$ROOT/tools'); import release
+release.ROOT, release.OUT, release.REPO = '$RP', '$RP/.release', 'me/fork'
+release.style_slugs = lambda: ['fork', 'moved', 'new', 'up']
+release.shutil.which = lambda c: '/bin/' + c
+size = lambda p: (os.path.getsize('$RP/' + p), None)
+rels = {('films', 'up/stream'): {'up.mp4': size('styles/up/up.mp4'), 'moved.mp4': (1, None)},
+        ('web', 'up/stream'): {'up.mp4': size('.release/web/up.mp4'), 'moved.mp4': (1, None)},
+        ('films', 'me/fork'): {'fork.mp4': size('styles/fork/fork.mp4'), 'moved.mp4': size('styles/moved/moved.mp4')},
+        ('web', 'me/fork'): {'fork.mp4': size('.release/web/fork.mp4'), 'moved.mp4': size('.release/web/moved.mp4')}}
+release.remote = lambda tag, repo=None: rels.get((tag, repo or release.REPO), {})
+got = sorted((t, os.path.basename(p), w) for t, p, w in release.plan())
+want = [('films', 'new.mp4', 'missing'), ('films.json', 'moved.mp4', 'on me/fork but tools/films.json names up/stream'), ('web', 'new.mp4', 'missing')]
+assert got == want, got
+" >/tmp/dc-plan.err 2>&1; then
+  ok "release.py plan() leaves upstream-hosted films alone, pushes only what their host lacks"
+else
+  bad "release.py plan() host selection: $(tail -5 /tmp/dc-plan.err)"
+fi
+
 # core/three/post.js: DOF/GTAO targets stay at w*ssaa for pixelRatio 1 and 2 (addPass must not
 # resize them) and post.setSize re-targets them for 9:16. Stub renderer, no GPU needed.
 if command -v node >/dev/null 2>&1 && test -d "$ROOT/node_modules/three"; then
