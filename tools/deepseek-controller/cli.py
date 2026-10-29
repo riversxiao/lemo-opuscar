@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -227,6 +228,8 @@ def cmd_dialogue_loop(args: argparse.Namespace) -> int:
         argv.append("--no-ledger")
     if getattr(args, "allow_paid", False):
         argv.append("--allow-paid")
+    if getattr(args, "full_context", False):
+        argv.append("--full-context")
     return dialogue_loop.main(argv)
 
 
@@ -585,7 +588,10 @@ def build_parser() -> argparse.ArgumentParser:
     dl.add_argument("--project", required=True)
     dl.add_argument("--lines")
     dl.add_argument("--brief", help="default <project>/BRIEF.md")
-    dl.add_argument("--max-rounds", type=int, default=4)
+    dl.add_argument("--max-rounds", type=int, default=int(os.environ.get("DC_DIALOGUE_MAX_ROUNDS", "2")),
+                    help="critic/revise rounds (default 2); not PASS after that → NEEDS_HUMAN, no more LLM calls")
+    dl.add_argument("--full-context", action="store_true",
+                    help="old full grounding (DIALOGUE.md + SKILL + BRIEF/FACTS/TREATMENT); default is compact")
     dl.add_argument("--target", type=float, default=None)
     dl.add_argument("--effort", default="high", choices=["low", "high", "max"])
     dl.add_argument("--max-cny", type=float, default=2.0)

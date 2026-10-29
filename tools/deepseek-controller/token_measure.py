@@ -4,7 +4,7 @@
 Steps (each call labelled via FreeFirstClient.step):
   script-gen   — brief → lines.json (台词教父 rules, {keyword} marks)
   fact-check   — claims in the lines vs the brief/FACTS; returns issues (advisory, recorded)
-  critic rN / reviser rN — dialogue_loop.run_loop on the generated lines
+  critic rN / reviser rN — dialogue_loop.run_loop on the generated lines (default max 2 rounds, compact)
 
 Writes <project>/evidence/token-usage.json and TOKENS.md. Never prints keys. Free-first only unless
 --allow-paid (OFF by default); when every free model fails → status PROVIDER_ERROR, nothing paid.
@@ -29,15 +29,16 @@ GEN_SYS = """你是中文金融讲解短片的编剧，遵循台词教父规则�
 - 一句只讲一个点，长短句交替，避免连续长句；
 - 每句标 1 个关键词，用 {关键词} 包住（屏幕强调用）；
 - 口语、可朗读，不用金句腔（"这就是…""说白了…"），数字写成读法友好的形式；
-- 只用 BRIEF/FACTS 里的事实；function 只能是 hook|evidence|turn|payoff|sting（定义/例子都算 evidence）。
+- 只用 BRIEF/FACTS 里的事实；function 只能是 hook|evidence|turn|payoff|sting（定义/例子都算 evidence），全片至少 hook +（evidence 或 turn）+ payoff（收束句标 payoff）。
 输出严格 JSON：{"lines":[{"id":"L01","speaker":"VO","want":"…","function":"hook|evidence|turn|payoff|sting","text":"…","shotId":"s1"}]}"""
 
 FACT_SYS = """你是金融事实核查员。逐句检查台词里的事实/数字/定义是否与资料一致、是否有误导。
-输出严格 JSON：{"lines":[{"id":"L01","verdict":"ok|risk|wrong","detail":"…"}],"summary":"…"}"""
+输出严格 JSON：{"lines":[{"id":"L01","verdict":"ok|risk|wrong","detail":"…"}],"summary":"…"}
+简洁：verdict=ok 的 detail 留空；risk/wrong 的 detail ≤40 字；summary ≤20 字。"""
 
 
 def measure(project: Path, brief: Path, target: float, n_lines: int, max_rounds: int, allow_paid: bool,
-            client=None) -> dict:
+            client=None, compact: bool = True) -> dict:
     project.mkdir(parents=True, exist_ok=True)
     (project / "content").mkdir(exist_ok=True)
     (project / "content" / "plan.json").write_text(json.dumps({"targetDurationSec": target}) + "\n")
@@ -45,8 +46,14 @@ def measure(project: Path, brief: Path, target: float, n_lines: int, max_rounds:
     if brief.resolve() != (project / "BRIEF.md").resolve():
         (project / "BRIEF.md").write_text(bt, encoding="utf-8")
     c = client or FreeFirstClient(allow_paid=allow_paid)
+    if hasattr(c, "reroute"):
+        out_routing = c.reroute()
+    else:
+        out_routing = {}
     t0 = time.time()
-    out: dict[str, Any] = {"project": str(project), "targetSec": target, "allowPaid": allow_paid}
+    out: dict[str, Any] = {"project": str(project), "targetSec": target, "allowPaid": allow_paid,
+                           "maxRounds": max_rounds, "context": "compact" if compact else "full",
+                           "routingAtStart": out_routing}
     try:
         g = c.chat_json(GEN_SYS, f"# BRIEF\n{bt}\n\n写 {n_lines} 句，总时长约 {target:.0f} 秒（约 4.2 字/秒）。",
                         step="script-gen")
@@ -54,12 +61,13 @@ def measure(project: Path, brief: Path, target: float, n_lines: int, max_rounds:
         if not lines:
             raise ProviderError("script-gen returned no lines")
         (project / "content" / "lines.json").write_text(json.dumps(lines, ensure_ascii=False, indent=2) + "\n")
-        fc = c.chat_json(FACT_SYS, f"# 资料\n{bt}\n\n# 台词\n" + json.dumps(lines, ensure_ascii=False),
+        facts = D._facts_block(project / "BRIEF.md", project) if compact else f"# 资料\n{bt}"
+        fc = c.chat_json(FACT_SYS, f"{facts}\n\n# 台词\n" + (D.compact_lines(lines) if compact else json.dumps(lines, ensure_ascii=False)),
                          step="fact-check")
         (project / "evidence").mkdir(exist_ok=True)
         (project / "evidence" / "fact-check.json").write_text(json.dumps(fc, ensure_ascii=False, indent=2) + "\n")
         out["factCheck"] = {k: sum(1 for x in fc.get("lines", []) if x.get("verdict") == k) for k in ("ok", "risk", "wrong")}
-        s = D.run_loop(project, max_rounds=max_rounds, client=c, settle_sec=0.0)
+        s = D.run_loop(project, max_rounds=max_rounds, client=c, settle_sec=0.0, compact=compact)
         out["dialogueLoop"] = {"status": s["status"], "rounds": s["rounds"], "chosenRound": s.get("chosenRound")}
         out["status"] = "OK"
     except ProviderError as e:
@@ -98,10 +106,12 @@ def main(argv=None) -> int:
     ap.add_argument("--brief", required=True)
     ap.add_argument("--target", type=float, default=45.0)
     ap.add_argument("--lines", type=int, default=9)
-    ap.add_argument("--max-rounds", type=int, default=4)
+    ap.add_argument("--max-rounds", type=int, default=D.DEFAULT_MAX_ROUNDS)
+    ap.add_argument("--full-context", action="store_true")
     ap.add_argument("--allow-paid", action="store_true")
     a = ap.parse_args(argv)
-    o = measure(Path(a.project).resolve(), Path(a.brief), a.target, a.lines, a.max_rounds, a.allow_paid)
+    o = measure(Path(a.project).resolve(), Path(a.brief), a.target, a.lines, a.max_rounds, a.allow_paid,
+                compact=not a.full_context)
     print((Path(a.project) / "TOKENS.md").read_text())
     return 0 if o["status"] == "OK" else 3
 

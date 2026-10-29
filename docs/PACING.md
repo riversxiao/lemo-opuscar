@@ -84,3 +84,14 @@ to lines the critic already flags — no separate hard gate (avoid over-correcti
 `llm_free.FreeFirstClient.call_log` rows carry `step` (script-gen / fact-check / critic rN / reviser rN), provider,
 served model, prompt/completion/reasoning/total tokens, latency. `token_measure.py` runs one film's text layer and
 writes `evidence/token-usage.json` + `TOKENS.md`.
+
+## Token saving (finance)
+- dialogue_loop default **2 rounds** (critic r1 → reviser r1 → critic r2); not PASS → `NEEDS_HUMAN`, no further calls.
+  `--max-rounds N` / `DC_DIALOGUE_MAX_ROUNDS`.
+- Compact context (default): `RULES_COMPACT` checklist + the film's FACTS + compact lines; reviser gets only flagged
+  lines and returns only those; critic output capped (low ≤3, short details). `--full-context` = old behaviour.
+- Quota-aware routing (`llm_free.py`): TokenHarbor has no usage API (dashboard only), so every TokenHarbor call's
+  tokens go to a local ledger (rolling 7 days; `DC_QUOTA_LEDGER`, else next to `DC_BUDGET_LEDGER`, else
+  `~/.cache/wordfilm/tokenharbor-usage.jsonl`). At ≥ `DC_TH_ROUTE_PCT` (0.8) × `DC_TH_WEEKLY_BUDGET` (1,250,000) the
+  client puts OpenRouter `nvidia/nemotron-3.5-lightning:free` → `recursive/flint-v1.0:free` first and TokenHarbor last.
+  `python3 llm_free.py` prints the current estimate. NVIDIA NIM stays out. Never paid without `--allow-paid`.

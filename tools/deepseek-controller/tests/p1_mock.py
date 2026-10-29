@@ -15,6 +15,7 @@ from pathlib import Path
 
 CTL = Path(__file__).resolve().parents[1]
 ROOT = CTL.parents[1]
+os.environ.setdefault("DC_QUOTA_LEDGER", "/tmp/dc-test-quota-ledger.jsonl")
 sys.path.insert(0, str(CTL))
 sys.path.insert(0, str(ROOT / "core" / "tts"))
 

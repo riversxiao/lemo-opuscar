@@ -12,6 +12,8 @@ export PLAYWRIGHT_CHROME="${PLAYWRIGHT_CHROME:-/usr/bin/google-chrome}"
 # Never let tests append to the real fixtures/budget-ledger.jsonl (handoff etc. log $0 rows).
 export DC_BUDGET_LEDGER="${DC_BUDGET_LEDGER:-/tmp/dc-test-budget-ledger.jsonl}"
 rm -f "$DC_BUDGET_LEDGER"
+export DC_QUOTA_LEDGER="/tmp/dc-test-quota-ledger.jsonl"   # TokenHarbor quota estimate: never the real one
+rm -f "$DC_QUOTA_LEDGER"
 
 ok() { echo "PASS: $*"; pass=$((pass+1)); }
 bad() { echo "FAIL: $*"; fail=$((fail+1)); }
@@ -1393,15 +1395,15 @@ else
   bad "dialogue-loop pass-after-revise: $(cat $DLL/p.out)"
 fi
 mkloop n
-"${CLI[@]}" dialogue-loop --project "$DLL/n" --max-rounds 2 --mock "$CTL/fixtures/dialogue-loop/mock-never-pass.json" >"$DLL/n.out" 2>&1 && rc=0 || rc=$?
-if [ "$rc" = 1 ] && grep -q "BEST_EFFORT" "$DLL/n.out" && PYTHONPATH="$CTL" python3 -c "
+"${CLI[@]}" dialogue-loop --project "$DLL/n" --mock "$CTL/fixtures/dialogue-loop/mock-never-pass.json" >"$DLL/n.out" 2>&1 && rc=0 || rc=$?
+if [ "$rc" = 1 ] && grep -q "NEEDS_HUMAN" "$DLL/n.out" && PYTHONPATH="$CTL" python3 -c "
 import json,dialogue_loop as D, quality as Q
 from pathlib import Path
-P=Path('$DLL/n'); s=json.load(open(P/'evidence/dialogue-loop.json')); assert s['status']=='BEST_EFFORT' and s['rounds']==2, s
+P=Path('$DLL/n'); s=json.load(open(P/'evidence/dialogue-loop.json')); assert s['status']=='NEEDS_HUMAN' and s['rounds']==2 and s['maxRounds']==2 and s['needsHuman'], s
 assert not D.gate_status(P)[0]
 c=Q._dialogue_loop_check(P); assert c['status']=='FAIL' and c['required'], c
 " && ! "${CLI[@]}" tts --project "$DLL/n" --provider edge --out "$DLL/n/voices" >/dev/null 2>&1 && [ ! -e "$DLL/n/voices" ]; then
-  ok "dialogue-loop never passes → BEST_EFFORT (exit 1), quality dialogue_loop FAIL, TTS still blocked"
+  ok "dialogue-loop never passes → NEEDS_HUMAN after default 2 rounds (exit 1), quality dialogue_loop FAIL, TTS still blocked"
 else
   bad "dialogue-loop best-effort: rc=$rc $(cat $DLL/n.out)"
 fi
@@ -1476,6 +1478,11 @@ else
 fi
 
 # pacing P1: TP limiter, end-card outro, sub-beats + {keyword} frames, rework ≤2 rounds, rhythm, token steps, ElevenLabs speed
+if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY python3 "$CTL/tests/finance_mock.py" >/tmp/dc_finance_mock.log 2>&1; then
+  ok "finance mock: 2-round NEEDS_HUMAN cap, compact critic/reviser context, quota-aware routing ($(tail -1 /tmp/dc_finance_mock.log))"
+else
+  bad "finance mock (see /tmp/dc_finance_mock.log)"
+fi
 if env -u STEP_API_KEY -u LEMO_PACING -u ELEVENLABS_API_KEY python3 "$CTL/tests/p1_mock.py" >/tmp/dc_p1_mock.log 2>&1; then
   ok "pacing P1: TP≤−1 limiter; end-card outro; sub-beats ≤ maxShot + keyword frames; rework ≤2 rounds (WARN untouched); rhythm dim; per-step tokens; elevenlabs speed"
 else

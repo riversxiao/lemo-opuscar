@@ -15,6 +15,15 @@ Error classes:
   ProviderError   — other HTTP/transport failures: advance (or stop if last).
 
 Never prints API keys. Per-call model is recorded in self.call_log and usage.
+
+Quota-aware routing (finance): TokenHarbor documents no usage/quota API (usage is dashboard-only;
+/v1/usage, /v1/key, /v1/me → 404), so usage is tracked in a local ledger of every TokenHarbor call's
+total tokens (rolling 7-day window). When used ≥ DC_TH_ROUTE_PCT (0.8) × DC_TH_WEEKLY_BUDGET
+(1,250,000 tokens), the client routes to OpenRouter nemotron-3.5-lightning:free → flint-v1.0:free first
+and keeps TokenHarbor only as the last free fallback. Checked at client start and before each batch
+(`reroute()`, called by dialogue_loop / token_measure). Ledger: $DC_QUOTA_LEDGER (tests), else
+~/.cache/wordfilm/tokenharbor-usage.jsonl (shared by every real run on this machine).
+NVIDIA NIM is not in the chain (timeouts). Never paid.
 """
 from __future__ import annotations
 
@@ -23,6 +32,7 @@ import os
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Any
 
 TOKENHARBOR_BASE = os.environ.get("DC_TOKENHARBOR_BASE", "https://tokenharbor.ai/v1")
@@ -41,6 +51,49 @@ PAID_FALLBACK: list[tuple[str, str, str, str, bool]] = [
 
 RATE_LIMIT_SLEEP_SEC = float(os.environ.get("DC_LLM_RATE_LIMIT_SLEEP", "60"))
 RATE_LIMIT_RETRIES = int(os.environ.get("DC_LLM_RATE_LIMIT_RETRIES", "3"))
+
+
+TH_WEEKLY_BUDGET = int(float(os.environ.get("DC_TH_WEEKLY_BUDGET", "1250000")))
+TH_ROUTE_PCT = float(os.environ.get("DC_TH_ROUTE_PCT", "0.8"))
+QUOTA_WINDOW_SEC = 7 * 86400
+
+
+def quota_ledger_path() -> Path:
+    """$DC_QUOTA_LEDGER (tests point it at /tmp) else the shared real ledger — real runs always count, even
+    when their budget ledger is a temp file."""
+    if os.environ.get("DC_QUOTA_LEDGER"):
+        return Path(os.environ["DC_QUOTA_LEDGER"])
+    return Path.home() / ".cache" / "wordfilm" / "tokenharbor-usage.jsonl"
+
+
+def record_usage(row: dict[str, Any], path: Path | None = None, now: float | None = None) -> None:
+    p = path or quota_ledger_path()
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with p.open("a", encoding="utf-8") as f:
+            f.write(json.dumps({"ts": round(now or time.time(), 1), "provider": row.get("provider"),
+                                "model": row.get("model"), "step": row.get("step"),
+                                "total": int(row.get("total") or 0)}) + "\n")
+    except OSError:
+        pass
+
+
+def quota_usage(path: Path | None = None, now: float | None = None, budget: int | None = None) -> dict[str, Any]:
+    """TokenHarbor tokens used in the rolling 7-day window (local ledger estimate)."""
+    p = path or quota_ledger_path()
+    now = now or time.time()
+    budget = budget or TH_WEEKLY_BUDGET
+    used = 0
+    if p.is_file():
+        for line in p.read_text(encoding="utf-8").splitlines():
+            try:
+                r = json.loads(line)
+            except ValueError:
+                continue
+            if r.get("provider") == "tokenharbor" and float(r.get("ts") or 0) >= now - QUOTA_WINDOW_SEC:
+                used += int(r.get("total") or 0)
+    return {"provider": "tokenharbor", "used": used, "budget": budget, "pct": round(used / budget, 4) if budget else 1.0,
+            "windowDays": 7, "source": "local-ledger (no TokenHarbor usage API)", "ledger": str(p)}
 
 
 class ProviderError(RuntimeError):
@@ -126,6 +179,10 @@ class FreeFirstClient:
         rate_limit_sleep: float | None = None,
         rate_limit_retries: int | None = None,
         transport=None,  # injectable for mocks: (url, headers, body) -> dict | raises HTTPError-like
+        quota_route: bool | None = None,
+        quota_path: Path | None = None,
+        route_pct: float | None = None,
+        weekly_budget: int | None = None,
     ):
         self.effort = effort
         self.timeout = timeout
@@ -172,6 +229,25 @@ class FreeFirstClient:
         self.model = self._slots[0]["model"]  # last-used (updated on success)
         self.provider = self._slots[0]["provider"]
         self.last_slot: dict[str, Any] | None = None
+        self.quota_route = (os.environ.get("DC_QUOTA_ROUTE", "1") != "0") if quota_route is None else quota_route
+        self.quota_path = quota_path
+        self.route_pct = TH_ROUTE_PCT if route_pct is None else route_pct
+        self.weekly_budget = weekly_budget or TH_WEEKLY_BUDGET
+        self._base_order = list(self._slots)
+        self.routing: dict[str, Any] = {}
+        self.reroute()
+
+    def reroute(self) -> dict[str, Any]:
+        """Before a batch: if TokenHarbor ≥ route_pct of the weekly budget, OpenRouter :free goes first and
+        TokenHarbor becomes the last free fallback. Never adds paid slots."""
+        q = quota_usage(self.quota_path, budget=self.weekly_budget)
+        others = [s for s in self._base_order if s["provider"] != "tokenharbor"]
+        th = [s for s in self._base_order if s["provider"] == "tokenharbor"]
+        hot = self.quota_route and q["pct"] >= self.route_pct and bool(others) and bool(th)
+        self._slots = (others + th) if hot else list(self._base_order)
+        self.routing = {**q, "routePct": self.route_pct, "routed": hot,
+                        "order": [f"{s['provider']}/{s['model']}" for s in self._slots]}
+        return self.routing
 
     def balance(self) -> float | None:
         """Paid DeepSeek balance only; free providers return None (no CNY spend)."""
@@ -297,6 +373,8 @@ class FreeFirstClient:
             "ok": True,
         }
         self.call_log.append(row)
+        if slot["provider"] == "tokenharbor":
+            record_usage(row, self.quota_path)
         try:
             content = r["choices"][0]["message"].get("content")
             if not content:
@@ -322,4 +400,7 @@ def make_client(*, mock: str | None = None, allow_paid: bool = False, effort: st
 if __name__ == "__main__":
     # never print keys — only slot labels
     c = FreeFirstClient(allow_paid=False)
-    print("slots:", [f"{s['provider']}/{s['model']}" for s in c._slots])
+    r = c.routing
+    print("slots:", r["order"])
+    print(f"tokenharbor 7-day usage {r['used']}/{r['budget']} ({r['pct']:.1%}; route at {r['routePct']:.0%}) "
+          f"routed={r['routed']} — {r['source']} {r['ledger']}")

@@ -93,13 +93,13 @@ Swiss / Caption News / Whiteboard / Data Storytelling 等 **信息图 · 讲解*
 ### 5.1 自循环优化（`dialogue-loop`，默认流程，不要人工逐句 check）
 
 ```bash
-python3 tools/deepseek-controller/cli.py dialogue-loop --project <film> [--brief BRIEF.md] [--max-rounds 4] [--max-cny 2]
+python3 tools/deepseek-controller/cli.py dialogue-loop --project <film> [--brief BRIEF.md] [--max-rounds 2] [--full-context] [--max-cny 2]
 ```
 
 每轮：
 
 1. **确定性门禁**（上表 / `dialogue_check.py`）。FAIL 的行直接进入待改列表。
-2. **LLM 评审**（DeepSeek 官方 API，`deepseek-flash`，`response_format=json_object`）。评审的依据是本文件、`plugin/skills/lemo-dialogue/SKILL.md`（台词规则）、BRIEF、FACTS、TREATMENT。
+2. **LLM 评审**（free-first：TokenHarbor → OpenRouter :free，`response_format=json_object`）。默认（省 token）只发：精简规则清单 `RULES_COMPACT`（本文件 §4–6 + 台词教父蒸馏，改规则时同步）+ 本片 FACTS（FACTS.md，或 BRIEF 的 FACTS 段）+ 精简 lines.json；`--full-context` 恢复旧做法（全文本文件 + SKILL + BRIEF/FACTS/TREATMENT）。
    - **逐行打分（1–5）：** factual（事实准确）/ natural（口语顺不顺，拗口即扣）/ asr_safe（同音、易听错的数字读法）/ function_fit（是否符合 function 标签）。
    - **整稿打分：** factual / consistency（如「三招」是否真有三招）/ hook / flow / no_jinju / natural。
    - 评审返回结构化 JSON，问题分 high / medium / low 三级。
@@ -109,11 +109,11 @@ python3 tools/deepseek-controller/cli.py dialogue-loop --project <film> [--brief
    - high 问题为 0；
    - medium 问题 ≤ 2。
    结构由 §6 / TREATMENT 锁定：`type=structure` 的意见强制降为 low，只作提示，不扣 flow。
-4. **定点改写**：reviser 只改被标记的行，且只能改这四个字段：`text` / `say` / `cap` / `want`。
+4. **定点改写**：reviser 只收到被标记的行（其余句只读 `id: text` 作上下文），只返回这些行，且只能改这四个字段：`text` / `say` / `cap` / `want`。
    - `id`、`function`、条数和顺序都不能动；
    - 整稿估时保持在目标 ±15% 内；
    - 模型若越权，以原值覆盖。
-5. 循环，直到 PASS 或用完 `--max-rounds`。
+5. 循环，直到 PASS 或用完 `--max-rounds`（默认 **2**：评审 r1 → 改写 r1 → 评审 r2，最多 3 次调用；`DC_DIALOGUE_MAX_ROUNDS` 可改）。
 
 **证据：**
 - `evidence/dialogue-loop/original-lines.json`、`round-N.json`（每轮的门禁、评审 JSON、判定、改写 diff）、`summary.json`；
@@ -121,7 +121,7 @@ python3 tools/deepseek-controller/cli.py dialogue-loop --project <film> [--brief
 
 **结果与放行：**
 - PASS 时写回 `content/lines.json` / `audio/lines.json` / `lines.json`。
-- 没有一轮 PASS 时，状态如实标 **BEST_EFFORT**：选分数最好的一轮，退出码为 1，`tts` 仍被拒绝。
+- 用完轮数仍未 PASS（或 reviser 没改动）：状态 **NEEDS_HUMAN**，不再调用 LLM，写回分数最好的一轮，退出码 1，`tts` 仍被拒绝，等人工改。花费上限触发的停止标 **BEST_EFFORT**。
 - 调用 provider 出错时直接停（退出码 3），台词不动。模型返回坏 JSON 时，用同一模型重试 2 次。
 - `tts` 只认 PASS，且 sha 必须与当前台词一致：台词改过一个字就要重跑 loop。
 - `quality` 对带 `function` 的项目把 `dialogue_loop` 设为必过项。

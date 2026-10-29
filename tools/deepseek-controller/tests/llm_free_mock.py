@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 CTL = Path(__file__).resolve().parents[1]
+os.environ.setdefault("DC_QUOTA_LEDGER", "/tmp/dc-test-quota-ledger.jsonl")
 sys.path.insert(0, str(CTL))
 
 import llm_free as L  # noqa: E402

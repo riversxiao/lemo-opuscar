@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Self-loop dialogue optimizer: deterministic dialogue-check + LLM critic + reviser.
 
-  cli.py dialogue-loop --project P [--lines X] [--brief Y] [--max-rounds 4]
+  cli.py dialogue-loop --project P [--lines X] [--brief Y] [--max-rounds 2] [--full-context]
 
 Each round:
   a. deterministic `dialogue_check.check_lines` (DIALOGUE.md §5);
@@ -13,8 +13,12 @@ Each round:
      functions, shotIds; total chars kept inside the ±15 % window); loop.
 
 Every round is written to <project>/evidence/dialogue-loop/round-N.json.
-If no round fully passes, the best round is written back and the loop status is
-BEST_EFFORT (never PASS). <project>/evidence/dialogue-loop.json records the
+Token budget (finance): default max 2 rounds (critic r1 → reviser r1 → critic r2). Not PASS after the
+last round → status NEEDS_HUMAN: stop, no further LLM calls, best round written back, TTS stays blocked
+(--max-rounds N / DC_DIALOGUE_MAX_ROUNDS to change). Context is compact by default: a distilled
+rules checklist (RULES_COMPACT) + the film's FACTS + compact lines — not the full DIALOGUE.md/SKILL
+(--full-context restores the old grounding). The reviser gets only the flagged lines (others as
+read-only id:text) and returns only those. Budget/spend stops stay BEST_EFFORT. <project>/evidence/dialogue-loop.json records the
 status and the sha256 of the lines that were approved; `cli.py tts` refuses to
 run unless status == PASS and the current lines still hash to that value.
 
@@ -136,6 +140,48 @@ class MockClient:
 
 
 # ---------------------------------------------------------------- prompts
+DEFAULT_MAX_ROUNDS = int(os.environ.get("DC_DIALOGUE_MAX_ROUNDS", "2"))
+
+# Distilled from DIALOGUE.md §4–§6 + plugin/skills/lemo-dialogue/SKILL.md (台词教父). Keep in sync.
+RULES_COMPACT = """# 台词规则清单（DIALOGUE.md §4–6 + 台词教父，精简版）
+1 钩子：第一条有效旁白 function=hook，前3拍/3秒内；≤12字；反常识数字、尖锐问题或立刻可见的反差；禁「今天我们来讲」。
+2 每句改变信息状态：多知道一点或态度推进一步；复读画面的句子删或改。
+3 一句一个点；长短句交替，不连三句长句、不一串等长句；单句≤35字（不计标点），一口气念完。
+4 禁金句升华/万能收尾/口号：「其实…才是真正的…」「让我们…」「归根结底」「说到底」「记住：」「唯有…才…」「这就是…」；payoff 用具体结论或回扣开场。
+5 同句：say 与 text/画面字同句（只可加标点），禁止缩短意译；数字朗读写可念形式。
+6 不新增事实：只用 FACTS；不得投资建议（建议你/抄底/稳赚）或政治立场。
+7 活人感：拆三连排比、假精确、万能安抚、过度工整；宁糙勿滑，保本片叙述声口。
+8 {关键词}：有 cap 的句子用 {} 标唯一重点，且是这句真正要记住的词。
+9 function ∈ hook|turn|evidence|payoff|sting；30–60s 片至少 hook+(evidence|turn)+payoff。结构/镜头顺序已锁定，只改措辞。"""
+
+
+def _facts_block(brief: Path | None, project: Path, limit: int = 3000) -> str:
+    """The film's own facts only: FACTS.md, else the BRIEF's FACTS section, else the BRIEF (capped)."""
+    f = project / "FACTS.md"
+    if f.is_file():
+        return "# FACTS\n" + _read(f, limit)
+    if brief and brief.is_file():
+        b = _read(brief, 12000)
+        i = b.find("FACTS")
+        if i >= 0:
+            start = b.rfind("\n", 0, i) + 1
+            nxt = b.find("\n## ", i)
+            return "# FACTS\n" + b[start:(nxt if nxt > 0 else len(b))][:limit]
+        return "# BRIEF\n" + b[:limit]
+    return ""
+
+
+def grounding_compact(brief: Path | None, project: Path) -> str:
+    return "\n\n".join(x for x in (RULES_COMPACT, _facts_block(brief, project)) if x)
+
+
+def compact_lines(lines: list[dict[str, Any]]) -> str:
+    keep = ("id", "function", "want", "text", "say", "cap")
+    rows = [{k: ln[k] for k in keep if ln.get(k) not in (None, "") and not (k == "say" and ln.get("say") == ln.get("text"))}
+            for ln in lines]
+    return json.dumps(rows, ensure_ascii=False, separators=(",", ":"))
+
+
 def grounding(brief: Path | None, project: Path) -> str:
     parts = ["# DIALOGUE.md（台词层规则）\n" + _read(LIB / "DIALOGUE.md", 9000),
              "# 台词教父规则（lemo-dialogue SKILL）\n" + _read(LIB / "plugin/skills/lemo-dialogue/SKILL.md", 5000)]
@@ -170,13 +216,15 @@ CRITIC_SYS = """你是严格的中文讲解片台词评审（台词教父标准�
 对结构本身的意见（转折太晚、标签分布等）只能用 type=structure、severity=low 单列，不要据此压低 flow/hook 分；
 flow 只评在现有结构下句与句的衔接、指代与递进是否顺。
 severity：high=事实错/自相矛盾/明显不通；medium=别扭、逻辑跳、标签不符、ASR 高风险；low=可选润色。
-每句都要出现在 lines 里（没有问题就 issues: []）。不要编造问题；没有问题就给高分。"""
+每句都要出现在 lines 里（没有问题就 issues: []）。不要编造问题；没有问题就给高分。
+简洁输出：high/medium 全列；low 全片最多 3 条；detail 与 suggestion 各 ≤30 字；summary ≤20 字。"""
 
 REVISER_SYS = """[REVISER] 你是中文讲解片台词改写手（台词教父标准）。只改被标记的句子，其余句子不要动。
 硬规则：不新增事实（只用 FACTS 里的事实）；每句 ≤35 字（不计标点）；保留每句的 id、function 与镜头归属；
 text 与 say 同句（若原句有 say，say 必须与 text 同义同关键字，只可标点不同）；禁止金句升华与投资建议；
 口语自然、一口气能念完；节奏（台词教父）：hook ≤12 字、3 秒内说完，长短句交替，一句一个点；若原句有 cap（屏幕短字幕，格式如「降息|{失灵}」，| 分行，{} 为强调），改句后 cap 要与新句一致，长度与原 cap 相近。
 总字数不得超过给定上限（不要为凑时长加字；同样意思更短更好）。
+只返回 flagged 里的句子（其他句只读、不要返回）。
 输出严格 JSON：{"lines":[{"id":"L22","text":"…","say":"…(可省略)","cap":"…(原有才给)","want":"…"}],"notes":"一句话说明改了什么"}"""
 
 
@@ -277,9 +325,10 @@ def apply_revision(lines: list[dict], rev: dict, allowed: set[str]) -> tuple[lis
 
 # ---------------------------------------------------------------- loop
 def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | None = None,
-             max_rounds: int = 4, target: float | None = None, client=None,
+             max_rounds: int = DEFAULT_MAX_ROUNDS, target: float | None = None, client=None,
              max_cny: float | None = None, min_balance: float | None = None,
-             write_back: bool = True, settle_sec: float = 30.0, log: Callable[[str], None] = print) -> dict[str, Any]:
+             write_back: bool = True, settle_sec: float = 30.0, log: Callable[[str], None] = print,
+             compact: bool = True) -> dict[str, Any]:
     project = project.resolve()
     lp = dc.find_lines(project, lines_path)
     brief = brief or (project / "BRIEF.md")
@@ -293,7 +342,12 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
     for old in ev_dir.glob("round-*.json"):
         old.unlink()
     (ev_dir / "original-lines.json").write_text(json.dumps(orig, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    ground = grounding(brief, project)
+    if client is not None and hasattr(client, "reroute"):
+        r = client.reroute()   # quota-aware routing before the batch
+        if r.get("routed"):
+            log(f"quota: tokenharbor {r['used']}/{r['budget']} ({r['pct']:.0%}) ≥ {r['routePct']:.0%} → {r['order'][0]} first")
+    ground = grounding_compact(brief, project) if compact else grounding(brief, project)
+    fmt_lines = compact_lines if compact else (lambda L: json.dumps(L, ensure_ascii=False, indent=1))
     b0 = client.balance() if client else None
     rounds: list[dict] = []
     lines = orig
@@ -316,10 +370,13 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
             det = dc.check_lines(lines, tgt, **det_kw)
             rh = rhythm_check.check(lines, cps=float(prof["cps"]))
             guard()
-            user = (f"{ground}\n\n# 目标时长 {tgt}s；确定性门禁结果\n" + json.dumps(
-                {k: det.get(k) for k in ("status", "fails", "warns", "duration")}, ensure_ascii=False)
+            dd = det.get("duration") or {}
+            det_view = ({k: det.get(k) for k in ("status", "fails", "warns")}
+                        | {"duration": {k: dd.get(k) for k in ("totalChars", "estSec", "targetSec", "maxChars")}}
+                        if compact else {k: det.get(k) for k in ("status", "fails", "warns", "duration")})
+            user = (f"{ground}\n\n# 目标时长 {tgt}s；确定性门禁结果\n" + json.dumps(det_view, ensure_ascii=False)
                 + "\n\n# 确定性节奏检查 rhythm_check\n" + json.dumps(rh["issues"], ensure_ascii=False)
-                + "\n\n# 待评台词 lines.json\n" + json.dumps(lines, ensure_ascii=False, indent=1))
+                + "\n\n# 待评台词 lines.json\n" + fmt_lines(lines))
             _step(client, f"critic r{n}")
             critique = client.chat_json(CRITIC_SYS, user)
             ev = evaluate_critique(critique, ids)
@@ -344,6 +401,9 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
             if n == max_rounds:
                 rounds.append(rec)
                 (ev_dir / f"round-{n}.json").write_text(json.dumps(rec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                status = "NEEDS_HUMAN"
+                stop_reason = f"not PASS after {max_rounds} round(s) — needs human review (no further LLM calls)"
+                log(f"STOP needs-human: {stop_reason}")
                 break
             if not flagged:
                 # Whole-script / duration problem with no line ids → let reviser pick lines.
@@ -351,8 +411,19 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
                                 "detail": "; ".join(ev["reasons"] + det.get("fails", []))}] for i in ids}
             guard()
             d = det.get("duration") or {}
-            ruser = (f"{ground}\n\n# 全部台词（只改 flagged）\n" + json.dumps(lines, ensure_ascii=False, indent=1)
-                     + "\n\n# flagged（id → 问题）\n" + json.dumps(flagged, ensure_ascii=False, indent=1)
+            if compact:
+                fl = [ln for ln in lines if str(ln.get("id")) in flagged]
+                ctx = "\n".join(f"{ln.get('id')}: {ln.get('text')}" for ln in lines if str(ln.get("id")) not in flagged)
+                slim = {k: [{"type": i.get("type"), "severity": i.get("severity"), "detail": i.get("detail"),
+                             **({"suggestion": i["suggestion"]} if i.get("suggestion") else {})} for i in v]
+                        for k, v in flagged.items()}
+                ruser = (f"{ground}\n\n# 要改的句子（只改并只返回这些）\n" + compact_lines(fl)
+                         + "\n\n# 其他句（只读，供上下文）\n" + ctx
+                         + "\n\n# flagged（id → 问题）\n" + json.dumps(slim, ensure_ascii=False, separators=(",", ":")))
+            else:
+                ruser = (f"{ground}\n\n# 全部台词（只改 flagged）\n" + json.dumps(lines, ensure_ascii=False, indent=1)
+                         + "\n\n# flagged（id → 问题）\n" + json.dumps(flagged, ensure_ascii=False, indent=1))
+            ruser = (ruser
                      + f"\n\n# 字数约束：当前总字数 {d.get('totalChars')}；总字数上限 {d.get('maxChars')} 字"
                      f"（目标时长是上限，不要为凑时长加字，更短更紧凑可以）；单句 ≤ {dc.MAX_CHARS} 字，"
                      f"建议 ≤ {prof['lineMaxChars']} 字（节奏 {prof['name']}）。")
@@ -364,8 +435,9 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
             rounds.append(rec)
             (ev_dir / f"round-{n}.json").write_text(json.dumps(rec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             if not changes:
-                log(f"round {n}: reviser changed nothing — stopping")
-                stop_reason = "reviser made no changes"
+                log(f"round {n}: reviser changed nothing — stopping (needs human)")
+                status = "NEEDS_HUMAN"
+                stop_reason = "reviser made no changes — needs human review"
                 break
             lines = new
     except ProviderError as e:
@@ -380,26 +452,29 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
         best = rounds[-1]
     chosen = best["lines"] if best else orig
     det_final = dc.check_lines(chosen, tgt, **det_kw)
-    if status != "PASS" and status != "PROVIDER_ERROR":
+    if status not in ("PASS", "PROVIDER_ERROR", "NEEDS_HUMAN"):
         status = "BEST_EFFORT"
     if client and b0 is not None and getattr(client, "usage", {}).get("calls") and getattr(client, "allow_paid", False):
         time.sleep(settle_sec)  # /user/balance lags a few seconds behind usage (paid DeepSeek only)
     b1 = client.balance() if client else None
     summary = {"schemaVersion": 1, "status": status, "stopReason": stop_reason,
                "chosenRound": best["round"] if best else None, "rounds": len(rounds),
-               "maxRounds": max_rounds, "linesPath": str(lp), "linesSha256": lines_sha(chosen),
+               "maxRounds": max_rounds, "needsHuman": status == "NEEDS_HUMAN",
+               "context": "compact" if compact else "full", "linesPath": str(lp), "linesSha256": lines_sha(chosen),
                "deterministicFinal": det_final["status"], "thresholds": TH,
                "model": getattr(client, "model", None),
                "provider": getattr(client, "provider", None),
                "allowPaid": bool(getattr(client, "allow_paid", False)),
                "callLog": list(getattr(client, "call_log", [])),
+               "routing": dict(getattr(client, "routing", {}) or {}),
                "usage": dict(getattr(client, "usage", {})),
                "balanceBefore": b0, "balanceAfter": b1,
                "cny": round(b0 - b1, 2) if (b0 is not None and b1 is not None) else None,
                "durationSec": round(time.time() - t_start, 1),
                "finishedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                "honesty": "PASS only when dialogue-check PASS and critic thresholds met in the same round; "
-                          "BEST_EFFORT = best round written back, TTS stays blocked."}
+                          "NEEDS_HUMAN = not PASS within max rounds (or reviser stuck): best round written back, "
+                          "no more LLM calls, TTS stays blocked; BEST_EFFORT = budget stop."}
     if write_back and best is not None and status != "PROVIDER_ERROR":
         text = json.dumps(chosen, ensure_ascii=False, indent=2) + "\n"
         lp.write_text(text, encoding="utf-8")
@@ -459,7 +534,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--project", required=True)
     ap.add_argument("--lines", default=None)
     ap.add_argument("--brief", default=None)
-    ap.add_argument("--max-rounds", type=int, default=4)
+    ap.add_argument("--max-rounds", type=int, default=DEFAULT_MAX_ROUNDS,
+                    help="critic/revise rounds (default 2, env DC_DIALOGUE_MAX_ROUNDS); then NEEDS_HUMAN")
+    ap.add_argument("--full-context", action="store_true",
+                    help="send full DIALOGUE.md + SKILL + BRIEF/FACTS/TREATMENT (old, ~3× prompt tokens)")
     ap.add_argument("--target", type=float, default=None)
     ap.add_argument("--model", default=MODEL, help="ignored in free-first mode (chain picks); kept for flags compat")
     ap.add_argument("--effort", default="high", choices=["low", "high", "max"], help="DeepSeek paid reasoning_effort only")
@@ -482,7 +560,7 @@ def main(argv: list[str] | None = None) -> int:
         return 3
     s = run_loop(project, lines_path=Path(a.lines) if a.lines else None,
                  brief=Path(a.brief) if a.brief else None, max_rounds=a.max_rounds, target=a.target,
-                 client=client, max_cny=a.max_cny, min_balance=a.min_balance)
+                 client=client, max_cny=a.max_cny, min_balance=a.min_balance, compact=not a.full_context)
     if not a.no_ledger:
         row = log_cost(s, project, a.item or f"dialogue-loop {project.name}")
         if row:
@@ -490,7 +568,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"dialogue-loop: {s['status']} (round {s['chosenRound']}/{s['maxRounds']}, "
           f"{s['rounds']} round(s); deterministic {s['deterministicFinal']})"
           + (f" — {s['stopReason']}" if s.get("stopReason") else ""))
-    return {"PASS": 0, "BEST_EFFORT": 1, "PROVIDER_ERROR": 3}.get(s["status"], 1)
+    return {"PASS": 0, "BEST_EFFORT": 1, "NEEDS_HUMAN": 1, "PROVIDER_ERROR": 3}.get(s["status"], 1)
 
 
 if __name__ == "__main__":
