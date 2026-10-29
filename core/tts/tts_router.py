@@ -1,7 +1,7 @@
 """Route lines.json → wavs + dur.json across TTS providers.
 
     python core/tts/tts_router.py lines.json out_dir \\
-        [--provider edge|kokoro|qwen3|omnivoice|stepaudio|elevenlabs|auto] \\
+        [--provider edge|kokoro|qwen3|omnivoice|stepaudio|elevenlabs|elevenlabs-dialogue|auto] \\
         [--fallback edge,kokoro] [--list] [--voice …]
 
 Default provider: edge (tts_zh.py / Yunxi). Offline second path: kokoro
@@ -20,8 +20,8 @@ import sys
 # Allow `python core/tts/tts_router.py` without installing a package.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from providers import edge_provider, elevenlabs, kokoro_provider, omnivoice, qwen3, stepaudio  # noqa: E402
-from providers.runtime import list_statuses, probe_edge, probe_elevenlabs, probe_kokoro, probe_omnivoice, probe_qwen3, probe_stepaudio  # noqa: E402
+from providers import edge_provider, elevenlabs, elevenlabs_dialogue, kokoro_provider, omnivoice, qwen3, stepaudio  # noqa: E402
+from providers.runtime import list_statuses, probe_edge, probe_elevenlabs, probe_elevenlabs_dialogue, probe_kokoro, probe_omnivoice, probe_qwen3, probe_stepaudio  # noqa: E402
 
 SYNTH = {
     "edge": edge_provider.synthesize,
@@ -30,6 +30,7 @@ SYNTH = {
     "omnivoice": omnivoice.synthesize,
     "stepaudio": stepaudio.synthesize,
     "elevenlabs": elevenlabs.synthesize,
+    "elevenlabs-dialogue": elevenlabs_dialogue.synthesize,
 }
 PROBES = {
     "edge": probe_edge,
@@ -38,6 +39,7 @@ PROBES = {
     "omnivoice": probe_omnivoice,
     "stepaudio": probe_stepaudio,
     "elevenlabs": probe_elevenlabs,
+    "elevenlabs-dialogue": probe_elevenlabs_dialogue,
 }
 DEFAULT_FALLBACK = ("edge", "kokoro")
 
@@ -48,10 +50,10 @@ def _print_list(as_json: bool = False) -> int:
         json.dump({"providers": rows}, sys.stdout, ensure_ascii=False, indent=2)
         print()
         return 0
-    print(f"{'id':<12} {'state':<14} network         detail")
+    print(f"{'id':<22} {'state':<14} network         detail")
     print("-" * 88)
     for r in rows:
-        print(f"{r['id']:<12} {r['state']:<14} {r['network']:<14} {r['detail']}")
+        print(f"{r['id']:<22} {r['state']:<14} {r['network']:<14} {r['detail']}")
     ready = [r["id"] for r in rows if r["ready"]]
     print()
     print(f"ready: {', '.join(ready) if ready else '(none)'}")
@@ -174,7 +176,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument(
         "--provider",
         default=os.environ.get("LEMO_TTS_PROVIDER", "edge"),
-        help="edge|kokoro|qwen3|omnivoice|stepaudio|elevenlabs|auto (default: env LEMO_TTS_PROVIDER or edge)",
+        help="edge|kokoro|qwen3|omnivoice|stepaudio|elevenlabs|elevenlabs-dialogue|auto (default: env LEMO_TTS_PROVIDER or edge)",
     )
     ap.add_argument(
         "--fallback",

@@ -191,8 +191,30 @@ def probe_elevenlabs() -> ProviderStatus:
 PROBES["elevenlabs"] = probe_elevenlabs
 
 
+def probe_elevenlabs_dialogue() -> ProviderStatus:
+    """ElevenLabs Text-to-Dialogue (multi-speaker). Explicit opt-in only."""
+    if not (os.environ.get("ELEVENLABS_API_KEY") or os.environ.get("ELEVEN_API_KEY")):
+        return ProviderStatus(
+            "elevenlabs-dialogue",
+            "needs-key",
+            "set ELEVENLABS_API_KEY; multi-speaker POST /v1/text-to-dialogue "
+            "(model eleven_v4→eleven_v3); map voices via ELEVENLABS_VOICE_HOST/_GUEST "
+            "or ELEVENLABS_VOICE_MAP JSON",
+            "cloud",
+        )
+    return ProviderStatus(
+        "elevenlabs-dialogue",
+        "ready",
+        "ElevenLabs /v1/text-to-dialogue (multi-speaker; ≤10 voices, ≤2000 chars/req)",
+        "cloud",
+    )
+
+
+PROBES["elevenlabs-dialogue"] = probe_elevenlabs_dialogue
+
+
 def list_statuses() -> list[ProviderStatus]:
-    return [PROBES[name]() for name in ("edge", "kokoro", "qwen3", "omnivoice", "stepaudio", "elevenlabs")]
+    return [PROBES[name]() for name in ("edge", "kokoro", "qwen3", "omnivoice", "stepaudio", "elevenlabs", "elevenlabs-dialogue")]
 
 
 def ready_providers(prefer: list[str] | None = None) -> list[str]:

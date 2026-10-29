@@ -11,7 +11,7 @@ python core/tts/tts_router.py --list --json
 
 # synthesize
 python core/tts/tts_router.py lines.json out_dir \
-  [--provider edge|kokoro|qwen3|omnivoice|stepaudio|elevenlabs|auto] \
+  [--provider edge|kokoro|qwen3|omnivoice|stepaudio|elevenlabs|elevenlabs-dialogue|auto] \
   [--fallback edge,kokoro] [--voice …] [--rate +0%] [--pitch +0Hz]
 ```
 
@@ -65,6 +65,7 @@ Defaults: **`edge`** (Yunxi). Env overrides: `LEMO_TTS_PROVIDER`, `LEMO_TTS_FALL
 | `omnivoice` | same HTTP client | optional HTTP | **needs-server** until `LEMO_TTS_OMNIVOICE_BASE` is set |
 | `stepaudio` | `providers/stepaudio.py` | StepFun cloud | **needs-key** until `STEPFUN_API_KEY` is set; explicit only (not in `auto`) |
 | `elevenlabs` | `providers/elevenlabs.py` | ElevenLabs cloud | **needs-key** until `ELEVENLABS_API_KEY` is set; explicit only (not in `auto`) |
+| `elevenlabs-dialogue` | `providers/elevenlabs_dialogue.py` | ElevenLabs cloud | **needs-key**; multi-speaker Text-to-Dialogue; explicit only |
 
 ### StepAudio (StepFun free preview)
 
@@ -99,6 +100,34 @@ Defaults: **`edge`** (Yunxi). Env overrides: `LEMO_TTS_PROVIDER`, `LEMO_TTS_FALL
   `LEMO_TTS_ELEVENLABS_BASE` (default `https://api.elevenlabs.io/v1`).
 - Explicit only: `--provider elevenlabs` (not in `auto`). `--list` reports `needs-key` until the key is set.
 - Key is never printed. Edge/Kokoro `*Neural` voice names in `--voice` are ignored in favour of the ElevenLabs voice id.
+
+
+
+### ElevenLabs Text-to-Dialogue (multi-speaker)
+
+Separate from single-narrator `elevenlabs` (which hits `/v1/text-to-speech/{voice_id}`).
+This path is the dialogue TTS layer only — not a full podcast pipeline like podcastfy
+(no RSS/article scrape, no music bed, no show notes); just speaker-labeled turns → audio.
+
+- Route: `POST /v1/text-to-dialogue?output_format=pcm_24000` → stitched `dialogue.wav` + per-turn
+  `<id>.wav` slices + `dialogue_manifest.json` (speaker/text/voice_id; start/end are **char-share
+  estimates** inside each API chunk — word timestamps not wired yet).
+- Model: preferred `eleven_v4`, automatic fallback to `eleven_v3` on model/validation errors.
+  Override with `LEMO_TTS_ELEVENLABS_DIALOGUE_MODEL`.
+- Limits: ≤10 unique `voice_id`s and ≤2000 characters total per request; longer scripts are chunked.
+- Script (`lines.json` list): each object needs `text` (or `say`) and a speaker label
+  (`speaker` / `speaker_id` / `role`). Optional per-line `voice_id`.
+  ```json
+  [
+    {"id": "L01", "speaker": "host", "text": "今天谈流动性陷阱。"},
+    {"id": "L02", "speaker": "guest", "text": "先从利率说起。"}
+  ]
+  ```
+- Voice map (first hit wins): line `voice_id` → `ELEVENLABS_VOICE_MAP` JSON /
+  `ELEVENLABS_VOICE_MAP_FILE` → `ELEVENLABS_VOICE_<SPEAKER>` (e.g. `ELEVENLABS_VOICE_HOST`,
+  `ELEVENLABS_VOICE_GUEST`) → `ELEVENLABS_VOICE_ID` default.
+- CLI: `python3 tools/deepseek-controller/cli.py tts --project P --provider elevenlabs-dialogue`
+  (same key as single-speaker; explicit only, not in `auto`).
 
 
 ### Enable kokoro (offline second path)

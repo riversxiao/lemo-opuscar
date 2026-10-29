@@ -140,9 +140,9 @@ def cmd_tts(args: argparse.Namespace) -> int:
         if args.json:
             print(json.dumps({"providers": rows}, ensure_ascii=False, indent=2))
         else:
-            print(f"{'id':<12} {'state':<14} detail")
+            print(f"{'id':<22} {'state':<14} detail")
             for r in rows:
-                print(f"{r['id']:<12} {r['state']:<14} {r['detail']}")
+                print(f"{r['id']:<22} {r['state']:<14} {r['detail']}")
             ready = [r['id'] for r in rows if r['ready']]
             print(f"ready: {', '.join(ready) if ready else '(none)'}")
         return 0
@@ -482,13 +482,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     t = sub.add_parser(
         "tts",
-        help="synthesize VO via tts_router (edge/kokoro/auto; qwen3|omnivoice when *_BASE set; stepaudio|elevenlabs when key set)",
+        help="synthesize VO via tts_router (edge/kokoro/auto; qwen3|omnivoice|*_BASE; stepaudio|elevenlabs|elevenlabs-dialogue when key set)",
     )
     t.add_argument("--project", help="film project root (required unless --list)")
     t.add_argument(
         "--provider",
         default="edge",
-        help="edge|kokoro|qwen3|omnivoice|stepaudio|elevenlabs|auto (default edge; stepaudio/elevenlabs need keys, explicit only)",
+        help="edge|kokoro|qwen3|omnivoice|stepaudio|elevenlabs|elevenlabs-dialogue|auto (cloud providers need keys; explicit only)",
     )
     t.add_argument(
         "--fallback",
