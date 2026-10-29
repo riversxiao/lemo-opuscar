@@ -110,4 +110,5 @@ writes `evidence/token-usage.json` + `TOKENS.md`.
 - Shots keep `beatsAuthored` through `apply_pictogram_edl.py`; `schedule.py` reads that minimum, not
   the last scheduled length, so re-scheduling no longer ratchets the gaps wider each take.
 - Narration SRT for pictogram films: `vo_srt.py` (cue start from timeline vo, length from voices/dur.json,
-  ≤18 chars per cue split at 。！？；/，：). NLE handoffs probe the master fps (`tools/handoff/common.probe_fps`).
+  ≤18 chars per cue split at 。！？；/，：). NLE handoffs take size and fps from --size/--fps, else ffprobe of the master, else 1920x1080 @ 24
+  (`tools/handoff/common.resolve_frame`; `probe_fps` is the integer-timebase shorthand).

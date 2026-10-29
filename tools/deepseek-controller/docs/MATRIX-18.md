@@ -96,14 +96,16 @@ Root-cause fixes landed (no re-render yet, status unchanged):
 
 ### M14 / M16 trimmed copy
 
-Budget: the seed `main.js` locks `DUR = 30`. Each caption shot costs its VO plus 0.95s (enter 0.35 + settle 0.35 + exit 0.25), snapped up to the 0.25s grid, and the end card (c6, no VO) takes 2.00s, so the five VO lines get about 23s of measured speech. Yunxi speaks about 3.7 字/s here, so that is roughly 85 字 in total. The DIALOGUE.md gate (`dialogue-check`, also run by `cli.py tts`) estimates at 4.5 字/s against the whole film target by default (30s: 115-155 字), which cannot fit a locked 30s caption film; run it against the VO budget with `--target 20` (77-103 字).
+Budget: the seed `main.js` locks `DUR = 30`. Under the default `standard` pacing profile (`pacing_profile.py`, docs/PACING.md) each caption shot costs its VO plus 0.40s (enter 0.15 + settle 0.15 + exit 0.10), snapped up to the 0.25s grid; the end card (c6, no VO) takes its reading time on the grid, and the schedule adds the profile's 1.0s end-card outro after it. The target is a ceiling: nothing pads the film up to 30s. The cut copy was written when a shot cost VO + 0.95s (enter 0.35 + settle 0.35 + exit 0.25) and the schedule padded to the target; the "old rule" column keeps those numbers. `dialogue-check` estimates at the profile's 5.3 字/s, so it passes these lines both with `--target 20` and against the whole 30s.
 
-| cell | VO | 字 | measured VO | schedule (content) | padded to | dialogue-check `--target 20` |
-|---|---|---|---|---|---|---|
-| M14 fuli | 一块钱存着不动，三十年后会变成多少？ / 利息滚回本金，第二年连利息一起生利息。 / 按年利率百分之七算，三十年后接近七块六。 / 中途取出花掉，后面的雪球就滚不动了。 / 复利靠的不是押对一次，是时间不被打断。 | 84 | 22.34s | **29.50s** (was 32.25s) | 30.00s | PASS |
-| M16 fensan | 分散投资，不是把鸡蛋随手乱撒。 / 股票、债券和现金，涨跌往往不同步。 / 全押一类资产，一次下跌就全部砸中。 / 多配一类走势不同的资产，就少一次同时踩坑。 / 分散省不掉风险，但能给你留下回旋余地。 | 78 | 21.41s | **29.00s** (was 31.25s) | 30.00s | PASS |
+| cell | VO | 字 | measured VO | content, old rule | content (standard pacing) | scheduled (with outro) | dialogue-check `--target 20` |
+|---|---|---|---|---|---|---|---|
+| M14 fuli | 一块钱存着不动，三十年后会变成多少？ / 利息滚回本金，第二年连利息一起生利息。 / 按年利率百分之七算，三十年后接近七块六。 / 中途取出花掉，后面的雪球就滚不动了。 / 复利靠的不是押对一次，是时间不被打断。 | 84 | 22.34s | 29.50s (was 32.25s), padded to 30.00s | **26.25s** | 27.25s | PASS |
+| M16 fensan | 分散投资，不是把鸡蛋随手乱撒。 / 股票、债券和现金，涨跌往往不同步。 / 全押一类资产，一次下跌就全部砸中。 / 多配一类走势不同的资产，就少一次同时踩坑。 / 分散省不掉风险，但能给你留下回旋余地。 | 78 | 21.41s | 29.00s (was 31.25s), padded to 30.00s | **25.50s** | 26.50s | PASS |
 
-The 7% figure is arithmetic (1.07^30 ≈ 7.61). `tests/test_mvp.sh` (21c) validates both plans, runs `dialogue-check --target 20` and `schedule --require-vo` against a `DUR = 30` lock and requires content ≤ 29.50s with no lock overrun.
+The measured VO is edge at +0%; a re-render now speaks at the profile's edge rate (+10%), so the real lines come out shorter still.
+
+The 7% figure is arithmetic (1.07^30 ≈ 7.61). `tests/test_mvp.sh` (21c) validates both plans, runs `dialogue-check --target 20` and `schedule --require-vo` against a `DUR = 30` lock and requires content ≤ 29.50s, scheduled ≤ 30s with no pad and no lock overrun.
 
 Re-render on a machine with the films (run from the library root; `F` is the films root):
 
@@ -194,8 +196,8 @@ python3 tools/deepseek-controller/cli.py matrix --path flash  # only flash cells
 
 **Matrix 18/18 filled, 16/18 delivery-pass** (2026-10-29 Asia/Shanghai). Follow-ups:
 
-1. **M14** fuli×caption×flash: copy cut to fit 30s (was 32.25s, now 29.50s: `fixtures/matrix-18/m14-trimmed/`); re-render and re-gate per **M14 / M16 trimmed copy** above. ASR lexicon 复立→复利 is in `asr_homophones.json`.
-2. **M16** fensan×caption×flash: copy cut to fit 30s (was 31.25s, now 29.00s: `fixtures/matrix-18/m16-trimmed/`); re-render and re-gate the same way
+1. **M14** fuli×caption×flash: copy cut to fit 30s (was 32.25s, now 29.50s under the old shot overhead and 26.25s under standard pacing: `fixtures/matrix-18/m14-trimmed/`); re-render and re-gate per **M14 / M16 trimmed copy** above. ASR lexicon 复立→复利 is in `asr_homophones.json`.
+2. **M16** fensan×caption×flash: copy cut to fit 30s (was 31.25s, now 29.00s under the old shot overhead and 25.50s under standard pacing: `fixtures/matrix-18/m16-trimmed/`); re-render and re-gate the same way
 3. Optional polish: Caption Commons packs for diversify/compound cells; Swiss German-poster literal rebrand
 4. See [BUDGET.md](BUDGET.md) · [EXPERTS.md](EXPERTS.md)
 

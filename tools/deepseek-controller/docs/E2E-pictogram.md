@@ -107,6 +107,10 @@ python3 tools/deepseek-controller/apply_pictogram_style_version.py \
 - Sibling deliverable: `/workspace/films/fensan-pictogram-finance-v001/fensan-pictogram-finance-v001.mp4`
   · 32s · `--delivery` **PASS** (readcheck N/A: style-version note).
 - See `styles/pictogram-motion/versions/finance-v001/VERSION.md`.
+- Later versions (same `--version` flag): `styles/pictogram-motion/versions/finance-v002/VERSION.md`
+  (v001 plus per-term labels for the FRM core100 series) and
+  `styles/pictogram-motion/versions/finance-v003/VERSION.md` (v002 plus the per-line visual scene
+  library picked by `viz_pick.py`; used by `templates/finance-term/`).
 
 Default `scaffold` still locks demo `scenes.js` (test 26).
 
