@@ -1967,6 +1967,34 @@ else
   skip "core/three/post.js sizing" "node or node_modules/three missing (npm ci)"
 fi
 
+# styles/hd-2d and styles/lowpoly-island post copies: targets from w, h x ssaa (3840x2160 at 1920x1080 ssaa 2, as before),
+# post.setSize re-targets them for 9:16. Same stub renderer, no GPU needed.
+if command -v node >/dev/null 2>&1 && test -d "$ROOT/node_modules/three"; then
+  if node "$CTL/tests/style_post_size.mjs" >$WORK/dc-stylepost.out 2>&1; then
+    ok "hd-2d / lowpoly-island post copies size from W/H ($(grep -c '^ok ' $WORK/dc-stylepost.out) checks)"
+  else
+    bad "hd-2d / lowpoly-island post sizing: $(grep -v '^ok ' $WORK/dc-stylepost.out | head -20)"
+  fi
+else
+  skip "hd-2d / lowpoly-island post sizing" "node or node_modules/three missing (npm ci)"
+fi
+
+# core/render/reframe.mjs: which portrait renders are reframed, every style.json declares portrait native|reframe,
+# and (with ffmpeg) a synthetic 16:9 frame composed into 1080x1920 keeps the whole picture in the centre band over the fill.
+if command -v node >/dev/null 2>&1; then
+  node "$CTL/tests/reframe.mjs" >$WORK/dc-reframe.out 2>&1; rc=$?
+  if [ $rc -eq 0 ]; then
+    ok "portrait reframe: plan, style.json lint, ffmpeg compose ($(grep -c '^ok ' $WORK/dc-reframe.out) checks)"
+  elif [ $rc -eq 77 ]; then
+    ok "portrait reframe: plan + style.json lint ($(grep -c '^ok ' $WORK/dc-reframe.out) checks)"
+    skip "portrait reframe ffmpeg compose" "ffmpeg/ffprobe not on PATH"
+  else
+    bad "portrait reframe: $(grep -v '^ok ' $WORK/dc-reframe.out | head -20)"
+  fi
+else
+  skip "portrait reframe" "node missing"
+fi
+
 # swiss-motion 9:16 statements: Chinese copy (no spaces) breaks inside CJK runs and stays within
 # the measure on two lines; English and landscape layouts are unchanged. Stub canvas, no fonts needed.
 if command -v node >/dev/null 2>&1; then

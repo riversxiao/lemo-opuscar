@@ -1,4 +1,4 @@
-// Reading-time self-check: node core/render/readcheck.mjs <demo> [--q 'k=v'] [--step 0.04] [--latin-cps 15] [--cjk-cps 4.5] [--pad 1.5] [--min 1.5] [--size 1920x1080]
+// Reading-time self-check: node core/render/readcheck.mjs <demo> [--q 'k=v'] [--step 0.04] [--latin-cps 15] [--cjk-cps 4.5] [--pad 1.5] [--min 1.5] [--size 1920x1080] [--native | --reframe]
 // Page contract: window.TEXTS(t) → [{id, text, x0, y0, x1, y1}]: every piece of text visible on screen at t seconds and its screen box (pixels, viewport the same as --size, default 1920×1080).
 //   id identifies "this block of text" (a number or a string); if the text under the same id changes, it counts as a new piece and timing restarts. Don't report the subtitle bar: its hold is set by the .srt.
 //   text must be the block's [complete text] from the first frame it appears: if a typewriter effect reports "the substring typed so far", every extra character is a new piece and the whole check fails —
@@ -7,9 +7,12 @@
 //   (number of hanzi/kana/hangul ÷ cjk-cps + number of other non-whitespace characters ÷ latin-cps) + pad seconds, and no less than min. Defaults 4.5 chars/s (CJK), 15 chars/s (alphanumeric), pad 1.5, min 1.5.
 //   Text that never fully enters the frame (cropped at the edge, a ticker running out of frame) is reported as "never fully visible".
 // Exit code: 0 all pass; 1 some fail; 2 the check couldn't run (the page has no window.TEXTS, or the whole film never returned any text) — this does not count as a pass.
+// A reframed style (portrait --size, style.json "portrait": "reframe", see reframe.mjs) is checked on its 1920x1080 page: reframing scales the whole frame and crops nothing.
 import { openDemo, closeServer, requireDemo, takeSize } from './page.mjs';
-const args = process.argv.slice(2), { w: VW, h: VH } = takeSize(args), opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
+import { takeMode, planFrame } from './reframe.mjs';
+const args = process.argv.slice(2), size = takeSize(args), mode = takeMode(args), opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
 const dir = args[0]; requireDemo(dir);
+const { view: { w: VW, h: VH } } = planFrame(dir, size, mode);
 const Q = opt('--q', ''), STEP = +opt('--step', 0.04), LATIN = +opt('--latin-cps', 15), CJK = +opt('--cjk-cps', 4.5), PAD = +opt('--pad', 1.5), MIN = +opt('--min', 1.5);
 if (![STEP, LATIN, CJK, PAD, MIN].every(Number.isFinite) || STEP <= 0 || LATIN <= 0 || CJK <= 0) { console.error('bad option value (step and the cps values must be > 0)'); process.exit(2); }
 const { browser, page } = await openDemo(dir, { w: VW, h: VH, q: Q });
