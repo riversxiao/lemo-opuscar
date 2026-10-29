@@ -1,10 +1,10 @@
 {
-  "_doc": "FRM core100 #01 Risk Appetite 风险偏好. 金融专家-approved FINAL (wen hao 2026-10-29): 通俗金融学, one contrast 愿意≠扛得住; L04 拿去投资 not 炒; speak 风险偏好 not English spelling; no 风险容忍度.",
+  "_doc": "FRM core100 #01 Risk Appetite 风险偏好. 金融专家 EXACT FINAL (台词教父: do not paraphrase L04). L04=比如投资，你愿意把多少钱压上去。 L06=风险承受能力 (not 风险容忍度). 通俗金融学, speed 1.0.",
   "seq": "001",
   "term": "Risk Appetite",
   "zh": "风险偏好",
-  "approvedBy": "金融专家 (FRM; wording authoritative). Relayed by wen hao 2026-10-29 20:45 Asia/Shanghai: FINAL lines, 通俗金融学 Douyin-plain, one memorable point, speed 1.0, L04 拿去投资 not 炒; do not rewrite",
-  "approvedAt": "2026-10-29T20:45:00+08:00",
+  "approvedBy": "金融专家 EXACT lines (台词教父: no L04 paraphrase). Relayed by wen hao 2026-10-29 21:04 Asia/Shanghai: remake with exact text; speed 1.0 calm; do not rewrite",
+  "approvedAt": "2026-10-29T21:04:00+08:00",
   "brand": {
     "eyebrow": "RISK PREFERENCE",
     "titleEn": "Risk Appetite",
@@ -35,8 +35,8 @@
     },
     {
       "shot": "p3",
-      "zh": "拿去投资",
-      "en": "TO INVEST"
+      "zh": "压上去",
+      "en": "PUT AT RISK"
     },
     {
       "shot": "p4",
@@ -77,7 +77,7 @@
       "id": "L04",
       "role": "evidence",
       "shot": "p3",
-      "cap": "比如你愿意把多少钱拿去投资。"
+      "cap": "比如投资，你愿意把多少钱压上去。"
     },
     {
       "id": "L05",

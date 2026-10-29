@@ -12,6 +12,10 @@ Source list: `/workspace/finance/frm_core100.csv` (box only; 100 rows,
 Per-term eyebrow + end card via `plan.brand` / `lines.json` `brand` (also CSV columns `eyebrow`,`endTitle`,`endLine`). Acronym-safe uppercase (`upper_keep` / scenes `upKeep`); quality `acronym_case` FAILs VaR→VAR. `plan.glossary` adds （gloss） at first SRT use.
 
 
+## Drafting lines (future)
+
+Prefer **OpenCode + `VOLCENGINE_CODING_API_KEY`** (Volcano Coding Plan) for drafting/fact-check of lines — not the Ark normal API. Expert approval still locks wording; dialogue-loop stays check-only.
+
 ## 通俗金融学 defaults (wen hao)
 
 - **Narration speed 1.0** hardcoded in `build_term.sh` (`FINANCE_TTS_SPEED=1.0`, pacing `calm`). Never `fast` profile, never standard +10% / brisk StepAudio role.
