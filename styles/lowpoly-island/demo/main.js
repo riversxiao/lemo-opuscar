@@ -8,15 +8,19 @@ import { buildWorld } from './world.js';
 
 const W = 1920, H = 1080, QS = new URLSearchParams(location.search);
 const SSAA = +(QS.get('ssaa') ?? 2);
+// the WebGL frame follows the page size (1920x1080 for the film, so nothing changes there); the 2D overlay keeps its 1920x1080
+// layout and, on any other frame shape (a --native portrait render), is scaled to fit and centred. 9:16 delivery reframes the 16:9 film (style.json)
+const VW = innerWidth || W, VH = innerHeight || H;
+if (VW !== W || VH !== H) { const k = Math.min(VW / W, VH / H); Object.assign(document.getElementById('ov').style, { width: W * k + 'px', height: H * k + 'px', left: (VW - W * k) / 2 + 'px', top: (VH - H * k) / 2 + 'px' }); }
 const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
-renderer.setPixelRatio(1); renderer.setSize(W, H);
+renderer.setPixelRatio(1); renderer.setSize(VW, VH);
 renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.getElementById('stage').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 const camera = new THREE.OrthographicCamera(-10, 10, 5, -5, 1, 1600);
-const post = makePost(renderer, scene, camera, W, H, { ssaa: SSAA, aoRadius: .7, aoScale: 1.5, aoThickness: 1 });
+const post = makePost(renderer, scene, camera, VW, VH, { ssaa: SSAA, aoRadius: .7, aoScale: 1.5, aoThickness: 1 });
 post.bloom.strength = .32; post.bloom.threshold = .95; post.bloom.radius = .55;
 
 const sea = makeSea(scene);
@@ -78,7 +82,7 @@ function cam(t) {
   const D = Math.max(300, fh * 3), ce = Math.cos(el * DEG);   // the camera must be far enough away: the ray origin at the bottom edge of the orthographic frame must not fall below the sea surface
   camera.position.set(tg[0] + D * ce * Math.sin(az * DEG), tg[1] + D * Math.sin(el * DEG), tg[2] + D * ce * Math.cos(az * DEG));
   camera.up.set(0, 1, 0); camera.lookAt(tg[0], tg[1], tg[2]);
-  const fw = fh * W / H; camera.left = -fw / 2; camera.right = fw / 2; camera.top = fh / 2; camera.bottom = -fh / 2; camera.near = 1; camera.far = D + fh * 5 + 800; camera.updateProjectionMatrix();
+  const fw = fh * VW / VH; camera.left = -fw / 2; camera.right = fw / 2; camera.top = fh / 2; camera.bottom = -fh / 2; camera.near = 1; camera.far = D + fh * 5 + 800; camera.updateProjectionMatrix();
   const cot = 1 / Math.tan(el * DEG);
   post.comp.camDist.value = D; post.comp.hz0.value = hzA * fh * cot; post.comp.hz1.value = hzB * fh * cot;
   post.tilt.fy.value = tiltF; post.tilt.band.value = tiltB;
@@ -175,7 +179,7 @@ function render(t) {
   gd.vig.value = lerp(.16, .32, night);
   post.bloom.strength = lerp(.22, .5, night);
   { const f = new THREE.Vector3(); camera.getWorldDirection(f); const fl = Math.hypot(f.x, f.z) || 1; sea.U.uFwd.value.set(f.x / fl, f.z / fl); sea.U.uTgt.value.set(CAM.tg[0], CAM.tg[2]); sea.U.uSpanF.value = CAM.fh / Math.tan(CAM.el * DEG) * .5; sea.U.uNight.value = night; }
-  world.update(t, { night, amp, sea, winAmt: 1, px: CAM.fh / H, camBack: new THREE.Vector3().subVectors(camera.position, new THREE.Vector3(...CAM.tg)).normalize() });
+  world.update(t, { night, amp, sea, winAmt: 1, px: CAM.fh / VH, camBack: new THREE.Vector3().subVectors(camera.position, new THREE.Vector3(...CAM.tg)).normalize() });
   post.composer.render();
   hud(t);
 }
@@ -194,7 +198,7 @@ function events() {
 }
 
 // distant buoy: placed at lower right of the final camera's frame (compute the camera at that moment first, then unproject onto the sea surface)
-{ cam(T.bellFar + .3); const fw = CAM.fh * W / H, R = new THREE.Vector3(), U = new THREE.Vector3(), F = new THREE.Vector3();
+{ cam(T.bellFar + .3); const fw = CAM.fh * VW / VH, R = new THREE.Vector3(), U = new THREE.Vector3(), F = new THREE.Vector3();
   camera.updateMatrixWorld(); R.setFromMatrixColumn(camera.matrixWorld, 0); U.setFromMatrixColumn(camera.matrixWorld, 1); camera.getWorldDirection(F);
   const p = new THREE.Vector3(...CAM.tg).addScaledVector(R, fw * .3).addScaledVector(U, -CAM.fh * .27); const k = -p.y / F.y; p.addScaledVector(F, k);
   world.BUOY_FAR[0] = p.x; world.BUOY_FAR[1] = p.z; }

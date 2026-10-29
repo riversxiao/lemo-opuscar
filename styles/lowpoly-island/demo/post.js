@@ -1,5 +1,6 @@
 // Post for the orthographic camera: scene (MSAA + depth) → GTAO → distance blends into the gradient sky by depth (+ stars) → tilt-shift blur → bloom → pastel grade / vignette → tone mapping
 // adapted from core/three/post.js (core's depth of field uses perspectiveDepthToViewZ, which doesn't hold for an orthographic camera)
+// every target is sized from makePost's w, h (the renderer's CSS size) x ssaa; post.setSize(w, h) re-targets them, like core/three/post.js
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
@@ -63,6 +64,11 @@ class ScenePass extends Pass {
     this.ao.updateGtaoMaterial({ radius: o.aoRadius ?? .6, distanceExponent: 1.4, thickness: o.aoThickness ?? .8, scale: o.aoScale ?? 1.6, distanceFallOff: .7, samples: 16 });
     this.ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 8, rings: 2, samples: 16 });
   }
+  // Pass.setSize stays the inherited no-op (as in core/three/post.js): the size is owned by makePost and changed only here
+  resize(w, h) {
+    if (this.rt.width === w && this.rt.height === h) return;
+    this.rt.setSize(w, h); this.u.res.value.set(w, h); this.ao.setSize(w, h);
+  }
   render(renderer, writeBuffer) {
     renderer.setRenderTarget(this.rt); renderer.clear(); renderer.render(this.scene, this.camera);
     const hid = []; this.scene.traverse(o => { if (o.visible && (o.isSprite || o.isPoints || (o.material && o.material.transparent))) { o.visible = false; hid.push(o); } });
@@ -113,5 +119,12 @@ export function makePost(renderer, scene, camera, w, h, o = {}) {
   const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), .35, .6, .9);
   const grade = new ShaderPass(gradeShader);
   composer.addPass(sp); composer.addPass(tilt); composer.addPass(bloom); composer.addPass(grade); composer.addPass(new OutputPass());
-  return { composer, sp, comp: sp.u, tilt: tilt.uniforms, bloom, grade: grade.uniforms, ssaa: s };
+  // setSize(w, h) takes CSS pixels like makePost: composer buffers, scene pass and tilt at w*ssaa x h*ssaa, bloom at that times the pixel ratio (as addPass did)
+  const setSize = (w2, h2) => {
+    const W2 = w2 * s, H2 = h2 * s, pr = renderer.getPixelRatio();
+    composer.setSize(W2 / pr, H2 / pr);
+    sp.resize(W2, H2); tilt.uniforms.res.value.set(W2, H2);
+    bloom.setSize(W2 * pr, H2 * pr);
+  };
+  return { composer, sp, comp: sp.u, tilt: tilt.uniforms, bloom, grade: grade.uniforms, ssaa: s, setSize };
 }
