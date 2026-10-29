@@ -6,6 +6,7 @@ swiss-motion, pictogram-motion, and caption-news.
     python3 tools/deepseek-controller/fetch_fonts.py --project /path/to/film
     python3 tools/deepseek-controller/fetch_fonts.py --project /path --style pictogram-motion
     python3 tools/deepseek-controller/fetch_fonts.py --fonts-dir /path/to/fonts --style swiss-motion
+    python3 tools/deepseek-controller/fetch_fonts.py --fonts-dir <film>/remotion/public/fonts --style remotion-infographic
 
 Fallback copy order when network fails (or for caption woff2 subsets with no
 stable raw URL):
@@ -81,10 +82,17 @@ CAPTION_FONTS: list[tuple[str, str | None, int]] = [
     ("sc900.woff2", None, 2_000),
 ]
 
+# Remotion infographic template (plugin/skills/lemo-remotion-infographic): the Inter Tight +
+# Noto Sans SC text pair, same files as the pictogram pack. Not an Opus engine; used by its setup.sh.
+REMOTION_FONTS: list[tuple[str, str | None, int]] = [
+    f for f in PICTOGRAM_FONTS if f[0] in ("InterTightwght.ttf", "NotoSansSCwght.ttf")
+]
+
 STYLE_FONTS: dict[str, list[tuple[str, str | None, int]]] = {
     "swiss-motion": SWISS_FONTS,
     "pictogram-motion": PICTOGRAM_FONTS,
     "caption-news": CAPTION_FONTS,
+    "remotion-infographic": REMOTION_FONTS,
 }
 
 # Optional OFL license text copies (best-effort; not required for READY)
@@ -101,6 +109,10 @@ OFL_SIDECARS: dict[str, list[tuple[str, str]]] = {
         ("OFL-notosansjp.txt", "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansjp/OFL.txt"),
     ],
     "caption-news": [
+        ("OFL-intertight.txt", "https://raw.githubusercontent.com/google/fonts/main/ofl/intertight/OFL.txt"),
+        ("OFL-notosanssc.txt", "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssc/OFL.txt"),
+    ],
+    "remotion-infographic": [
         ("OFL-intertight.txt", "https://raw.githubusercontent.com/google/fonts/main/ofl/intertight/OFL.txt"),
         ("OFL-notosanssc.txt", "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssc/OFL.txt"),
     ],

@@ -85,6 +85,10 @@ styles/*/demo/stills/*
 
 # 用户自己的片子（agent 输出）
 /films/
+# Remotion template: fonts, installs and renders belong to the film's copy (setup.sh), never the template
+plugin/skills/lemo-remotion-infographic/template/public/
+plugin/skills/lemo-remotion-infographic/template/out/
+plugin/skills/lemo-remotion-infographic/template/package-lock.json
 
 
 # Production logs are internal: they stay local

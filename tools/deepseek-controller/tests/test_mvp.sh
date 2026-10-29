@@ -2151,6 +2151,115 @@ else
   skip "pytest tools/handoff/tests" "pytest not installed (python3 -m pip install -r requirements-dev.txt)"
 fi
 
+# Remotion infographic skill: plan -> props converter (stdlib only), then an optional real render.
+RMX="$ROOT/plugin/skills/lemo-remotion-infographic"
+P2P=(python3 "$RMX/scripts/plan_to_props.py")
+rmx_props() {  # $1 fixture, $2 expected WxH, $3 expected frames, $4 out
+  "${P2P[@]}" "$FIX/$1" -o "$4" >"$4.out" 2>&1 || { echo "convert failed: $(cat "$4.out")"; return 1; }
+  "${P2P[@]}" --check "$4" >/dev/null 2>"$4.err" || { echo "check failed: $(cat "$4.err")"; return 1; }
+  python3 - "$4" "$2" "$3" <<'PY' || return 1
+import json, sys
+p = json.load(open(sys.argv[1]))
+size, frames = sys.argv[2], int(sys.argv[3])
+assert f"{p['width']}x{p['height']}" == size, (p['width'], p['height'])
+assert p['fps'] == 24 and p['durationInFrames'] == frames, p['durationInFrames']
+end = p['scenes'][-1]['from'] + p['scenes'][-1]['durationInFrames']
+assert end == frames and p['scenes'][0]['from'] == 0, end
+assert all(s['durationInFrames'] >= 24 for s in p['scenes'])
+PY
+  if have_py jsonschema; then
+    python3 -c 'import json,sys,jsonschema; jsonschema.validate(json.load(open(sys.argv[1])), json.load(open(sys.argv[2])))' \
+      "$4" "$RMX/template/props.schema.json" || { echo "jsonschema rejected $4"; return 1; }
+  fi
+}
+for c in "plan-caption-news.json 1920x1080 720" "plan-caption-news-portrait.json 1080x1920 720" \
+         "plan-pictogram-motion-portrait.json 1080x1920 768" "plan-swiss-motion.json 1920x1080 768"; do
+  set -- $c
+  if msg=$(rmx_props "$1" "$2" "$3" "$WORK/rmx-$1" 2>&1); then
+    ok "remotion plan_to_props $1 -> $2, $3 frames @ 24 fps, validates against props.schema.json$(have_py jsonschema && echo ' (+ jsonschema)')"
+  else
+    bad "remotion plan_to_props $1: $msg"
+  fi
+done
+if python3 - "$WORK/rmx-plan-caption-news.json" <<'PY' >$WORK/rmx-kinds.out 2>&1
+import json, sys
+p = json.load(open(sys.argv[1]))
+k = {s['id']: s for s in p['scenes']}
+assert [s['kind'] for s in p['scenes']] == ['title', 'compare', 'chart', 'caption', 'caption', 'end'], [s['kind'] for s in p['scenes']]
+assert [(i['label'], i['tag'], i['value']) for i in k['c2']['items']] == [('现金', '快', 0), ('房产', '慢', 90)]
+assert k['c3']['series'] == [12, 18, 27, 41]
+assert k['c1']['lines'] == [[{'text': '流动性', 'accent': False}], [{'text': '是什么', 'accent': True}]]
+assert p['palette']['accent'] == '#FFC21A' and p['transparent'] is False
+PY
+then ok "remotion plan_to_props scene kinds (title/compare/chart/caption/end), labels and {accent} markup"
+else bad "remotion plan_to_props kinds: $(cat $WORK/rmx-kinds.out)"; fi
+# --timeline: per-shot frames come from schedule.py's t0/t1
+python3 - "$FIX/plan-caption-news.json" "$WORK/rmx-tl.json" <<'PY'
+import json, sys
+p = json.load(open(sys.argv[1])); t, shots = 0.0, []
+for s in p['shots']:
+    shots.append({'id': s['id'], 't0': t, 't1': t + 4.25}); t += 4.25
+json.dump({'scheduledDurationSec': t, 'shots': shots}, open(sys.argv[2], 'w'))
+PY
+if "${P2P[@]}" "$FIX/plan-caption-news.json" --timeline "$WORK/rmx-tl.json" -o "$WORK/rmx-tl-props.json" >/dev/null 2>&1 \
+  && python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p["durationInFrames"]==612 and [s["from"] for s in p["scenes"]]==[0,102,204,306,408,510], p' "$WORK/rmx-tl-props.json"; then
+  ok "remotion plan_to_props --timeline maps t0/t1 to frames (6 x 4.25 s = 612 frames)"
+else
+  bad "remotion plan_to_props --timeline"
+fi
+# unmappable input exits non-zero with a reason
+rmx_reject() {  # $1 label, $2 python mutation of plan P, $3 expected error text
+  python3 - "$FIX/plan-caption-news.json" "$WORK/rmx-bad.json" "$2" <<'PY'
+import json, sys
+P = json.load(open(sys.argv[1])); exec(sys.argv[3]); json.dump(P, open(sys.argv[2], 'w'), ensure_ascii=False)
+PY
+  if "${P2P[@]}" "$WORK/rmx-bad.json" -o "$WORK/rmx-bad-props.json" >$WORK/rmx-bad.out 2>&1; then
+    bad "remotion plan_to_props should reject $1"
+  elif grep -q "$3" $WORK/rmx-bad.out; then
+    ok "remotion plan_to_props rejects $1"
+  else
+    bad "remotion plan_to_props $1: unexpected message $(cat $WORK/rmx-bad.out)"
+  fi
+}
+rmx_reject "aspect 4:3" "P['aspect'] = '4:3'" "cannot be mapped"
+rmx_reject "a non-unit data string" "P['shots'][1]['data']['note'] = 'x'" "only 'unit' may be a string"
+rmx_reject "series plus scalars in one shot" "P['shots'][2]['data']['extra'] = 3" "ambiguous"
+rmx_reject "too many shots for the target" "P['shots'] = [dict(P['shots'][3], id='s%d' % i) for i in range(40)]" "do not fit"
+if "${P2P[@]}" "$FIX/plan-caption-news.json" --display "Comic Sans" >/dev/null 2>$WORK/rmx-font.err \
+   || ! grep -q "not available" $WORK/rmx-font.err; then
+  bad "remotion plan_to_props should reject an unknown display font: $(cat $WORK/rmx-font.err)"
+else
+  ok "remotion plan_to_props rejects a display font that is neither the text pair nor in core/fonts"
+fi
+python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); p["width"]=1080; json.dump(p, open(sys.argv[2],"w"))' \
+  "$WORK/rmx-plan-caption-news.json" "$WORK/rmx-broken.json"
+if "${P2P[@]}" --check "$WORK/rmx-broken.json" >/dev/null 2>&1; then
+  bad "remotion plan_to_props --check should reject 16:9 props at 1080 wide"
+else
+  ok "remotion plan_to_props --check rejects props whose size does not match the aspect"
+fi
+# Real render: only against a project that scripts/setup.sh already installed (the harness never runs
+# npm install). Point WORDFILM_REMOTION_DIR at <film>/remotion to run it.
+RMXD="${WORDFILM_REMOTION_DIR:-}"
+if [ -z "$RMXD" ] || [ ! -d "$RMXD/node_modules/remotion" ]; then
+  skip "remotion render 16:9 + 9:16" "no installed template (set WORDFILM_REMOTION_DIR to a dir made by lemo-remotion-infographic/scripts/setup.sh)"
+elif ! have_ffmpeg; then
+  skip "remotion render 16:9 + 9:16" "ffmpeg/ffprobe missing"
+else
+  RMXOK=1; RMXMSG=""
+  for c in "plan-caption-news.json 1920x1080" "plan-caption-news-portrait.json 1080x1920"; do
+    set -- $c
+    rm -f "$RMXD/out/picture.mp4"
+    if sh "$RMX/scripts/render.sh" "$RMXD" --props "$WORK/rmx-$1" --frames 0-11 >$WORK/rmx-render.out 2>&1; then
+      got=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$RMXD/out/picture.mp4" | head -1 | cut -d, -f1-2 | tr , x)
+      [ "$got" = "$2" ] || { RMXOK=0; RMXMSG="$RMXMSG $1 is $got (want $2)"; }
+    else
+      RMXOK=0; RMXMSG="$RMXMSG $1: $(tail -5 $WORK/rmx-render.out)"
+    fi
+  done
+  if [ "$RMXOK" = 1 ]; then ok "remotion render 12 frames at 1920x1080 and 1080x1920"; else bad "remotion render:$RMXMSG"; fi
+fi
+
 # The harness must not touch tracked files (fixtures are copied into a scratch dir).
 if command -v git >/dev/null 2>&1 && git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
   DIRTY="$(git -C "$ROOT" status --porcelain -- tools/deepseek-controller/fixtures)"
