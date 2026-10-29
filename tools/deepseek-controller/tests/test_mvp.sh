@@ -1850,6 +1850,18 @@ else
   skip "handoff ffprobe portrait" "ffmpeg/ffprobe not installed"
 fi
 
+# core/three/post.js: DOF/GTAO targets stay at w*ssaa for pixelRatio 1 and 2 (addPass must not
+# resize them) and post.setSize re-targets them for 9:16. Stub renderer, no GPU needed.
+if command -v node >/dev/null 2>&1 && test -d "$ROOT/node_modules/three"; then
+  if node "$CTL/tests/three_post_size.mjs" >/tmp/dc-three.out 2>&1; then
+    ok "core/three/post.js DOF size owned by makePost ($(grep -c '^ok ' /tmp/dc-three.out) checks)"
+  else
+    bad "core/three/post.js sizing: $(grep -v '^ok ' /tmp/dc-three.out | head -20)"
+  fi
+else
+  skip "core/three/post.js sizing" "node or node_modules/three missing (npm ci)"
+fi
+
 # handoff pytest suite (frame size / fps); one command covers everything
 if python3 -c "import pytest" 2>/dev/null; then
   if (cd "$ROOT" && python3 -m pytest tools/handoff/tests -q -p no:cacheprovider >/tmp/dc-pytest.out 2>&1); then

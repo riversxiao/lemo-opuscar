@@ -25,7 +25,7 @@ const cocShader = {
       gl_FragColor = vec4(col, c);
     }`
 };
-// res is the render-target size in pixels; DofScenePass sets it from (w, h) and setSize() keeps it in step with the renderer size
+// res is the render-target size in pixels; DofScenePass sets it from (w, h) and resize() keeps it in step with post.setSize
 const gatherShader = {
   uniforms: { tIn: { value: null }, res: { value: new THREE.Vector2(1, 1) }, maxCoc: { value: 18 } },
   vertexShader: cocShader.vertexShader,
@@ -68,7 +68,10 @@ class DofScenePass extends Pass {
       this.aoAmt = o.aoAmt ?? .85;
     }
   }
-  setSize(w, h) {   // called by EffectComposer.addPass/setSize with the composer's effective size
+  // Pass.setSize stays the inherited no-op: EffectComposer.addPass/setSize call it with
+  // size x renderer pixelRatio, which would grow the DOF/GTAO targets past the composer
+  // buffers on pixelRatio 2 demos. The size is owned by makePost and changed only here.
+  resize(w, h) {
     if (this.rt.width === w && this.rt.height === h) return;
     this.rt.setSize(w, h); this.rtC.setSize(w, h);
     this.gat.material.uniforms.res.value.set(w, h);
@@ -106,7 +109,13 @@ export function makePost(renderer, scene, camera, w, h, o = {}) {
   const vig = new ShaderPass(vignetteShader);
   const out = new OutputPass();
   composer.addPass(dof); composer.addPass(bloom); composer.addPass(vig); composer.addPass(out);
-  // setSize(w, h) takes CSS pixels like makePost; ssaa is applied here (passes follow via EffectComposer.setSize)
-  const setSize = (w2, h2) => composer.setSize(w2 * s, h2 * s);
+  // setSize(w, h) takes CSS pixels like makePost and re-creates the construction-time sizes:
+  // composer buffers and DOF at w*ssaa x h*ssaa, bloom at that times the pixel ratio (as addPass did)
+  const setSize = (w2, h2) => {
+    const W2 = w2 * s, H2 = h2 * s, pr = renderer.getPixelRatio();
+    composer.setSize(W2 / pr, H2 / pr);
+    dof.resize(W2, H2);
+    bloom.setSize(W2 * pr, H2 * pr);
+  };
   return { composer, dof, bloom, vig, setSize };
 }
