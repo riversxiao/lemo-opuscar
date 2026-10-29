@@ -13,7 +13,7 @@ Studio 清点（本机是否存在、与三风格适配器关系）：[`docs/STU
 Minimal controller for WordFilm: `validate` → `adapt` / **`scaffold`** → **`tts`** → `schedule` → `mix` → `quality` → **`handoff`**.
 
 - Plan schema: `plan.schema.json` (content only; rejects code/path/shader-looking keys).
-- Optional plan `aspect`: `"16:9"` (default, renders 1920x1080) or `"9:16"` (renders 1080x1920). Each manifest lists its `aspects`; `validate` rejects an aspect the style does not support (pictogram-motion is 16:9 only). Scaffold records `aspect` + `size` in `content/engine.lock.json` and writes `--size WxH` into every render command in `PROJECT.md`; `quality` passes the same `--size` to readcheck.
+- Optional plan `aspect`: `"16:9"` (default, renders 1920x1080) or `"9:16"` (renders 1080x1920). Each manifest lists its `aspects`; `validate` rejects an aspect the style does not support (all three engines, caption-news, swiss-motion and pictogram-motion, list `16:9` and `9:16`). Scaffold records `aspect` + `size` in `content/engine.lock.json` and writes `--size WxH` into every render command in `PROJECT.md`; `quality` passes the same `--size` to readcheck.
 - Style manifests: `manifests/{swiss-motion,pictogram-motion,caption-news}.json`.
 - Adapters write **content-only** files under `<project>/content/` (see `adapters/TOUCHABLES.md`).
 - **`scaffold`** (all three styles): copy `styles/<slug>/demo/` → project, adapt, sync touchable sidecars only, write `engine.lock.json` + `PROJECT.md`. Never rewrites style cores (`ease.js`/`film.js`, `engine.js`/`edl.js`, or `main.js`).
@@ -79,7 +79,7 @@ python3 $CTL/cli.py scaffold $CTL/fixtures/plan-caption-news.json \
   -o /tmp/film-liquidity --lib "$LIB"
 ```
 
-竖屏：计划里加 `"aspect": "9:16"`（默认 `"16:9"`）。16:9 渲染 1920x1080，9:16 渲染 1080x1920。风格 manifest 的 `aspects` 列出支持的画幅：caption-news、swiss-motion 支持 16:9 与 9:16，pictogram-motion 只支持 16:9，`validate` 会拒绝不支持的组合。脚手架把 `aspect` 与 `size` 写进 `content/engine.lock.json`，`PROJECT.md` 里 still / video / readcheck / events 命令都带 `--size`。
+竖屏：计划里加 `"aspect": "9:16"`（默认 `"16:9"`）。16:9 渲染 1920x1080，9:16 渲染 1080x1920。风格 manifest 的 `aspects` 列出支持的画幅：caption-news、swiss-motion、pictogram-motion 都支持 16:9 与 9:16（各自有原生竖屏版式），`validate` 会拒绝 manifest 没有列出的画幅。脚手架把 `aspect` 与 `size` 写进 `content/engine.lock.json`，`PROJECT.md` 里 still / video / readcheck / events 命令都带 `--size`。
 
 每个脚手架都会：
 

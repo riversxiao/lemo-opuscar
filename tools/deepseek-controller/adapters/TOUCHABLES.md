@@ -33,7 +33,7 @@ Written under `<project>/` by `adapt` / `scaffold`:
 
 ## Aspect (16:9 / 9:16)
 
-Plan `aspect` is optional (default `16:9`). Allowed per style: `manifests/<slug>.json` → `aspects` (caption-news and swiss-motion: `16:9`, `9:16`; pictogram-motion: `16:9`). The aspect is content, not engine: it only changes the `--size` passed to `core/render/*.mjs` (recorded in `engine.lock.json` and `PROJECT.md`) and the frame used by touchable overlays such as Swiss `texts_runtime.json`. Locked cores are never edited to change the frame.
+Plan `aspect` is optional (default `16:9`). Allowed per style: `manifests/<slug>.json` → `aspects` (caption-news, swiss-motion and pictogram-motion: `16:9`, `9:16`). The aspect is content, not engine: it only changes the `--size` passed to `core/render/*.mjs` (recorded in `engine.lock.json` and `PROJECT.md`) and the frame used by touchable overlays such as Swiss `texts_runtime.json`. Locked cores are never edited to change the frame.
 
 ## Per-style thin glue
 

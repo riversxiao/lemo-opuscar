@@ -88,7 +88,7 @@ write TREATMENT.md
 控制器、真实 VO 排期、统一验收与能力补强见 [`docs/NEXT-ROUND.md`](docs/NEXT-ROUND.md)。
 MVP CLI：[`tools/deepseek-controller/README.md`](tools/deepseek-controller/README.md)（`validate` → `adapt` → `schedule` → `quality`）。Flash 输出严格 JSON 计划，不要直接改引擎核心。
 
-**画幅 `aspect`：** 计划可选 `"aspect": "16:9"`（默认，1920x1080）或 `"9:16"`（竖屏，1080x1920）。只有 manifest `aspects` 列出的风格可用竖屏（caption-news、swiss-motion；pictogram-motion 仅 16:9），否则 `validate` 拒绝。竖屏项目的 still / video / readcheck / events 一律带 `--size 1080x1920`（照抄 `PROJECT.md`），不要为了竖屏去改引擎核心。
+**画幅 `aspect`：** 计划可选 `"aspect": "16:9"`（默认，1920x1080）或 `"9:16"`（竖屏，1080x1920）。只有 manifest `aspects` 列出的风格可用竖屏（caption-news、swiss-motion、pictogram-motion 都支持），否则 `validate` 拒绝。竖屏项目的 still / video / readcheck / events 一律带 `--size 1080x1920`（照抄 `PROJECT.md`），不要为了竖屏去改引擎核心。
 
 ## VO / TTS（所有供应商）
 

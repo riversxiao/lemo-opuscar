@@ -79,7 +79,7 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 
 - 目录与用法：[`tools/deepseek-controller/README.md`](tools/deepseek-controller/README.md)
 - 计划：`python3 tools/deepseek-controller/cli.py validate|adapt|schedule|quality …`
-- 竖屏：计划加 `"aspect": "9:16"`（默认 `"16:9"`），渲染 1080x1920；caption-news / swiss-motion 支持，pictogram-motion 只支持 16:9。`PROJECT.md` 的渲染命令自动带 `--size`。
+- 竖屏：计划加 `"aspect": "9:16"`（默认 `"16:9"`），渲染 1080x1920；caption-news / swiss-motion / pictogram-motion 都支持（原生竖屏版式）。`PROJECT.md` 的渲染命令自动带 `--size`。
 - 下一轮范围：[`docs/NEXT-ROUND.md`](docs/NEXT-ROUND.md)
 
 Flash 仍须先复制官方 `demo/` 引擎；控制器**只写** `content/` 与时间表/质量报告，不改引擎核心。

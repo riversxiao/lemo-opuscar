@@ -84,9 +84,9 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 ### 竖屏 9:16
 
 - 渲染工具都接受 `--size 1080x1920`（`still.mjs`、`events.mjs`、`readcheck.mjs`、`video.mjs`）；页面按 `innerWidth` × `innerHeight` 排版。
-- 有原生竖屏版式（单独构图，不是裁切）的风格：**字幕新闻**（顶部 1080×1560 画面带，下方两行字幕卡）和 **瑞士动态排版**（上页面、下海报，陈述句换行）。每个风格在 `style.json` 的 `aspects` 里列出支持的画幅，并用 `"portrait": "native"` 或 `"reframe"` 说明竖屏怎么出。
+- 有原生竖屏版式（单独构图，不是裁切）的风格：**字幕新闻**（顶部 1080×1560 画面带，下方两行字幕卡）、**瑞士动态排版**（上页面、下海报，陈述句换行）和 **象形运动图形**（象形人和太阳圆在上半部，标题在下方安全区内堆叠，过长的标题逐级缩小或折成两行）。每个风格在 `style.json` 的 `aspects` 里列出支持的画幅，并用 `"portrait": "native"` 或 `"reframe"` 说明竖屏怎么出。
 - 其余风格竖屏时用**重新取景（reframe）**：demo 仍按 1920×1080 渲染，完整的 16:9 画面（不裁切，文字全部保留）放在竖屏中间，上下用同一画面的模糊放大版（或 `portraitFill` 指定的纯色）填充。`still.mjs` 和 `video.mjs` 会自动这样做并打印一行说明；加 `--native` 则按竖屏尺寸直接渲染页面。要给某个风格做原生竖屏，按 `innerWidth` / `innerHeight` 分支排版，参考字幕新闻的 `P(land, port)` 写法（见 `core/README.md` 的 **Portrait reframe**）。
-- 控制层计划：`"aspect": "9:16"`（默认 `"16:9"`）。象形动态还没有 9:16 计划，校验会直接说明。
+- 控制层计划：`"aspect": "9:16"`（默认 `"16:9"`），三个引擎（字幕新闻、瑞士动态排版、象形运动图形）都支持。
 - 剪辑交接：`handoff --size 1080x1920 --fps 30`，不写则用 ffprobe 从成片读取尺寸和帧率。
 
 ### 从 Lemo-Opuscar 迁移
