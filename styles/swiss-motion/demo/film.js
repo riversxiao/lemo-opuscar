@@ -73,18 +73,52 @@ function wordTimes(L) {
   if (w && w.length === n) return w.map(x => L.t + x);
   return Array.from({ length: n }, (_, i) => L.t + i * .26);
 }
+// Portrait statements wrap at LY.measure but keep to MAX_BIG_LINES (the TEXTS boxes in
+// apply_swiss_texts.POS_BOX_PORTRAIT hold the small line + two big lines): longer copy, or a
+// word (a CJK run) wider than the measure, steps the type down instead of spilling out of the box.
+const MAX_BIG_LINES = 2, BIG_MIN = 36, SMALL_MIN = 20;
+function wrapLines(g, words, measure) {   // the same rule drawLine uses; Infinity if a word cannot fit
+  let n = 1, cx = 0;
+  for (const wd of words) {
+    const w = textW(g, wd);
+    if (w > measure) return Infinity;
+    if (cx > 0 && cx + w > measure) { cx = 0; n++; }
+    cx += textW(g, wd + ' ');
+  }
+  return n;
+}
+function fitLine(g, L, bigSize) {
+  if (L.fit && L.fit.ly === LY && L.fit.base === bigSize) return L.fit;
+  const f = { ly: LY, base: bigSize, big: bigSize, lineH: LY.lineH, small: 30, lines: 1 };
+  if (LY.measure !== Infinity) {
+    const words = L.big.split(' ');
+    for (; f.big > BIG_MIN; f.big -= 2) {
+      font(g, L.soft ? 400 : 700, f.big);
+      if (wrapLines(g, words, LY.measure) <= MAX_BIG_LINES) break;
+    }
+    font(g, L.soft ? 400 : 700, f.big); f.lines = wrapLines(g, words, LY.measure);
+    f.lineH = Math.round(LY.lineH * f.big / bigSize);
+    if (L.small) {
+      font(g, 500, 30);
+      const w = textW(g, L.small);
+      if (w > LY.measure) f.small = Math.max(SMALL_MIN, Math.floor(30 * LY.measure / w));
+    }
+    if (f.lines > MAX_BIG_LINES) console.warn(`swiss-motion: ${L.id} needs ${f.lines} lines at ${f.big}px in 9:16; shorten it`);
+  }
+  return (L.fit = f);
+}
 function drawLine(g, L, t, x, ySmall, yBig, bigSize = 76) {
   if (t < L.t - .1 || t > L.end + .2) return;
   const ts = wordTimes(L), sm = L.small ? L.small.split(' ') : [], bg = L.big.split(' ');
-  const q = snap(t, L.end, E8);
+  const q = snap(t, L.end, E8), F = fitLine(g, L, bigSize);
   let i = 0, cx = x;
-  font(g, 500, 30); g.fillStyle = C.mute;
-  for (const wd of sm) { revealText(g, wd, cx, ySmall, 30, snap(t, ts[i] + E16, E16), q); cx += textW(g, wd + ' '); i++; }
-  cx = x; font(g, L.soft ? 400 : 700, bigSize); g.fillStyle = C.ink;
+  font(g, 500, F.small); g.fillStyle = C.mute;
+  for (const wd of sm) { revealText(g, wd, cx, ySmall, F.small, snap(t, ts[i] + E16, E16), q); cx += textW(g, wd + ' '); i++; }
+  cx = x; font(g, L.soft ? 400 : 700, F.big); g.fillStyle = C.ink;
   let y = yBig;   // portrait: a word that would cross the measure starts the next line
   for (const wd of bg) {
-    if (cx > x && cx + textW(g, wd) > x + LY.measure) { cx = x; y += LY.lineH; }
-    revealText(g, wd, cx, y, bigSize, snap(t, ts[i] + E16, E16), q); cx += textW(g, wd + ' '); i++;
+    if (cx > x && cx + textW(g, wd) > x + LY.measure) { cx = x; y += F.lineH; }
+    revealText(g, wd, cx, y, F.big, snap(t, ts[i] + E16, E16), q); cx += textW(g, wd + ' '); i++;
   }
 }
 
