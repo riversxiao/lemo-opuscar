@@ -12,7 +12,7 @@ Ready only when a key is set. Limits respected: ≤ 4 concurrent requests (accou
 ≥ 0.7 s between request starts (< 100 RPM), retry 429/5xx with backoff; 401/402/404 stop.
 
 Voice consistency: every line uses the SAME role name + description + instruction
-(env LEMO_TTS_STEPAUDIO_ROLE overrides the description). The preview API has no
+(env WORDFILM_TTS_STEPAUDIO_ROLE overrides the description). The preview API has no
 fixed voice id/seed (`voice` is unsupported), so cross-line timbre drift is possible;
 check by ear / F0 spread.
 """
@@ -33,6 +33,8 @@ from typing import Any
 import numpy as np
 import soundfile as sf
 
+from . import env
+
 SR = 24000
 GEN_MODEL = "stepaudio-3-gen-preview"
 MUSIC_MODEL = "stepaudio-3-music-preview"
@@ -50,7 +52,7 @@ class StepFunError(RuntimeError):
 
 
 def base_url() -> str:
-    return os.environ.get("LEMO_TTS_STEPAUDIO_BASE", "https://api.stepfun.com/v1").rstrip("/")
+    return env("TTS_STEPAUDIO_BASE", "https://api.stepfun.com/v1").rstrip("/")
 
 
 def api_key() -> str | None:
@@ -194,7 +196,7 @@ def _asr_words(a: np.ndarray, sr: int, texts: list[str]) -> list[tuple[float, fl
     from faster_whisper import WhisperModel
 
     a16 = soxr.resample(a, sr, 16000).astype(np.float32)
-    m = WhisperModel(os.environ.get("LEMO_ASR_MODEL", "small"), device="cpu", compute_type="int8")
+    m = WhisperModel(env("ASR_MODEL", "small"), device="cpu", compute_type="int8")
     segs, _ = m.transcribe(a16, language="zh", word_timestamps=True, initial_prompt="".join(texts)[:200])
     return [(w.start, w.end, w.word) for sg in segs for w in sg.words]
 
@@ -239,14 +241,14 @@ def synthesize_session(lines: list[dict[str, Any]], out_dir: str, *, role: str, 
 def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[str, float]:
     """tts_router provider entry: writes <id>.wav (24 kHz mono) + dur.json.
 
-    LEMO_TTS_STEPAUDIO_MODE=session (default: whole script in one request → one voice)
+    WORDFILM_TTS_STEPAUDIO_MODE=session (default: whole script in one request → one voice)
     or per-line (one request per line + pitch retakes; voices can drift between lines).
     """
     if not api_key():
         sys.exit("tts_router: provider 'stepaudio' needs STEPFUN_API_KEY in the environment")
-    if (opts.get("mode") or os.environ.get("LEMO_TTS_STEPAUDIO_MODE") or "session") == "session":
-        role = os.environ.get("LEMO_TTS_STEPAUDIO_ROLE") or DEFAULT_ROLE
-        speed = float(opts.get("speed") or os.environ.get("LEMO_TTS_STEPAUDIO_SPEED") or 1.0)
+    if (opts.get("mode") or env("TTS_STEPAUDIO_MODE") or "session") == "session":
+        role = env("TTS_STEPAUDIO_ROLE") or DEFAULT_ROLE
+        speed = float(opts.get("speed") or env("TTS_STEPAUDIO_SPEED") or 1.0)
         os.makedirs(out_dir, exist_ok=True)
         try:
             dur, info = synthesize_session(lines, out_dir, role=role, speed=speed, words_fn=opts.get("words_fn"))
@@ -261,7 +263,7 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
                        "instruction": SESSION_INSTRUCTION, "pricing": "限时免费 (preview)", **info}, f,
                       ensure_ascii=False, indent=1)
         return dur
-    role = os.environ.get("LEMO_TTS_STEPAUDIO_ROLE") or DEFAULT_ROLE
+    role = env("TTS_STEPAUDIO_ROLE") or DEFAULT_ROLE
     v = opts.get("voice")
     if v and not str(v).startswith(("zh-", "en-")) and len(str(v)) > 8:
         role = str(v)  # a free-text voice description, not an edge/kokoro voice id
@@ -269,9 +271,9 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
     todo = [(L["id"], str(L.get("say") or L.get("text") or "")) for L in lines]
     dur: dict[str, float] = {}
 
-    speed = float(opts.get("speed") or os.environ.get("LEMO_TTS_STEPAUDIO_SPEED") or 1.0)
-    takes = max(1, int(os.environ.get("LEMO_TTS_STEPAUDIO_TAKES", "4")))
-    tol = float(os.environ.get("LEMO_TTS_STEPAUDIO_F0_TOL_ST", "2.0"))
+    speed = float(opts.get("speed") or env("TTS_STEPAUDIO_SPEED") or 1.0)
+    takes = max(1, int(env("TTS_STEPAUDIO_TAKES", "4")))
+    tol = float(env("TTS_STEPAUDIO_F0_TOL_ST", "2.0"))
     best: dict[str, tuple[np.ndarray, float | None, int]] = {}
 
     def one(item):
@@ -288,7 +290,7 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
             for lid, a, f0 in ex.map(one, todo):
                 best[lid] = (a, f0, 1)
         f0s = [v[1] for v in best.values() if v[1]]
-        target = float(os.environ.get("LEMO_TTS_STEPAUDIO_F0") or (np.median(f0s) if f0s else 0) or 0)
+        target = float(env("TTS_STEPAUDIO_F0") or (np.median(f0s) if f0s else 0) or 0)
         if target and takes > 1:
             for _ in range(takes - 1):
                 redo = [(lid, t) for lid, t in todo if _st(best[lid][1], target) > tol]

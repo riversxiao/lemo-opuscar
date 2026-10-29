@@ -6,10 +6,10 @@ logs secrets. Explicit opt-in only (not in `--provider auto`).
 
 Env (preferred name first):
   ELEVENLABS_API_KEY          required (alias: ELEVEN_API_KEY)
-  ELEVENLABS_VOICE_ID         voice uuid (alias: LEMO_TTS_ELEVENLABS_VOICE);
+  ELEVENLABS_VOICE_ID         voice uuid (alias: WORDFILM_TTS_ELEVENLABS_VOICE);
                               default 21m00Tcm4TlvDq8ikWAM (Rachel, public demo voice)
-  LEMO_TTS_ELEVENLABS_MODEL   default eleven_multilingual_v2
-  LEMO_TTS_ELEVENLABS_BASE    default https://api.elevenlabs.io/v1
+  WORDFILM_TTS_ELEVENLABS_MODEL   default eleven_multilingual_v2
+  WORDFILM_TTS_ELEVENLABS_BASE    default https://api.elevenlabs.io/v1
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from typing import Any
 import numpy as np
 import soundfile as sf
 
-from . import http_speech
+from . import env, http_speech
 
 SR = 24000
 DEFAULT_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"  # Rachel — public multilingual demo voice
@@ -45,7 +45,7 @@ def api_key() -> str | None:
 
 
 def base_url() -> str:
-    return (os.environ.get("LEMO_TTS_ELEVENLABS_BASE") or DEFAULT_BASE).rstrip("/")
+    return (env("TTS_ELEVENLABS_BASE") or DEFAULT_BASE).rstrip("/")
 
 
 def voice_id(explicit: str | None = None) -> str:
@@ -54,13 +54,13 @@ def voice_id(explicit: str | None = None) -> str:
         return str(explicit).strip()
     return (
         os.environ.get("ELEVENLABS_VOICE_ID")
-        or os.environ.get("LEMO_TTS_ELEVENLABS_VOICE")
+        or env("TTS_ELEVENLABS_VOICE")
         or DEFAULT_VOICE_ID
     ).strip()
 
 
 def model_id() -> str:
-    return (os.environ.get("LEMO_TTS_ELEVENLABS_MODEL") or DEFAULT_MODEL).strip()
+    return (env("TTS_ELEVENLABS_MODEL") or DEFAULT_MODEL).strip()
 
 
 def _decode_pcm24(raw: bytes) -> np.ndarray:

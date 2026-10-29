@@ -6,7 +6,7 @@
 
 Default provider: edge (tts_zh.py / Yunxi). Offline second path: kokoro
 (via repo .venv-voice when present). qwen3 / omnivoice activate only when
-LEMO_TTS_*_BASE is set (HTTP client ready; no API keys invented).
+WORDFILM_TTS_*_BASE is set (HTTP client ready; no API keys invented).
 
 See tools/tts_router.md. VO completeness checks apply for every provider.
 """
@@ -20,7 +20,7 @@ import sys
 # Allow `python core/tts/tts_router.py` without installing a package.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from providers import edge_provider, elevenlabs, elevenlabs_dialogue, kokoro_provider, omnivoice, qwen3, stepaudio  # noqa: E402
+from providers import env, edge_provider, elevenlabs, elevenlabs_dialogue, kokoro_provider, omnivoice, qwen3, stepaudio  # noqa: E402
 from providers.runtime import list_statuses, probe_edge, probe_elevenlabs, probe_elevenlabs_dialogue, probe_kokoro, probe_omnivoice, probe_qwen3, probe_stepaudio  # noqa: E402
 
 SYNTH = {
@@ -139,7 +139,7 @@ def synthesize(
             sys.exit(
                 "tts_router: --provider auto found no ready providers.\n"
                 "  Install edge-tts and/or create .venv-voice for kokoro; "
-                "or set LEMO_TTS_QWEN3_BASE / LEMO_TTS_OMNIVOICE_BASE.\n"
+                "or set WORDFILM_TTS_QWEN3_BASE / WORDFILM_TTS_OMNIVOICE_BASE.\n"
                 "  Run: python core/tts/tts_router.py --list"
             )
     else:
@@ -175,12 +175,12 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("out_dir", nargs="?", help="output directory for <id>.wav + dur.json")
     ap.add_argument(
         "--provider",
-        default=os.environ.get("LEMO_TTS_PROVIDER", "edge"),
-        help="edge|kokoro|qwen3|omnivoice|stepaudio|elevenlabs|elevenlabs-dialogue|auto (default: env LEMO_TTS_PROVIDER or edge)",
+        default=env("TTS_PROVIDER", "edge"),
+        help="edge|kokoro|qwen3|omnivoice|stepaudio|elevenlabs|elevenlabs-dialogue|auto (default: env WORDFILM_TTS_PROVIDER or edge)",
     )
     ap.add_argument(
         "--fallback",
-        default=os.environ.get("LEMO_TTS_FALLBACK", "edge,kokoro"),
+        default=env("TTS_FALLBACK", "edge,kokoro"),
         help="comma list tried after the primary fails (also seeds auto order). empty disables",
     )
     ap.add_argument("--voice", default=None, help="default voice (edge: Yunxi; kokoro: zf_xiaoxiao)")

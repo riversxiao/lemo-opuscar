@@ -140,7 +140,7 @@ A reviser rewrites only flagged lines (text/say/cap/want; ids/functions/order lo
 `llm-api` ledger row from the balance delta. Tests use `--mock` (no network, no ledger).
 
 StepAudio (StepFun, **free preview only**): `tts --provider stepaudio` (stepaudio-3-gen-preview via `/v1/audio/generate`,
-pitch-consistency retakes, `LEMO_TTS_STEPAUDIO_SPEED`) and `mix --bed-source stepaudio [--music-caption …]`
+pitch-consistency retakes, `WORDFILM_TTS_STEPAUDIO_SPEED`) and `mix --bed-source stepaudio [--music-caption …]`
 (stepaudio-3-music-preview instrumental, cached, cut/faded/RMS-matched). Key from `STEPFUN_API_KEY`; paid `/audio/speech`
 TTS and ASR routes are refused in code.
 

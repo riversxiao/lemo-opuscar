@@ -23,7 +23,8 @@ SHANGHAI = timezone(timedelta(hours=8))
 
 # OpenCode session DB of the current user (optional seed import).
 DEFAULT_OPENCODE_DB = Path(
-    os.environ.get("LEMO_OPENCODE_DB")
+    os.environ.get("WORDFILM_OPENCODE_DB")
+    or os.environ.get("LEMO_OPENCODE_DB")
     or Path.home() / ".local" / "share" / "opencode" / "opencode.db"
 )
 

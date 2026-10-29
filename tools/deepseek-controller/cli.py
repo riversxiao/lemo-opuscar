@@ -714,7 +714,7 @@ def build_parser() -> argparse.ArgumentParser:
     bgi.add_argument(
         "--db",
         default=None,
-        help="default: $LEMO_OPENCODE_DB or ~/.local/share/opencode/opencode.db",
+        help="default: $WORDFILM_OPENCODE_DB (or $LEMO_OPENCODE_DB) or ~/.local/share/opencode/opencode.db",
     )
     bgi.add_argument(
         "--filter",

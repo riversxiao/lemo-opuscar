@@ -1,6 +1,6 @@
 """Minimal OpenAI-compatible POST /v1/audio/speech client (stdlib only).
 
-Used by qwen3 / omnivoice when LEMO_TTS_*_BASE is set. Writes 24 kHz mono WAV
+Used by qwen3 / omnivoice when WORDFILM_TTS_*_BASE is set. Writes 24 kHz mono WAV
 matching tts_zh.py / tts.py layout. No API keys are invented — pass via env.
 """
 from __future__ import annotations

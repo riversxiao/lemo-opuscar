@@ -843,7 +843,7 @@ def _dialogue_loop_check(project: Path) -> dict[str, Any]:
 
 def _spk_python() -> str | None:
     import shutil
-    cands = [os.environ.get("LEMO_SPK_PYTHON"), str(_repo_root() / ".venv-spk" / "bin" / "python"),
+    cands = [os.environ.get("WORDFILM_SPK_PYTHON"), os.environ.get("LEMO_SPK_PYTHON"), str(_repo_root() / ".venv-spk" / "bin" / "python"),
              str(_repo_root() / ".venv-voice" / "bin" / "python"), shutil.which("python3")]
     for c in cands:
         if c and Path(c).exists():
@@ -915,7 +915,7 @@ def run_speaker_check(project: Path, has_vo: bool) -> dict[str, Any]:
         return check("speaker_consistency", "NOT_CHECKED",
                      "resemblyzer not installed (python -m venv .venv-spk && .venv-spk/bin/pip install torch "
                      "--index-url https://download.pytorch.org/whl/cpu resemblyzer webrtcvad-wheels librosa); "
-                     "or LEMO_SPK_PYTHON", required=True)
+                     "or WORDFILM_SPK_PYTHON", required=True)
     script = _repo_root() / "core" / "tts" / "speaker_check.py"
     try:
         r = subprocess.run([py, str(script), str(voices), "--ids", ",".join(ids)],

@@ -23,7 +23,9 @@ python3 tools/deepseek-controller/cli.py tts --project /path/to/film \
   --provider auto --fallback kokoro,edge
 ```
 
-Defaults: **`edge`** (Yunxi). Env overrides: `LEMO_TTS_PROVIDER`, `LEMO_TTS_FALLBACK`, `LEMO_TTS_PYTHON` (interpreter for subprocess providers).
+Defaults: **`edge`** (Yunxi). Env overrides: `WORDFILM_TTS_PROVIDER`, `WORDFILM_TTS_FALLBACK`, `WORDFILM_TTS_PYTHON` (interpreter for subprocess providers).
+Every `WORDFILM_TTS_*` / `WORDFILM_SPK_PYTHON` / `WORDFILM_ASR_MODEL` setting below also accepts the upstream
+name with `LEMO_` in place of `WORDFILM_` (used when the `WORDFILM_` one is unset).
 
 ## Input · `lines.json`
 
@@ -60,9 +62,9 @@ Defaults: **`edge`** (Yunxi). Env overrides: `LEMO_TTS_PROVIDER`, `LEMO_TTS_FALL
 | id | Module | Network | Status |
 |---|---|---|---|
 | `edge` | `tts_zh.py` / edge-tts | required (Microsoft) | **ready** · default Yunxi |
-| `kokoro` | `tts.py` + `lang: cmn` | offline | **ready** when `.venv-voice` (or `LEMO_TTS_PYTHON`) has `kokoro-onnx` and weights exist |
-| `qwen3` | `providers/http_speech.py` | optional HTTP | **needs-server** until `LEMO_TTS_QWEN3_BASE` is set |
-| `omnivoice` | same HTTP client | optional HTTP | **needs-server** until `LEMO_TTS_OMNIVOICE_BASE` is set |
+| `kokoro` | `tts.py` + `lang: cmn` | offline | **ready** when `.venv-voice` (or `WORDFILM_TTS_PYTHON`) has `kokoro-onnx` and weights exist |
+| `qwen3` | `providers/http_speech.py` | optional HTTP | **needs-server** until `WORDFILM_TTS_QWEN3_BASE` is set |
+| `omnivoice` | same HTTP client | optional HTTP | **needs-server** until `WORDFILM_TTS_OMNIVOICE_BASE` is set |
 | `stepaudio` | `providers/stepaudio.py` | StepFun cloud | **needs-key** until `STEPFUN_API_KEY` is set; explicit only (not in `auto`) |
 | `elevenlabs` | `providers/elevenlabs.py` | ElevenLabs cloud | **needs-key** until `ELEVENLABS_API_KEY` is set; explicit only (not in `auto`) |
 | `elevenlabs-dialogue` | `providers/elevenlabs_dialogue.py` | ElevenLabs cloud | **needs-key**; multi-speaker Text-to-Dialogue; explicit only |
@@ -73,31 +75,31 @@ Defaults: **`edge`** (Yunxi). Env overrides: `LEMO_TTS_PROVIDER`, `LEMO_TTS_FALL
   description) and `stepaudio-3-music-preview` (instrumental bed, used by `music_bed.py --bed-source stepaudio`).
   Both are 限时免费 on the StepFun pricing page. Paid TTS (`/v1/audio/speech`, `stepaudio-3-tts`, `step-tts-*`) and
   ASR are refused in code.
-- Env: `STEPFUN_API_KEY` (or `STEP_API_KEY`), `LEMO_TTS_STEPAUDIO_BASE` (default `https://api.stepfun.com/v1`),
-  `LEMO_TTS_STEPAUDIO_ROLE` (voice description), `LEMO_TTS_STEPAUDIO_SPEED`, `LEMO_TTS_STEPAUDIO_TAKES` (default 4),
-  `LEMO_TTS_STEPAUDIO_F0_TOL_ST` (default 2.0). Edge voice ids in `lines.json` are ignored.
+- Env: `STEPFUN_API_KEY` (or `STEP_API_KEY`), `WORDFILM_TTS_STEPAUDIO_BASE` (default `https://api.stepfun.com/v1`),
+  `WORDFILM_TTS_STEPAUDIO_ROLE` (voice description), `WORDFILM_TTS_STEPAUDIO_SPEED`, `WORDFILM_TTS_STEPAUDIO_TAKES` (default 4),
+  `WORDFILM_TTS_STEPAUDIO_F0_TOL_ST` (default 2.0). Edge voice ids in `lines.json` are ignored.
 - Limits: ≤4 concurrent, ≥0.7 s between requests (<100 RPM); 429/5xx retried with backoff; 401/402/404 stop.
 - The preview has no voice lock: `voice` / `voice_label` are documented as unsupported (a `voice` field is accepted
   with HTTP 200 but ignored — measured: a female voice id returns the same default male voice), reference_to_audio is
   not open, and voice cloning is paid-TTS only. Separate requests therefore come back as different speakers.
-- `LEMO_TTS_STEPAUDIO_MODE=session` (default): every line goes into ONE request as consecutive scripts of the same
+- `WORDFILM_TTS_STEPAUDIO_MODE=session` (default): every line goes into ONE request as consecutive scripts of the same
   speaker (≤1000 chars total), then the take is cut per line by aligning local faster-whisper character timings to the
   script and snapping cuts into pauses (`providers/vo_split.py`; <85% aligned chars → hard fail, no fallback).
-  `per-line`: one request per line, median-F0 retakes (>2 semitones off, ≤`LEMO_TTS_STEPAUDIO_TAKES`) — kept for
+  `per-line`: one request per line, median-F0 retakes (>2 semitones off, ≤`WORDFILM_TTS_STEPAUDIO_TAKES`) — kept for
   comparison only. `voices/stepaudio_meta.json` records mode, bounds and alignment.
 - One-voice gate: `cli.py quality` runs `core/tts/speaker_check.py` (Resemblyzer GE2E, CPU) — every line vs the others'
   centroid ≥0.80 and every pair ≥0.70, else high FAIL. Setup (not committed):
   `python3 -m venv /workspace/.venv-spk && /workspace/.venv-spk/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu && /workspace/.venv-spk/bin/pip install --no-deps resemblyzer && /workspace/.venv-spk/bin/pip install webrtcvad-wheels librosa`
-  then `ln -s /workspace/.venv-spk .venv-spk` (or set `LEMO_SPK_PYTHON`).
+  then `ln -s /workspace/.venv-spk .venv-spk` (or set `WORDFILM_SPK_PYTHON`).
 
 
 ### ElevenLabs
 
 - Route: `POST /v1/text-to-speech/{voice_id}?output_format=pcm_24000` → 24 kHz mono WAV.
-- Model default: `eleven_multilingual_v2` (Chinese VO). Override with `LEMO_TTS_ELEVENLABS_MODEL`.
+- Model default: `eleven_multilingual_v2` (Chinese VO). Override with `WORDFILM_TTS_ELEVENLABS_MODEL`.
 - Env: **`ELEVENLABS_API_KEY`** (preferred; alias `ELEVEN_API_KEY`), `ELEVENLABS_VOICE_ID` (alias
-  `LEMO_TTS_ELEVENLABS_VOICE`; default `21m00Tcm4TlvDq8ikWAM` / Rachel public demo voice),
-  `LEMO_TTS_ELEVENLABS_BASE` (default `https://api.elevenlabs.io/v1`).
+  `WORDFILM_TTS_ELEVENLABS_VOICE`; default `21m00Tcm4TlvDq8ikWAM` / Rachel public demo voice),
+  `WORDFILM_TTS_ELEVENLABS_BASE` (default `https://api.elevenlabs.io/v1`).
 - Explicit only: `--provider elevenlabs` (not in `auto`). `--list` reports `needs-key` until the key is set.
 - Key is never printed. Edge/Kokoro `*Neural` voice names in `--voice` are ignored in favour of the ElevenLabs voice id.
 
@@ -113,7 +115,7 @@ This path is the dialogue TTS layer only — not a full podcast pipeline like po
   `<id>.wav` slices + `dialogue_manifest.json` (speaker/text/voice_id; start/end are **char-share
   estimates** inside each API chunk — word timestamps not wired yet).
 - Model: preferred `eleven_v4`, automatic fallback to `eleven_v3` on model/validation errors.
-  Override with `LEMO_TTS_ELEVENLABS_DIALOGUE_MODEL`.
+  Override with `WORDFILM_TTS_ELEVENLABS_DIALOGUE_MODEL`.
 - Limits: ≤10 unique `voice_id`s and ≤2000 characters total per request; longer scripts are chunked.
 - Script (`lines.json` list): each object needs `text` (or `say`) and a speaker label
   (`speaker` / `speaker_id` / `role`). Optional per-line `voice_id`.
@@ -154,7 +156,7 @@ uv pip install --python .venv-voice/bin/python kokoro-onnx soundfile numpy edge-
 python core/tts/tts_router.py --list   # kokoro → ready
 ```
 
-Or point `LEMO_TTS_PYTHON` at any interpreter that can `import kokoro_onnx`.
+Or point `WORDFILM_TTS_PYTHON` at any interpreter that can `import kokoro_onnx`.
 
 ### Enable qwen3 / omnivoice (self-hosted)
 
@@ -162,16 +164,16 @@ HTTP client is implemented (stdlib + ffmpeg). **No API keys are shipped or inven
 
 ```sh
 # example — only after YOU start a local OpenAI-compatible speech server
-export LEMO_TTS_QWEN3_BASE=http://127.0.0.1:8091/v1
+export WORDFILM_TTS_QWEN3_BASE=http://127.0.0.1:8091/v1
 # optional:
-# export LEMO_TTS_QWEN3_MODEL=tts-1
-# export LEMO_TTS_QWEN3_API_KEY=…   # only if your server requires one
+# export WORDFILM_TTS_QWEN3_MODEL=tts-1
+# export WORDFILM_TTS_QWEN3_API_KEY=…   # only if your server requires one
 
 python core/tts/tts_router.py --list          # qwen3 → ready
 python core/tts/tts_router.py lines.json out --provider qwen3
 ```
 
-Same pattern for OmniVoice: `LEMO_TTS_OMNIVOICE_BASE=http://127.0.0.1:8880/v1`.
+Same pattern for OmniVoice: `WORDFILM_TTS_OMNIVOICE_BASE=http://127.0.0.1:8880/v1`.
 
 Self-host references (do not vendor weights here):
 
