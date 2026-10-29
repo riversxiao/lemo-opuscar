@@ -125,23 +125,37 @@ This path is the dialogue TTS layer only — not a full podcast pipeline like po
   ```
 - Voice map (first hit wins): line `voice_id` → `ELEVENLABS_VOICE_MAP` JSON /
   `ELEVENLABS_VOICE_MAP_FILE` → `ELEVENLABS_VOICE_<SPEAKER>` (e.g. `ELEVENLABS_VOICE_HOST`,
-  `ELEVENLABS_VOICE_GUEST`) → `ELEVENLABS_VOICE_ID` default.
+  `ELEVENLABS_VOICE_GUEST`) → built-in defaults (host Tex, guest by content type, see below) →
+  `ELEVENLABS_VOICE_ID` for other speakers.
 - CLI: `python3 tools/deepseek-controller/cli.py tts --project P --provider elevenlabs-dialogue`
   (same key as single-speaker; explicit only, not in `auto`).
-- **Default host (zh + English finance terms)** — shared Voice Library voice, added to the account via
-  `POST /v1/voices/add/{public_owner_id}/{voice_id}` (ids are not secrets):
+- **Default host:** Tex `TKaUqol7GKx4m7enpCpP` (English-leaning tech male). It's used for speaker `host`
+  unless `ELEVENLABS_VOICE_HOST` / the voice map says otherwise.
+- **Guest (female co-host) by content type**: `--content-type` (router + `cli.py tts`), or the config field
+  `"content_type"` in the project's `plan.json`, or env `LEMO_TTS_ELEVENLABS_CONTENT_TYPE`.
+  Applies to speakers `guest` / `cohost`. All voices are shared-library voices already added to the account.
+
+  | content_type | Use for | Guest voice |
+  |---|---|---|
+  | `market` (default) | market / macro / news style: bonds, rates, index, 财经新闻 | Linda `t5SIDRTVMdbNUqrSAycs` |
+  | `concept` | concept explainers, more English terms, bilingual teaching | Ladaisy `8RCmdqih4CKjJ7Bd3ZxT` |
+  | `personal` | personal finance / lifestyle / 理财习惯: emergency fund, budgeting, saving | Shusita `iCrb0E1mQG2baVhfLIGF` |
+  | `english` | English-heavy episodes, investing strategy: DCA, diversification | Joan `qgrPcGqsZG6TpPzso4fK` |
+
+  Aliases (case-insensitive): macro/news/bonds/rates/index/财经新闻/宏观 → market; explainer/teaching/bilingual/概念
+  → concept; lifestyle/budgeting/saving/理财习惯/个人理财 → personal; investing/strategy/dca/diversification/en →
+  english. Unknown values fail fast. No type → `market` (Linda).
+- **Precedence** (first hit wins): line `voice_id` → `ELEVENLABS_VOICE_MAP(_FILE)` → `ELEVENLABS_VOICE_<SPEAKER>`
+  (so an explicit `ELEVENLABS_VOICE_GUEST` always overrides content type) → content-type table → defaults.
+  Type source: CLI flag → `plan.json` `content_type` → env → `market`.
   ```sh
-  export ELEVENLABS_VOICE_HOST=TKaUqol7GKx4m7enpCpP   # Tex — English-leaning tech male (approved)
-  # ELEVENLABS_VOICE_GUEST=TBD — pick from round-2 female candidates below
+  python3 tools/deepseek-controller/cli.py tts --project P --provider elevenlabs-dialogue --content-type personal
   ```
-  Round-2 female guest candidates (all added; audition `films/elevenlabs-voice-audition/round2/`, outside git):
-  Linda `t5SIDRTVMdbNUqrSAycs` (warm mature Mandarin, business/finance news),
-  Ladaisy `8RCmdqih4CKjJ7Bd3ZxT` (crisp standard Mandarin + British English),
-  Shusita `iCrb0E1mQG2baVhfLIGF` (Taiwanese Mandarin podcast/radio, conversational),
-  Joan `qgrPcGqsZG6TpPzso4fK` (Chinese-native, American English).
-  Rejected after round 1: Skylar, Shasha, Kathy (female); Loh, Jerry remain male alternates.
-  Deliberately avoid high-usage premade/library voices (Rachel, Adam Li, Xiaoxi, …) so output doesn't
-  sound like everyone else's. Shared voices must be added to the account before `text-to-dialogue` accepts them.
+  `dialogue_manifest.json` / `tts_router.json` record `contentType`. Mock test:
+  `tools/deepseek-controller/tests/elevenlabs_content_type_mock.py`.
+  Rejected after round 1: Skylar, Shasha, Kathy (female). Loh and Jerry stay as male alternates. Avoid
+  high-usage premade/library voices (Rachel, Adam Li, Xiaoxi, …). Auditions: `films/elevenlabs-voice-audition/`
+  (outside git).
 
 
 ### Enable kokoro (offline second path)

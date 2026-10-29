@@ -188,6 +188,7 @@ def cmd_tts(args: argparse.Namespace) -> int:
             rate=args.rate,
             pitch=args.pitch,
             post_words=not args.no_post_words,
+            content_type=getattr(args, "content_type", None),
         )
     except (FileNotFoundError, SystemExit) as e:
         print(f"ERROR: {e}", file=sys.stderr)
@@ -500,6 +501,12 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--voice", default=None)
     t.add_argument("--rate", default="+0%")
     t.add_argument("--pitch", default="+0Hz")
+    t.add_argument(
+        "--content-type",
+        default=None,
+        help="elevenlabs-dialogue guest by content: market|concept|personal|english "
+             "(default: plan.json content_type, else market→Linda; ELEVENLABS_VOICE_GUEST overrides)",
+    )
     t.add_argument("--no-post-words", action="store_true", help="skip zh words_rel refresh")
     t.add_argument("--list", dest="list_providers", action="store_true", help="show provider readiness")
     t.add_argument("--json", action="store_true", help="with --list, JSON output")

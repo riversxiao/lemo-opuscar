@@ -15,6 +15,11 @@ Env:
   ELEVENLABS_VOICE_MAP_FILE               path to the same JSON
   ELEVENLABS_VOICE_<SPEAKER>              e.g. ELEVENLABS_VOICE_HOST / _GUEST
   ELEVENLABS_VOICE_ID                     fallback default voice
+  LEMO_TTS_ELEVENLABS_CONTENT_TYPE        market|concept|personal|english → guest voice
+                                          (explicit ELEVENLABS_VOICE_GUEST / map still win)
+
+Defaults when nothing is set: host = Tex; guest picked by content type
+(market→Linda, concept→Ladaisy, personal→Shusita, english→Joan; none → Linda).
 
 Script lines (JSON list; same file the router already reads):
   {"id":"L01","speaker":"host","text":"你好。"}
@@ -52,6 +57,51 @@ class DialogueError(EL.ElevenLabsError):
     pass
 
 
+# Shared Voice Library voices added to the account (ids are not secrets).
+DEFAULT_HOST_VOICE = "TKaUqol7GKx4m7enpCpP"  # Tex — English-leaning tech male
+CONTENT_TYPE_GUESTS: dict[str, str] = {
+    "market": "t5SIDRTVMdbNUqrSAycs",    # Linda — warm mature Mandarin, finance news
+    "concept": "8RCmdqih4CKjJ7Bd3ZxT",   # Ladaisy — crisp Mandarin + British English
+    "personal": "iCrb0E1mQG2baVhfLIGF",  # Shusita — Taiwanese Mandarin podcast
+    "english": "qgrPcGqsZG6TpPzso4fK",   # Joan — Chinese-native, American English
+}
+DEFAULT_CONTENT_TYPE = "market"
+CONTENT_TYPE_ALIASES: dict[str, str] = {
+    "macro": "market", "news": "market", "bonds": "market", "rates": "market",
+    "index": "market", "财经新闻": "market", "市场": "market", "宏观": "market",
+    "explainer": "concept", "teaching": "concept", "bilingual": "concept", "概念": "concept",
+    "lifestyle": "personal", "budgeting": "personal", "saving": "personal",
+    "personal-finance": "personal", "理财习惯": "personal", "个人理财": "personal",
+    "investing": "english", "strategy": "english", "dca": "english",
+    "diversification": "english", "en": "english", "english-heavy": "english",
+}
+GUEST_SPEAKERS = {"guest", "cohost", "co-host", "co_host"}
+
+
+def normalize_content_type(ct: str | None) -> str:
+    """Map a content type (or alias) to market|concept|personal|english. Empty → default."""
+    k = (ct or "").strip().lower()
+    if not k:
+        return DEFAULT_CONTENT_TYPE
+    if k in CONTENT_TYPE_GUESTS:
+        return k
+    if k in CONTENT_TYPE_ALIASES:
+        return CONTENT_TYPE_ALIASES[k]
+    raise DialogueError(
+        f"unknown content_type {ct!r}; use one of {sorted(CONTENT_TYPE_GUESTS)} (or an alias)"
+    )
+
+
+def content_type_from_env(explicit: str | None = None) -> str:
+    return normalize_content_type(
+        explicit or os.environ.get("LEMO_TTS_ELEVENLABS_CONTENT_TYPE") or None
+    )
+
+
+def guest_voice_for(content_type: str | None) -> str:
+    return CONTENT_TYPE_GUESTS[normalize_content_type(content_type)]
+
+
 def dialogue_model() -> str:
     return (
         os.environ.get("LEMO_TTS_ELEVENLABS_DIALOGUE_MODEL")
@@ -76,26 +126,43 @@ def _load_voice_map() -> dict[str, str]:
     return out
 
 
-def resolve_voice(speaker: str, explicit: str | None = None, voice_map: dict[str, str] | None = None) -> str:
+def resolve_voice(
+    speaker: str,
+    explicit: str | None = None,
+    voice_map: dict[str, str] | None = None,
+    content_type: str | None = None,
+) -> str:
+    """line voice_id → voice map → ELEVENLABS_VOICE_<SPEAKER> → built-in default.
+
+    Built-in defaults: host → Tex; guest/cohost → by content_type (default market → Linda);
+    anything else → ELEVENLABS_VOICE_ID / single-speaker default.
+    """
     if explicit and str(explicit).strip() and not str(explicit).startswith(("zh-", "en-")):
         return str(explicit).strip()
     sp = (speaker or "").strip().lower() or "host"
     vm = voice_map if voice_map is not None else _load_voice_map()
     if sp in vm:
         return vm[sp]
-    env_key = f"ELEVENLABS_VOICE_{sp.upper()}"
+    env_key = f"ELEVENLABS_VOICE_{sp.upper().replace('-', '_')}"
     if os.environ.get(env_key, "").strip():
         return os.environ[env_key].strip()
-    # common aliases
-    for alias in (f"ELEVENLABS_VOICE_{sp.upper()}",):
-        if os.environ.get(alias, "").strip():
-            return os.environ[alias].strip()
+    if sp in GUEST_SPEAKERS:
+        if os.environ.get("ELEVENLABS_VOICE_GUEST", "").strip():
+            return os.environ["ELEVENLABS_VOICE_GUEST"].strip()
+        return guest_voice_for(content_type_from_env(content_type))
+    if sp == "host":
+        return DEFAULT_HOST_VOICE
     return EL.voice_id()
 
 
-def normalize_turns(lines: list[dict[str, Any]], voice_map: dict[str, str] | None = None) -> list[dict[str, Any]]:
+def normalize_turns(
+    lines: list[dict[str, Any]],
+    voice_map: dict[str, str] | None = None,
+    content_type: str | None = None,
+) -> list[dict[str, Any]]:
     """Normalize router lines → dialogue turns with resolved voice_id."""
     vm = voice_map if voice_map is not None else _load_voice_map()
+    ct = content_type_from_env(content_type)
     turns: list[dict[str, Any]] = []
     for i, L in enumerate(lines):
         if not isinstance(L, dict):
@@ -106,7 +173,7 @@ def normalize_turns(lines: list[dict[str, Any]], voice_map: dict[str, str] | Non
             raise DialogueError(f"line {lid!r} has empty text")
         speaker = str(L.get("speaker") or L.get("speaker_id") or L.get("role") or "host").strip()
         explicit = L.get("voice_id") or L.get("voice")
-        vid = resolve_voice(speaker, explicit if isinstance(explicit, str) else None, vm)
+        vid = resolve_voice(speaker, explicit if isinstance(explicit, str) else None, vm, ct)
         turns.append({"id": lid, "speaker": speaker, "text": text, "voice_id": vid})
     return turns
 
@@ -215,7 +282,8 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
             "(alias ELEVEN_API_KEY)"
         )
     try:
-        turns = normalize_turns(lines, opts.get("voice_map"))
+        content_type = content_type_from_env(opts.get("content_type"))
+        turns = normalize_turns(lines, opts.get("voice_map"), content_type)
     except DialogueError as e:
         sys.exit(f"tts_router: elevenlabs-dialogue: {e}")
     if not turns:
@@ -276,6 +344,7 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
         "requests": requests,
         "totalSec": round(len(full) / SR, 3),
         "uniqueVoices": sorted({t["voice_id"] for t in turns}),
+        "contentType": content_type,
         "turns": manifest_turns,
         "note": "start/end are char-share estimates within each API chunk; not word timestamps",
     }

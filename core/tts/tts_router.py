@@ -94,7 +94,8 @@ def _default_voice(provider: str, explicit: str | None) -> str | None:
     return None
 
 
-def _run_one(provider: str, lines: list[dict], out_dir: str, voice: str | None, rate: str, pitch: str) -> dict[str, float]:
+def _run_one(provider: str, lines: list[dict], out_dir: str, voice: str | None, rate: str, pitch: str,
+             content_type: str | None = None) -> dict[str, float]:
     st = PROBES[provider]()
     if st.state == "deps-missing":
         sys.exit(f"tts_router: provider {provider!r} not ready: {st.detail}")
@@ -105,6 +106,8 @@ def _run_one(provider: str, lines: list[dict], out_dir: str, voice: str | None, 
         "rate": rate,
         "pitch": pitch,
     }
+    if provider == "elevenlabs-dialogue" and content_type:
+        opts["content_type"] = content_type
     synth = SYNTH[provider]
     dur = synth(lines, out_dir, **{k: v for k, v in opts.items() if v is not None})
     missing = [L["id"] for L in lines if L["id"] not in dur]
@@ -122,6 +125,7 @@ def synthesize(
     voice: str | None = None,
     rate: str = "+0%",
     pitch: str = "+0Hz",
+    content_type: str | None = None,
 ) -> tuple[str, dict[str, float]]:
     """Programmatic entry. Returns (provider_used, dur_map)."""
     chain: list[str]
@@ -155,7 +159,7 @@ def synthesize(
             errors.append(f"{name}: skip ({st.state}) {st.detail}")
             continue
         try:
-            dur = _run_one(name, lines, out_dir, voice, rate, pitch)
+            dur = _run_one(name, lines, out_dir, voice, rate, pitch, content_type)
             return name, dur
         except SystemExit as e:
             # SystemExit(code) or SystemExit(message)
@@ -186,6 +190,12 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--voice", default=None, help="default voice (edge: Yunxi; kokoro: zf_xiaoxiao)")
     ap.add_argument("--rate", default="+0%")
     ap.add_argument("--pitch", default="+0Hz")
+    ap.add_argument(
+        "--content-type",
+        default=None,
+        help="elevenlabs-dialogue guest voice by content: market|concept|personal|english "
+             "(default market→Linda; ELEVENLABS_VOICE_GUEST overrides)",
+    )
     ap.add_argument("--list", action="store_true", help="print provider readiness and exit")
     ap.add_argument("--json", action="store_true", help="with --list, emit JSON")
     a = ap.parse_args(argv)
@@ -208,6 +218,7 @@ def main(argv: list[str] | None = None) -> None:
         voice=a.voice,
         rate=a.rate,
         pitch=a.pitch,
+        content_type=a.content_type,
     )
     print(f"tts_router: provider={used} lines={len(lines)} → {a.out_dir}")
     print(f"tts_router: dur={json.dumps(dur, ensure_ascii=False)}")
