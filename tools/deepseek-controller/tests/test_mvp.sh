@@ -1765,6 +1765,78 @@ else
   bad "env names: $(tail -5 "$WORK/env-names.log")"
 fi
 
+# env names from the upstream merge (pacing / TP / ElevenLabs / StepAudio / quota ledger): same rule
+if (cd "$ROOT" && env -u WORDFILM_PACING -u LEMO_PACING -u WORDFILM_TP_MAX_DBTP -u LEMO_TP_MAX_DBTP \
+  -u WORDFILM_TTS_ELEVENLABS_ZH_NUMBERS -u LEMO_TTS_ELEVENLABS_ZH_NUMBERS \
+  -u WORDFILM_TTS_ELEVENLABS_JOIN_LETTERS -u LEMO_TTS_ELEVENLABS_JOIN_LETTERS \
+  -u WORDFILM_TTS_ELEVENLABS_CONTENT_TYPE -u LEMO_TTS_ELEVENLABS_CONTENT_TYPE \
+  -u WORDFILM_TTS_STEPAUDIO_SPEED -u LEMO_TTS_STEPAUDIO_SPEED -u WORDFILM_QUOTA_LEDGER -u DC_QUOTA_LEDGER \
+  -u WORDFILM_CACHE python3 -c "
+import os, sys
+from pathlib import Path
+sys.path.insert(0, 'core/tts'); sys.path.insert(0, 'tools/deepseek-controller')
+E = os.environ
+import pacing_profile as pp
+plan = {'content_type': 'market'}
+assert pp.resolve(None, None, plan) == ('fast', 'content_type=market')
+E['LEMO_PACING'] = 'calm'
+assert pp.resolve(None, None, plan) == ('calm', 'env LEMO_PACING')
+E['WORDFILM_PACING'] = 'standard'
+assert pp.resolve(None, None, plan) == ('standard', 'env WORDFILM_PACING')
+E['WORDFILM_PACING'] = ''   # empty = unset
+assert pp.resolve(None, None, plan) == ('calm', 'env LEMO_PACING')
+import quality
+p = Path('$WORK/tp-film'); p.mkdir(exist_ok=True)
+assert quality._tp_max(p) == -1.0
+E['LEMO_TP_MAX_DBTP'] = '-1.5'; assert quality._tp_max(p) == -1.5
+E['WORDFILM_TP_MAX_DBTP'] = '-3'; assert quality._tp_max(p) == -3.0
+E['WORDFILM_TP_MAX_DBTP'] = ''; assert quality._tp_max(p) == -1.5
+from providers import env, elevenlabs as EL, elevenlabs_dialogue as ED
+L = {'say': '增长 97.5% 的 E-S'}
+assert EL.spoken_text(L) == '增长 百分之九十七点五 的 ES', EL.spoken_text(L)
+E['LEMO_TTS_ELEVENLABS_ZH_NUMBERS'] = '0'; assert EL.spoken_text(L) == L['say']
+E['WORDFILM_TTS_ELEVENLABS_ZH_NUMBERS'] = '1'; E['LEMO_TTS_ELEVENLABS_JOIN_LETTERS'] = '0'
+assert EL.spoken_text(L) == '增长 百分之九十七点五 的 E-S', EL.spoken_text(L)
+E['WORDFILM_TTS_ELEVENLABS_JOIN_LETTERS'] = '1'; assert EL.spoken_text(L).endswith(' ES')
+E['LEMO_TTS_ELEVENLABS_CONTENT_TYPE'] = 'concept'; assert ED.content_type_from_env() == 'concept'
+E['WORDFILM_TTS_ELEVENLABS_CONTENT_TYPE'] = 'personal'; assert ED.content_type_from_env() == 'personal'
+E['WORDFILM_TTS_ELEVENLABS_CONTENT_TYPE'] = ''; assert ED.content_type_from_env() == 'concept'
+E['LEMO_TTS_STEPAUDIO_SPEED'] = '0.9'; assert env('TTS_STEPAUDIO_SPEED') == '0.9'
+E['WORDFILM_TTS_STEPAUDIO_SPEED'] = '1.1'; assert env('TTS_STEPAUDIO_SPEED') == '1.1'
+import llm_free as LF
+assert LF.quota_ledger_path() == Path.home() / '.cache' / 'wordfilm' / 'tokenharbor-usage.jsonl'
+E['WORDFILM_CACHE'] = '$WORK/cache'
+assert LF.quota_ledger_path() == Path('$WORK/cache/tokenharbor-usage.jsonl')
+E['DC_QUOTA_LEDGER'] = '$WORK/dc-quota.jsonl'; assert LF.quota_ledger_path() == Path('$WORK/dc-quota.jsonl')
+E['WORDFILM_QUOTA_LEDGER'] = '$WORK/wf-quota.jsonl'
+assert LF.quota_ledger_path() == Path('$WORK/wf-quota.jsonl')
+assert LF.quota_header_path() == Path('$WORK/wf-quota.header.json')
+" >"$WORK/env-names-upstream.log" 2>&1); then
+  ok "upstream env names: WORDFILM_PACING / _TP_MAX_DBTP / _TTS_ELEVENLABS_{ZH_NUMBERS,JOIN_LETTERS,CONTENT_TYPE} / _TTS_STEPAUDIO_SPEED / _QUOTA_LEDGER win, LEMO_* (DC_QUOTA_LEDGER) still honoured, empty = unset"
+else
+  bad "upstream env names: $(tail -5 "$WORK/env-names-upstream.log")"
+fi
+# mux.sh true-peak env: WORDFILM_TP_* > LEMO_TP_* > default (a bad value names the one that was read)
+if have_ffmpeg; then
+  ffmpeg -v error -y -f lavfi -i color=c=gray:s=64x36:d=0.5:r=24 -pix_fmt yuv420p "$WORK/tp-v.mp4" \
+    && ffmpeg -v error -y -f lavfi -i sine=f=440:d=0.5 -ar 48000 "$WORK/tp-a.wav"
+  MUXT() { env -u WORDFILM_TP_CEIL -u LEMO_TP_CEIL -u WORDFILM_TP_RETRY_ABOVE -u LEMO_TP_RETRY_ABOVE -u WORDFILM_TP_LIMIT -u LEMO_TP_LIMIT \
+    "$@" sh "$ROOT/core/render/mux.sh" "$WORK/tp-v.mp4" "$WORK/tp-a.wav" "$WORK/tp-o.mp4" 24 0 >"$WORK/tp.out" 2>&1; }
+  if ! MUXT WORDFILM_TP_CEIL=wfbad && grep -q "got 'wfbad'" "$WORK/tp.out" \
+    && ! MUXT LEMO_TP_CEIL=lemobad && grep -q "got 'lemobad'" "$WORK/tp.out" \
+    && ! MUXT WORDFILM_TP_CEIL= LEMO_TP_CEIL=lemobad2 && grep -q "got 'lemobad2'" "$WORK/tp.out" \
+    && ! MUXT WORDFILM_TP_RETRY_ABOVE=rbad LEMO_TP_RETRY_ABOVE=-1.0 && grep -q "got 'rbad'" "$WORK/tp.out" \
+    && MUXT WORDFILM_TP_CEIL=-3.0 LEMO_TP_CEIL=lemobad && test -s "$WORK/tp-o.mp4" \
+    && ! grep -qE '^ *export LEMO_|[^_]LEMO_TTS_ELEVENLABS_MODEL=' "$CTL/templates/finance-term/build_term.sh" \
+    && bash -n "$CTL/templates/finance-term/build_term.sh"; then
+    ok "mux.sh WORDFILM_TP_CEIL / _RETRY_ABOVE win over LEMO_TP_*, empty = unset; build_term.sh exports WORDFILM_* names"
+  else
+    bad "mux.sh TP env names: $(tail -3 "$WORK/tp.out")"
+  fi
+else
+  skip "mux.sh TP env names" "ffmpeg/ffprobe not installed"
+fi
+
 # free-first LLM chain (TokenHarbor → OpenRouter :free; no OpenCode; no paid without --allow-paid)
 if env -u DEEPSEEK_API_KEY python3 "$CTL/tests/llm_free_mock.py" >$WORK/dc_llm_free_mock.log 2>&1; then
   ok "llm_free: TokenHarbor→nemotron:free→flint:free; 429 retry same; quota advances; no paid without --allow-paid; ledger logs model"
