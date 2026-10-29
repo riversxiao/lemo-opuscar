@@ -138,8 +138,8 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
     voice = voice_id(opts.get("voice"))
     model = str(opts.get("model") or model_id())
     speed = opts.get("speed")
-    if speed is None and os.environ.get("LEMO_TTS_ELEVENLABS_SPEED"):
-        speed = float(os.environ["LEMO_TTS_ELEVENLABS_SPEED"])
+    if speed is None and env("TTS_ELEVENLABS_SPEED"):
+        speed = float(env("TTS_ELEVENLABS_SPEED"))
     os.makedirs(out_dir, exist_ok=True)
     dur: dict[str, float] = {}
     spoken: dict[str, str] = {}
@@ -169,9 +169,9 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
 def spoken_text(L: dict[str, Any]) -> str:
     """say (or text); in Chinese lines Arabic numbers are spelled in Chinese words
     (97.5% → 百分之九十七点五) — ElevenLabs voices otherwise read them in English.
-    LEMO_TTS_ELEVENLABS_ZH_NUMBERS=0 turns this off."""
+    WORDFILM_TTS_ELEVENLABS_ZH_NUMBERS=0 (legacy LEMO_TTS_ELEVENLABS_ZH_NUMBERS) turns this off."""
     text = str(L.get("say") or L.get("text") or "")
-    if os.environ.get("LEMO_TTS_ELEVENLABS_ZH_NUMBERS", "1") != "0" and re.search(r"[\u4e00-\u9fff]", text):
+    if env("TTS_ELEVENLABS_ZH_NUMBERS", "1") != "0" and re.search(r"[\u4e00-\u9fff]", text):
         try:
             import zh_num  # noqa: PLC0415  (core/tts on sys.path via tts_router)
         except ImportError:
@@ -180,6 +180,6 @@ def spoken_text(L: dict[str, Any]) -> str:
         text = zh_num.spell_numbers(text)
         # say spells acronyms for StepAudio (V-A-R, E-S); eleven_v4 reads the hyphens as Chinese
         # syllables (E-S → "意义 S" in ASR) but plain capitals letter by letter (ES → ES).
-        if os.environ.get("LEMO_TTS_ELEVENLABS_JOIN_LETTERS", "1") != "0":
+        if env("TTS_ELEVENLABS_JOIN_LETTERS", "1") != "0":
             text = re.sub(r"(?<![A-Za-z])[A-Z](?:-[A-Z])+(?![A-Za-z])", lambda m: m.group(0).replace("-", ""), text)
     return text

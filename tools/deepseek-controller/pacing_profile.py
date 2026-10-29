@@ -7,7 +7,7 @@ line gap, no hold-last-beat pad), quality (pacing gate thresholds).
 Resolution order (first hit wins):
   1. explicit --pacing (CLI) / function argument
   2. plan.json "pacing"   (content/plan.json, then <project>/plan.json)
-  3. env LEMO_PACING
+  3. env WORDFILM_PACING (legacy LEMO_PACING still works)
   4. content_type → profile: market→fast; concept/personal/english→standard
   5. "standard"
 
@@ -175,9 +175,13 @@ def resolve(project: Path | None = None, explicit: str | None = None,
     n = normalize(plan.get("pacing"))
     if n:
         return n, "plan.pacing"
-    n = normalize(os.environ.get("LEMO_PACING"))
-    if n:
-        return n, "env LEMO_PACING"
+    for key in ("WORDFILM_PACING", "LEMO_PACING"):
+        raw = os.environ.get(key, "").strip()
+        if raw:
+            n = normalize(raw)
+            if n:
+                return n, f"env {key}"
+            break  # first set name decides, as in common.env_setting
     ct = normalize_content_type(plan.get("content_type") or plan.get("contentType"))
     if ct:
         return CONTENT_TYPE_PACING[ct], f"content_type={ct}"

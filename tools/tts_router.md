@@ -134,7 +134,7 @@ This path is the dialogue TTS layer only — not a full podcast pipeline like po
 - **Default host:** Tex `TKaUqol7GKx4m7enpCpP` (English-leaning tech male). It's used for speaker `host`
   unless `ELEVENLABS_VOICE_HOST` / the voice map says otherwise.
 - **Guest (female co-host) by content type**: `--content-type` (router + `cli.py tts`), or the config field
-  `"content_type"` in the project's `plan.json`, or env `LEMO_TTS_ELEVENLABS_CONTENT_TYPE`.
+  `"content_type"` in the project's `plan.json`, or env `WORDFILM_TTS_ELEVENLABS_CONTENT_TYPE` (or `LEMO_TTS_ELEVENLABS_CONTENT_TYPE`).
   Applies to speakers `guest` / `cohost`. All voices are shared-library voices already added to the account.
 
   | content_type | Use for | Guest voice |
@@ -216,7 +216,7 @@ See `AGENTS.deepseek.md` · VO / TTS notes.
 `cli.py tts` options:
 - `--pacing fast|standard|calm`: defaults to plan `pacing`, then `content_type`.
 - `--rate`: edge. Defaults to the profile value, `+10%` for standard.
-- `--speed`: StepAudio. Defaults to `LEMO_TTS_STEPAUDIO_SPEED`, then the profile value.
+- `--speed`: StepAudio. Defaults to `WORDFILM_TTS_STEPAUDIO_SPEED` (or `LEMO_TTS_STEPAUDIO_SPEED`), then the profile value.
 - `--no-trim`: skips the post-synthesis pause trim.
 
 The router passes `speed` only to providers in `SPEED_PROVIDERS` (currently stepaudio). See `docs/PACING.md`.

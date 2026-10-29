@@ -13,7 +13,7 @@ Reference: TV news is about 240–300 字/分 (4–5 字/秒), everyday speech 2
 ## Selection (highest precedence first)
 1. CLI `--pacing fast|standard|calm`
 2. `plan.json` `"pacing"`
-3. env `LEMO_PACING`
+3. env `WORDFILM_PACING` (the upstream name `LEMO_PACING` still works; `WORDFILM_` wins, empty = unset)
 4. `plan.json` `content_type`: market → **fast**; concept / personal / english / unknown → **standard**
 5. default **standard**
 
@@ -23,7 +23,7 @@ Reference: TV news is about 240–300 字/分 (4–5 字/秒), everyday speech 2
 - `quality`: `padSec` > 1.5s is a **FAIL**.
 
 ## TTS
-- edge gets `rate` from the profile. StepAudio gets `speed`; precedence is `--speed`, then `LEMO_TTS_STEPAUDIO_SPEED`, then the profile. ElevenLabs is P1.
+- edge gets `rate` from the profile. StepAudio gets `speed`; precedence is `--speed`, then `WORDFILM_TTS_STEPAUDIO_SPEED` (or `LEMO_TTS_STEPAUDIO_SPEED`), then the profile. ElevenLabs is P1.
 - StepAudio prompts ask for brisk, crisp narration with keyword stress and no trailing drawl, in one consistent voice. The speaker gate still applies.
 - **Pause trim** (`pause_trim.py`) runs after synthesis unless you pass `--no-trim`:
   - An energy-based silence detector finds pauses. Any intra-line pause longer than `maxPauseSec` shrinks to `keepPauseSec`, with an 8ms crossfade.
@@ -45,8 +45,9 @@ It writes `evidence/pacing-check.json`. Under `quality --delivery` it is **repor
 
 ## Delivery blockers (generic, every film)
 - **True peak**: `core/render/mux.sh` now runs `aresample=192000 → alimiter → aresample=48000` (4× oversampled
-  limiter, ceiling `LEMO_TP_CEIL`, default −2.0 dBTP) and re-measures; if TP is still > −1.0 it re-trims.
-  `LEMO_TP_LIMIT=0` disables it. Gate stays TP ≤ −1 dBTP.
+  limiter, ceiling `WORDFILM_TP_CEIL`, default −2.0 dBTP) and re-measures; if TP is still > `WORDFILM_TP_RETRY_ABOVE`
+  (default −1.0) it re-trims. `WORDFILM_TP_LIMIT=0` disables it. Gate stays TP ≤ −1 dBTP (`WORDFILM_TP_MAX_DBTP`
+  overrides the quality ceiling). The upstream `LEMO_TP_*` names still work; `WORDFILM_` wins.
 - **End card without pad**: the scheduler gives the last shot (role end/credits/sting, or the final shot) its own
   outro of `endCardSec` (fast 0.8 / standard 1.0 / calm 1.5 — inside the 1.5 s outro allowance, not counted as pad).
   `readcheck.mjs --end-pad S` (default 0.5) credits text still on the final frame with that hold; such rows are
@@ -78,7 +79,7 @@ to lines the critic already flags — no separate hard gate (avoid over-correcti
 
 ## ElevenLabs speed
 `voice_settings.speed` (ElevenLabs docs: 1.0 normal, recommended 0.7–1.2; not supported on eleven_v4). Clamped to
-0.7–1.2, omitted at 1.0 or on eleven_v4*. Per profile `elevenlabsSpeed`, env `LEMO_TTS_ELEVENLABS_SPEED`, or `--speed`.
+0.7–1.2, omitted at 1.0 or on eleven_v4*. Per profile `elevenlabsSpeed`, env `WORDFILM_TTS_ELEVENLABS_SPEED` (or `LEMO_TTS_ELEVENLABS_SPEED`), or `--speed`.
 
 ## Token accounting
 `llm_free.FreeFirstClient.call_log` rows carry `step` (script-gen / fact-check / critic rN / reviser rN), provider,
@@ -95,8 +96,9 @@ writes `evidence/token-usage.json` + `TOKENS.md`.
   HTTP errors) writes them to `<ledger stem>.header.json` beside the ledger; the value is trusted until its reset
   time passes (no reset header → `DC_TH_HEADER_TTL_SEC`, 6 h). A response showing ≥80 % reroutes **mid-batch**
   (the next call already goes to OpenRouter); the next batch/client reads the state file at start.
-  **Fallback** (no fresh header): local ledger of every TokenHarbor call's tokens (rolling 7 days; `DC_QUOTA_LEDGER`,
-  else `~/.cache/wordfilm/tokenharbor-usage.jsonl`) vs `DC_TH_WEEKLY_BUDGET` (1,250,000). At ≥ `DC_TH_ROUTE_PCT`
+  **Fallback** (no fresh header): local ledger of every TokenHarbor call's tokens (rolling 7 days; `WORDFILM_QUOTA_LEDGER`
+  or `DC_QUOTA_LEDGER`, else `$WORDFILM_CACHE/tokenharbor-usage.jsonl`, default cache `~/.cache/wordfilm`; the
+  header state file sits beside it; independent of `WORDFILM_BUDGET_LEDGER` so a temp budget ledger keeps the count) vs `DC_TH_WEEKLY_BUDGET` (1,250,000). At ≥ `DC_TH_ROUTE_PCT`
   (0.8) the client puts OpenRouter `nvidia/nemotron-3.5-lightning:free` → `recursive/flint-v1.0:free` first and
   TokenHarbor last. `routing.source` says which signal decided (`header x-th-free-used-pct` / `local-ledger`);
   the ledger estimate is kept as `ledgerPct`. `python3 llm_free.py` prints both. NVIDIA NIM stays out.

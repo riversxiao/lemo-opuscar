@@ -17,6 +17,7 @@ if str(TTS_DIR) not in sys.path:
     sys.path.insert(0, str(TTS_DIR))
 
 from tts_router import synthesize as router_synthesize  # noqa: E402
+from providers import env  # noqa: E402
 from providers.runtime import list_statuses  # noqa: E402
 
 
@@ -56,7 +57,8 @@ def run_tts(
     trim_pauses: bool = True,
 ) -> dict[str, Any]:
     """rate/speed default to the pacing profile (edgeRate / stepaudioSpeed); explicit
-    args win, then env LEMO_TTS_STEPAUDIO_SPEED for speed. After synthesis, pause_trim
+    args win, then env WORDFILM_TTS_STEPAUDIO_SPEED / WORDFILM_TTS_ELEVENLABS_SPEED
+    (legacy LEMO_* names still work) for speed. After synthesis, pause_trim
     shrinks intra-line silences per profile (beat-marked lines keep theirs)."""
     import pacing_profile as pp
 
@@ -66,9 +68,9 @@ def run_tts(
         rate = str(prof["edgeRate"])
     speeds: dict[str, float] = {}
     if speed is None:
-        env_speed = os.environ.get("LEMO_TTS_STEPAUDIO_SPEED")
+        env_speed = env("TTS_STEPAUDIO_SPEED")
         speed = float(env_speed) if env_speed else float(prof["stepaudioSpeed"])
-        env_el = os.environ.get("LEMO_TTS_ELEVENLABS_SPEED")
+        env_el = env("TTS_ELEVENLABS_SPEED")
         speeds = {"stepaudio": speed,
                   "elevenlabs": float(env_el) if env_el else float(prof["elevenlabsSpeed"])}
     else:   # explicit --speed applies to every speed-capable provider

@@ -43,6 +43,17 @@ STYLE_FPS: dict[str, int] = {"swiss-motion": 24, "caption-news": 30, "pictogram-
 LEGACY_FILMS_ROOT = "/workspace/films"
 
 
+def env_setting(name: str, default: str = "") -> str:
+    """Setting `name` (e.g. "PACING", "TP_MAX_DBTP"): $WORDFILM_<name>, else the upstream
+    $LEMO_<name>, else `default`. Empty values count as unset. Read at call time
+    (same rule as core/tts/providers.env)."""
+    for key in ("WORDFILM_" + name, "LEMO_" + name):
+        val = os.environ.get(key, "").strip()
+        if val:
+            return val
+    return default
+
+
 def films_root() -> Path:
     """$WORDFILM_FILMS, else <repo>/films when it exists, else /workspace/films.
 

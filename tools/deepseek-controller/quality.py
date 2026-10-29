@@ -976,10 +976,10 @@ def run_visual_check_gate(project: Path, media: Path | None, delivery: bool) -> 
     return check("visual_check", "FAIL", f"severity=high: {fs}, {len(hi)} high ({', '.join(kinds)}){tail}", required=req)
 
 def _tp_max(project: Path) -> float:
-    """True-peak ceiling: env LEMO_TP_MAX_DBTP, else −2 dBTP for finance-v003 (per-line visual)
+    """True-peak ceiling: env WORDFILM_TP_MAX_DBTP (legacy LEMO_TP_MAX_DBTP), else −2 dBTP for finance-v003 (per-line visual)
     series films (content/viz.json present), else the legacy −1 dBTP."""
-    import os
-    v = os.environ.get("LEMO_TP_MAX_DBTP")
+    from common import env_setting  # noqa: PLC0415
+    v = env_setting("TP_MAX_DBTP")
     if v:
         return float(v)
     return -2.0 if (Path(project) / "content" / "viz.json").is_file() else -1.0

@@ -26,8 +26,10 @@ TokenHarbor call's total tokens (rolling 7-day window; there is no usage endpoin
 the client routes to OpenRouter nemotron-3.5-lightning:free → flint-v1.0:free first
 and keeps TokenHarbor only as the last free fallback. Checked at client start and before each batch
 (`reroute()`, called by dialogue_loop / token_measure) and immediately mid-batch when a response header
-crosses the threshold. Ledger: $DC_QUOTA_LEDGER (tests), else
-~/.cache/wordfilm/tokenharbor-usage.jsonl (shared by every real run on this machine).
+crosses the threshold. Ledger: $WORDFILM_QUOTA_LEDGER (or the upstream $DC_QUOTA_LEDGER; tests), else
+$WORDFILM_CACHE/tokenharbor-usage.jsonl, else ~/.cache/wordfilm/tokenharbor-usage.jsonl (shared by every
+real run on this machine). Deliberately not beside $WORDFILM_BUDGET_LEDGER: a temp budget ledger must not
+reset the quota count.
 NVIDIA NIM is not in the chain (timeouts). Never paid.
 """
 from __future__ import annotations
@@ -68,12 +70,20 @@ TH_HDR_PCT = "x-th-free-used-pct"
 TH_HDR_RESETS = "x-th-free-resets"
 
 
+QUOTA_LEDGER_ENV = ("WORDFILM_QUOTA_LEDGER", "DC_QUOTA_LEDGER")
+
+
 def quota_ledger_path() -> Path:
-    """$DC_QUOTA_LEDGER (tests point it at /tmp) else the shared real ledger — real runs always count, even
-    when their budget ledger is a temp file."""
-    if os.environ.get("DC_QUOTA_LEDGER"):
-        return Path(os.environ["DC_QUOTA_LEDGER"])
-    return Path.home() / ".cache" / "wordfilm" / "tokenharbor-usage.jsonl"
+    """$WORDFILM_QUOTA_LEDGER > $DC_QUOTA_LEDGER (tests point it at a temp dir) > the shared real ledger
+    under $WORDFILM_CACHE (default ~/.cache/wordfilm): real runs always count, even when their budget
+    ledger is a temp file. Read at call time; empty = unset."""
+    for k in QUOTA_LEDGER_ENV:
+        v = os.environ.get(k, "").strip()
+        if v:
+            return Path(v).expanduser()
+    cache = os.environ.get("WORDFILM_CACHE", "").strip()
+    base = Path(cache).expanduser() if cache else Path.home() / ".cache" / "wordfilm"
+    return base / "tokenharbor-usage.jsonl"
 
 
 def record_usage(row: dict[str, Any], path: Path | None = None, now: float | None = None) -> None:

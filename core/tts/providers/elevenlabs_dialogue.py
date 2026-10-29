@@ -15,7 +15,7 @@ Env:
   ELEVENLABS_VOICE_MAP_FILE               path to the same JSON
   ELEVENLABS_VOICE_<SPEAKER>              e.g. ELEVENLABS_VOICE_HOST / _GUEST
   ELEVENLABS_VOICE_ID                     fallback default voice
-  LEMO_TTS_ELEVENLABS_CONTENT_TYPE        market|concept|personal|english → guest voice
+  WORDFILM_TTS_ELEVENLABS_CONTENT_TYPE    market|concept|personal|english → guest voice
                                           (explicit ELEVENLABS_VOICE_GUEST / map still win)
 
 Defaults when nothing is set: host = Tex; guest picked by content type
@@ -94,7 +94,7 @@ def normalize_content_type(ct: str | None) -> str:
 
 def content_type_from_env(explicit: str | None = None) -> str:
     return normalize_content_type(
-        explicit or os.environ.get("LEMO_TTS_ELEVENLABS_CONTENT_TYPE") or None
+        explicit or env("TTS_ELEVENLABS_CONTENT_TYPE") or None
     )
 
 

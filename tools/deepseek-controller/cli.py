@@ -577,7 +577,7 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--voice", default=None)
     t.add_argument("--rate", default=None, help="edge rate (default: pacing profile edgeRate, standard +10%%)")
     t.add_argument("--speed", type=float, default=None,
-                   help="stepaudio speed (default: env LEMO_TTS_STEPAUDIO_SPEED, else pacing profile)")
+                   help="stepaudio speed (default: env WORDFILM_TTS_STEPAUDIO_SPEED or LEMO_TTS_STEPAUDIO_SPEED, else pacing profile)")
     t.add_argument("--pacing", default=None, help="fast|standard|calm (default plan.json pacing / content_type)")
     t.add_argument("--no-trim", action="store_true", help="skip pause_trim after synthesis")
     t.add_argument("--pitch", default="+0Hz")
