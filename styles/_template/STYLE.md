@@ -14,7 +14,8 @@ How to fill this template (delete this comment):
 - Write rules, not history. "Pitfalls" are pitfalls of the medium, not of one demo prop.
 - Section numbers are fixed: other guides refer to them.
 - Frame shapes: style.json `aspects` lists the frames the demo has its own layout for (default ["16:9"]). If it lists
-  "9:16", §6 says how the frame is re-laid out for portrait.
+  "9:16", §6 says how the frame is re-laid out for portrait, and style.json says "portrait": "native"; otherwise
+  "portrait": "reframe" (the render tools letterbox the 16:9 frame for a portrait --size, see core/README.md).
 -->
 
 ## 1. Essence, and what it is not

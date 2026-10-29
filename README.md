@@ -84,8 +84,9 @@ Loop: TREATMENT → `setup.sh demo <slug>` → content layer only → still → 
 ### Vertical 9:16
 
 - Render tools take `--size 1080x1920` (`still.mjs`, `events.mjs`, `readcheck.mjs`, `video.mjs`); pages lay out from `innerWidth` × `innerHeight`.
-- Native portrait layouts (their own composition, not a crop): **Caption News** (1080×1560 footage band, two-line caption card under it) and **Swiss Motion** (page on top, poster below, wrapped statements). Each style lists its frames in `style.json` `aspects`; other styles are designed for 16:9.
-- Controller plans: `"aspect": "9:16"` (default `"16:9"`). Pictogram Motion is 16:9 only and validation says so.
+- Native portrait layouts (their own composition, not a crop): **Caption News** (1080×1560 footage band, two-line caption card under it) and **Swiss Motion** (page on top, poster below, wrapped statements). Each style lists its frames in `style.json` `aspects` and says `"portrait": "native"` or `"reframe"`.
+- Every other style is **reframed** for 9:16: the demo renders at 1920×1080 and the whole 16:9 picture (nothing cropped, all text kept) sits in the middle of the tall frame over a blurred copy of itself (or a flat `portraitFill` colour). `still.mjs` and `video.mjs` do this on their own and say so in one line; `--native` renders the page at the portrait size instead. A style gets a native layout by branching on `innerWidth` / `innerHeight` like Caption News' `P(land, port)` helper (see `core/README.md`, **Portrait reframe**).
+- Controller plans: `"aspect": "9:16"` (default `"16:9"`). Pictogram Motion has no 9:16 plan yet and validation says so.
 - NLE handoff: `handoff --size 1080x1920 --fps 30`, or leave them out and the size and fps are read from the master with ffprobe.
 
 ### Coming from Lemo-Opuscar
