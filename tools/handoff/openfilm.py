@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .common import (
+    probe_fps,
     copy_stem_audio,
     find_master_mp4,
     html_escape,
@@ -111,7 +112,8 @@ def export_openfilm(
 """
     (out / "film.html").write_text(film_html, encoding="utf-8")
 
-    write_cmx3600_edl(out / "timeline.edl", title=name, shots=shots, fps=24)
+    fps = probe_fps(assets / "master.mp4")
+    write_cmx3600_edl(out / "timeline.edl", title=name, shots=shots, fps=fps)
     write_ffmpeg_concat(out / "rebuild_shots.sh", shots)
     write_xmeml(
         out / "premiere.xml",
@@ -119,7 +121,7 @@ def export_openfilm(
         master=assets / "master.mp4",
         shots=shots,
         duration_sec=dur,
-        fps=24,
+        fps=fps,
     )
 
     manifest = {

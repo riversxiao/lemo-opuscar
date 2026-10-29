@@ -230,6 +230,10 @@ def cmd_dialogue_loop(args: argparse.Namespace) -> int:
         argv.append("--allow-paid")
     if getattr(args, "full_context", False):
         argv.append("--full-context")
+    if getattr(args, "check_only", False):
+        argv.append("--check-only")
+    if getattr(args, "approved_by", None):
+        argv += ["--approved-by", args.approved_by]
     return dialogue_loop.main(argv)
 
 
@@ -592,6 +596,9 @@ def build_parser() -> argparse.ArgumentParser:
                     help="critic/revise rounds (default 2); not PASS after that → NEEDS_HUMAN, no more LLM calls")
     dl.add_argument("--full-context", action="store_true",
                     help="old full grounding (DIALOGUE.md + SKILL + BRIEF/FACTS/TREATMENT); default is compact")
+    dl.add_argument("--check-only", action="store_true",
+                    help="approved/locked wording: 1 critic pass, no reviser, no write-back → PASS or FLAGGED (report)")
+    dl.add_argument("--approved-by", help="with --check-only: human approver of the locked wording (recorded in evidence)")
     dl.add_argument("--target", type=float, default=None)
     dl.add_argument("--effort", default="high", choices=["low", "high", "max"])
     dl.add_argument("--max-cny", type=float, default=2.0)

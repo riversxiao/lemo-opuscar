@@ -15,6 +15,7 @@ from typing import Any
 from xml.sax.saxutils import escape
 
 from .common import (
+    probe_fps,
     copy_stem_audio,
     find_master_mp4,
     load_shots,
@@ -191,9 +192,10 @@ def export_premiere(
     *,
     name: str | None = None,
     out_dir: Path | None = None,
-    fps: int = 24,
+    fps: int | None = None,
 ) -> dict[str, Any]:
-    """Package assets + premiere.xml (xmeml) for Premiere-adjacent import."""
+    """Package assets + premiere.xml (xmeml) for Premiere-adjacent import.
+    fps None → probe the master's video rate (fallback 24)."""
     film_dir = film_dir.resolve()
     name = name or film_dir.name
     out = (out_dir or (film_dir / "premiere-handoff")).resolve()
@@ -204,6 +206,7 @@ def export_premiere(
 
     mp4 = find_master_mp4(film_dir)
     dur = probe_duration(mp4)
+    fps = int(fps or probe_fps(mp4))
     shots, shot_src, dur_hint = load_shots(film_dir)
     if dur_hint and not shots:
         dur = float(dur_hint)
@@ -266,7 +269,7 @@ def export_premiere(
         "limits": [
             "Not a native .prproj / AAF / Resolve .drp — xmeml import only.",
             "No titles, transitions, or color — picture trims + full audio of the mux.",
-            "Frame rate assumed 24fps non-drop; remux films may differ — retime in NLE if needed.",
+            f"Timebase {fps}fps non-drop (probed from the master; 24 if unreadable).",
             "Paid desktop apps are not required on the box; this is an export artifact only.",
         ],
         "needsUser": [

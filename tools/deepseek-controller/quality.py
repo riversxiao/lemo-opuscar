@@ -22,6 +22,20 @@ STATUSES = ("PASS", "FAIL", "NOT_CHECKED", "NOT_APPLICABLE", "WARN")  # WARN nev
 _DIGITS = str.maketrans("零〇一二三四五六七八九", "00123456789")
 
 
+def _fold_numbers(s: str) -> str:
+    import importlib.util  # noqa: PLC0415
+
+    global _ZHNUM
+    if _ZHNUM is None:
+        spec = importlib.util.spec_from_file_location("zh_num", Path(__file__).resolve().parents[2] / "core/tts/zh_num.py")
+        _ZHNUM = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_ZHNUM)
+    return _ZHNUM.fold_numbers(s)
+
+
+_ZHNUM = None
+
+
 def check(
     name: str,
     status: str,
@@ -40,7 +54,7 @@ def _repo_root() -> Path:
 
 
 def _norm_zh(s: str) -> str:
-    s = unicodedata.normalize("NFKC", s).lower()
+    s = _fold_numbers(unicodedata.normalize("NFKC", s)).lower()  # 一百万 ≡ 100万 (core/tts/zh_num.py)
     # Whisper writes spoken 百分之六 / 零点五 as 6% / 0.5 — same words, different notation.
     s = re.sub(r"(\d+(?:\.\d+)?)%", r"百分之\1", s)
     s = re.sub(r"(\d)\.(\d)", r"\1点\2", s)
@@ -156,6 +170,8 @@ def _homophone_tolerant_match(
     b = _homophone_tokenize(got, classes)
     if not (a or b):
         return (True, a, b, 1.0)
+    if re.findall(r"\d+", _norm_zh(want)) != re.findall(r"\d+", _norm_zh(got)):
+        return (False, a, b, 0.0)  # a different number is never a homophone
     sm = difflib.SequenceMatcher
     ratio = sm(None, a, b).ratio()
     if a == b or ratio >= min_ratio:

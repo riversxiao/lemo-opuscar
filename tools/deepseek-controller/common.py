@@ -18,9 +18,10 @@ FORBIDDEN_KEY_RE = re.compile(
     r"\.mjs$|\.jsx?$|\.ts$|\.py$|\.wasm$)",
     re.I,
 )
+# JS keywords are lowercase: match them case-sensitively so finance terms like "VaR" / "VAR" pass.
+FORBIDDEN_KEYWORD_RE = re.compile(r"^\s*(import|export|function|const|let|var|class)\b")
 FORBIDDEN_VALUE_RE = re.compile(
-    r"(^\s*(import|export|function|const|let|var|class)\b|"
-    r"\brequire\s*\(|\beval\s*\(|new\s+Function\b|"
+    r"(\brequire\s*\(|\beval\s*\(|new\s+Function\b|"
     r"gl\.(?:compile|shader)|#include\s|<script|"
     r"(?:^|[\"'])(?:\.\./|\./)?(?:styles|core|node_modules)/|"
     r"/etc/|/usr/|\.ssh/)",
@@ -62,7 +63,7 @@ def walk_forbidden(obj: Any, path: str = "$") -> list[str]:
         for i, v in enumerate(obj):
             errs.extend(walk_forbidden(v, f"{path}[{i}]"))
     elif isinstance(obj, str):
-        if FORBIDDEN_VALUE_RE.search(obj):
+        if FORBIDDEN_VALUE_RE.search(obj) or FORBIDDEN_KEYWORD_RE.search(obj):
             errs.append(f"{path}: forbidden string value (looks like code/path)")
         # bare absolute unix paths outside allowlisted short ids
         if obj.startswith("/") and len(obj) > 1 and not HEX.match(obj):

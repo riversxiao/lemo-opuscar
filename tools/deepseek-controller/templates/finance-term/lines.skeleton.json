@@ -1,0 +1,26 @@
+{
+  "_doc": "Expert fills cards + lines, then sets approvedBy/approvedAt. text = cap with {} stripped (generated). say = TTS-only pronunciation (e.g. VaR → V-A-R); captions/srt/ASR keep text. Never let dialogue-loop rewrite these: it runs --check-only.",
+  "seq": "{{seq}}",
+  "term": "{{en}}",
+  "zh": "{{zh}}",
+  "approvedBy": "",
+  "approvedAt": "",
+  "cards": [
+    {"shot": "p0", "zh": "{{zh}}", "en": "{{EN_UPPER}}"},
+    {"shot": "p1", "zh": "{{short}}", "en": "{{SHORT_UPPER}}"},
+    {"shot": "p2", "zh": "", "en": ""},
+    {"shot": "p3", "zh": "", "en": ""},
+    {"shot": "p4", "zh": "", "en": ""},
+    {"shot": "p5", "zh": "", "en": ""},
+    {"shot": "p6", "zh": "", "en": ""}
+  ],
+  "lines": [
+    {"id": "L01", "role": "hook",     "shot": "p0", "cap": ""},
+    {"id": "L02", "role": "evidence", "shot": "p1", "cap": ""},
+    {"id": "L03", "role": "evidence", "shot": "p2", "cap": ""},
+    {"id": "L04", "role": "evidence", "shot": "p3", "cap": ""},
+    {"id": "L05", "role": "turn",     "shot": "p4", "cap": ""},
+    {"id": "L06", "role": "evidence", "shot": "p5", "cap": ""},
+    {"id": "L07", "role": "payoff",   "shot": "p6", "cap": ""}
+  ]
+}

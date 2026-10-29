@@ -36,6 +36,22 @@ def find_master_mp4(film_dir: Path) -> Path:
     )
 
 
+def probe_fps(path: Path, default: int = 24) -> int:
+    """Integer timebase of the master's video stream (30 for our 30fps renders); falls back
+    to `default` when ffprobe is missing or the rate is unreadable."""
+    if not shutil.which("ffprobe"):
+        return default
+    try:
+        out = subprocess.check_output(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate",
+             "-of", "default=nk=1:nw=1", str(path)], text=True, stderr=subprocess.DEVNULL).strip()
+        num, _, den = out.partition("/")
+        fps = float(num) / float(den or 1)
+        return int(round(fps)) if fps > 0 else default
+    except (subprocess.SubprocessError, OSError, ValueError, ZeroDivisionError):
+        return default
+
+
 def probe_duration(path: Path) -> float:
     if not shutil.which("ffprobe"):
         return 30.0

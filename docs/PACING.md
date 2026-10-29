@@ -101,3 +101,13 @@ writes `evidence/token-usage.json` + `TOKENS.md`.
   TokenHarbor last. `routing.source` says which signal decided (`header x-th-free-used-pct` / `local-ledger`);
   the ledger estimate is kept as `ledgerPct`. `python3 llm_free.py` prints both. NVIDIA NIM stays out.
   Never paid without `--allow-paid`.
+
+## Spoken units and authored beats (2026-10-29, VaR template)
+
+- `pacing_check.py` counts **spoken units** for CJK lines, not Han chars: Han chars + Mandarin
+  syllables of numbers (99% → 九十九 + 百分之 = 6, 97.5% = 8, 一百万 = 3) + Latin acronyms ≤4 letters
+  read letter by letter (VaR = 3). A Han-only count made the VaR film look 4.3 字/s "too slow".
+- Shots keep `beatsAuthored` through `apply_pictogram_edl.py`; `schedule.py` reads that minimum, not
+  the last scheduled length, so re-scheduling no longer ratchets the gaps wider each take.
+- Narration SRT for pictogram films: `vo_srt.py` (cue start from timeline vo, length from voices/dur.json,
+  ≤18 chars per cue split at 。！？；/，：). NLE handoffs probe the master fps (`tools/handoff/common.probe_fps`).

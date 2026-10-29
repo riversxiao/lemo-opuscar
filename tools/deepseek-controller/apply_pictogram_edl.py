@@ -361,8 +361,14 @@ def apply_pictogram_edl(
     # Also refresh root edl_content sidecar (times from schedule when available)
     enriched = dict(content)
     enriched["shots"] = []
+    # Keep the AUTHORED beat minimum separately: `beats` below is the scheduled length, and
+    # schedule.py reads this file back — without beatsAuthored every re-schedule ratcheted
+    # shots up to the previous (longer) take's length (stale gaps after a shorter re-take).
+    authored = {str(r.get("id")): r.get("beatsAuthored", r.get("beats")) for r in shots_in if isinstance(r, dict)}
     for s in compiled:
         row = {k: s[k] for k in s if k not in ("b0", "i")}
+        if authored.get(str(s.get("id"))) is not None:
+            row["beatsAuthored"] = authored[str(s.get("id"))]
         enriched["shots"].append(row)
     dump_json(project / "edl_content.json", enriched)
     dump_json(project / "content" / "edl_content.json", enriched)

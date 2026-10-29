@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "topic": "{{zh}}",
+  "style": "pictogram-motion",
+  "language": "zh",
+  "content_type": "concept",
+  "pacing": "standard",
+  "targetDurationSec": 40,
+  "palette": {"page": "#0B0B0B", "ink": "#F5F0E8", "signal": "#E30613", "accent": "#C9A227"},
+  "shots": [
+    {"id": "p0", "role": "hook",    "motionPreset": "intro",    "beats": 4},
+    {"id": "p1", "role": "chapter", "motionPreset": "chapter",  "beats": 4},
+    {"id": "p2", "role": "card",    "motionPreset": "card",     "beats": 4, "pose": "archery"},
+    {"id": "p3", "role": "card",    "motionPreset": "card",     "beats": 4, "pose": "shooting"},
+    {"id": "p4", "role": "card",    "motionPreset": "card",     "beats": 4, "pose": "highjump"},
+    {"id": "p5", "role": "explain", "motionPreset": "hard-cut", "beats": 4, "pose": "diving"},
+    {"id": "p6", "role": "payoff",  "motionPreset": "finale",   "beats": 4, "pose": "relay"}
+  ],
+  "voice": {"provider": "stepaudio", "voiceId": "stepaudio-session-male", "lines": []},
+  "credits": {"title": "{{zh}} {{short}}", "author": "riversxiao", "year": "2026", "license": "CC BY 4.0"}
+}

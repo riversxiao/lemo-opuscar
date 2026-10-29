@@ -286,7 +286,7 @@ def _load_shots_from_project(project: Path) -> list[dict[str, Any]]:
                     "onScreenText": s.get("zh"),
                     "motionPreset": s.get("motionPreset"),
                     "role": s.get("role"),
-                    "beats": s.get("beats"),
+                    "beats": s.get("beatsAuthored", s.get("beats")),  # authored minimum, not last schedule
                     "pose": s.get("pose"),
                 }
                 for s in data["shots"]

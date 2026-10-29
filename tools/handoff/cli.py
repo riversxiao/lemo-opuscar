@@ -46,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
     pr.add_argument("film_dir")
     pr.add_argument("--name", default=None)
     pr.add_argument("-o", "--out", default=None, help="default: <film>/premiere-handoff")
-    pr.add_argument("--fps", type=int, default=24)
+    pr.add_argument("--fps", type=int, default=None, help="default: probe master (fallback 24)")
     pr.add_argument("--json", action="store_true")
 
     a = sub.add_parser("both", help="openfilm + hyperframes (+ premiere) for one film")

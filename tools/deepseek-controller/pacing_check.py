@@ -32,6 +32,44 @@ import pacing_profile as pp
 
 CJK = re.compile(r"[\u4e00-\u9fff]")
 EN = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
+NUM = re.compile(r"(\d+(?:\.\d+)?)(%?)")
+_ZH_DIG = "零一二三四五六七八九"
+
+
+def _zh_int_len(n: int) -> int:
+    """Syllables of a Mandarin integer reading (九十九=3, 一百万=3, 两千零五=4)."""
+    if n == 0:
+        return 1
+    s, out, units = str(n), 0, len(str(n))
+    if n >= 10 ** 8:
+        return _zh_int_len(n // 10 ** 8) + 1 + (_zh_int_len(n % 10 ** 8) if n % 10 ** 8 else 0)
+    if n >= 10 ** 4:
+        return _zh_int_len(n // 10 ** 4) + 1 + (_zh_int_len(n % 10 ** 4) if n % 10 ** 4 else 0)
+    zero = False
+    for i, ch in enumerate(s):
+        pos = units - 1 - i
+        if ch == "0":
+            zero = True
+            continue
+        if zero:
+            out += 1  # 零
+            zero = False
+        out += 1 if (pos == 1 and ch == "1" and i == 0) else (2 if pos else 1)  # 十 vs 一十; 九十 = 2
+    return out
+
+
+def spoken_units(txt: str) -> int:
+    """Spoken syllables of a zh line: Han chars + Arabic numbers read in Mandarin
+    (99% → 百分之九十九 = 6, 97.5% → 8) + Latin acronyms letter by letter (VaR = 3, ES = 2;
+    words longer than 4 letters ≈ len/3 syllables). Digits and Latin are spoken, so counting
+    only Han chars undercounts finance/concept lines and fakes a slow cps."""
+    n = len(CJK.findall(txt))
+    for m in NUM.finditer(txt):
+        whole, _, frac = m.group(1).partition(".")
+        n += _zh_int_len(int(whole)) + (1 + len(frac) if frac else 0) + (3 if m.group(2) else 0)
+    for w in EN.findall(txt):
+        n += len(w) if len(w) <= 4 else max(1, round(len(w) / 3))
+    return n
 SCENE_TH = 0.08
 
 
@@ -115,7 +153,7 @@ def measure(project: Path, media: Path | None = None, *, visual: bool = True) ->
         t = float(c["t"])
         L = lines.get(lid) or {}
         txt = str(L.get("say") or L.get("text") or "")
-        n = len(CJK.findall(txt))
+        n = spoken_units(txt) if CJK.search(txt) else 0
         chars += n
         en += len(EN.findall(txt)) if not n else 0
         d = float(durs.get(lid) or 0.0)

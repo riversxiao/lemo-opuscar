@@ -1488,6 +1488,11 @@ if env -u STEP_API_KEY -u LEMO_PACING -u ELEVENLABS_API_KEY python3 "$CTL/tests/
 else
   bad "pacing P1 mock (see /tmp/dc_p1_mock.log)"
 fi
+if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY -u STEP_API_KEY -u ELEVENLABS_API_KEY -u DEEPSEEK_API_KEY python3 "$CTL/tests/term_template_mock.py" >/tmp/dc_term_mock.log 2>&1; then
+  ok "finance-term template: check-only approval gate, role/cap/say, zh number folding + number gate, spoken units, beatsAuthored, vo_srt, probe_fps, StepAudio reuse/2nd pass, batch_terms ($(tail -1 /tmp/dc_term_mock.log))"
+else
+  bad "finance-term template mock (see /tmp/dc_term_mock.log)"
+fi
 
 # budget ledger: tests write to \$DC_BUDGET_LEDGER, never the real fixtures ledger
 if PYTHONPATH="$CTL" python3 -c "

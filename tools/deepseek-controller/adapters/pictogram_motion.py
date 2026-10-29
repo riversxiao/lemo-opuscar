@@ -48,7 +48,7 @@ def adapt_pictogram_motion(plan: dict[str, Any], out_dir: Path) -> list[Path]:
             "kind": kind,
             "role": sh["role"],
             "zh": zh,
-            "en": EN_GLOSS.get(zh) or (
+            "en": sh.get("onScreenTextEn") or EN_GLOSS.get(zh) or (
                 sh["text"] if plan.get("language") != "zh" else zh
             ),
             "pose": pose,
@@ -79,6 +79,9 @@ def adapt_pictogram_motion(plan: dict[str, Any], out_dir: Path) -> list[Path]:
                     "id": ln["id"],
                     "text": ln["text"],
                     "shotId": ln.get("shotId"),
+                    **({"function": ln["role"]} if ln.get("role") else {}),
+                    **({"cap": ln["cap"]} if ln.get("cap") else {}),
+                    **({"say": ln["say"]} if ln.get("say") else {}),
                     "voice": voice.get("voiceId") or "zh-CN-YunxiNeural",
                     "speed": 1.0,
                 }

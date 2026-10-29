@@ -328,8 +328,12 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
              max_rounds: int = DEFAULT_MAX_ROUNDS, target: float | None = None, client=None,
              max_cny: float | None = None, min_balance: float | None = None,
              write_back: bool = True, settle_sec: float = 30.0, log: Callable[[str], None] = print,
-             compact: bool = True) -> dict[str, Any]:
+             compact: bool = True, check_only: bool = False, approved_by: str | None = None) -> dict[str, Any]:
+    """check_only: approved/locked wording — one critic pass, no reviser, never writes lines back.
+    PASS only if dialogue-check + critic pass; otherwise status FLAGGED (report to a human, TTS gate stays shut)."""
     project = project.resolve()
+    if check_only:
+        max_rounds, write_back = 1, False
     lp = dc.find_lines(project, lines_path)
     brief = brief or (project / "BRIEF.md")
     tgt = target or dc.plan_target(project)
@@ -398,6 +402,14 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
                 for k, v in rhythm_check.flagged(rh, ids).items():
                     if k in flagged:
                         flagged[k].extend(v)
+            if check_only:
+                rec["flagged"] = flagged
+                rounds.append(rec)
+                (ev_dir / f"round-{n}.json").write_text(json.dumps(rec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                status = "FLAGGED"
+                stop_reason = "check-only: critic/deterministic flags on locked (approved) wording — reported, not rewritten"
+                log(f"STOP check-only: flagged {sorted(flagged)} — wording locked, report to human")
+                break
             if n == max_rounds:
                 rounds.append(rec)
                 (ev_dir / f"round-{n}.json").write_text(json.dumps(rec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -452,14 +464,17 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
         best = rounds[-1]
     chosen = best["lines"] if best else orig
     det_final = dc.check_lines(chosen, tgt, **det_kw)
-    if status not in ("PASS", "PROVIDER_ERROR", "NEEDS_HUMAN"):
+    if status not in ("PASS", "PROVIDER_ERROR", "NEEDS_HUMAN", "FLAGGED"):
         status = "BEST_EFFORT"
     if client and b0 is not None and getattr(client, "usage", {}).get("calls") and getattr(client, "allow_paid", False):
         time.sleep(settle_sec)  # /user/balance lags a few seconds behind usage (paid DeepSeek only)
     b1 = client.balance() if client else None
     summary = {"schemaVersion": 1, "status": status, "stopReason": stop_reason,
                "chosenRound": best["round"] if best else None, "rounds": len(rounds),
-               "maxRounds": max_rounds, "needsHuman": status == "NEEDS_HUMAN",
+               "maxRounds": max_rounds, "needsHuman": status in ("NEEDS_HUMAN", "FLAGGED"),
+               "mode": "check-only" if check_only else "revise",
+               "flagged": (rounds[-1].get("flagged") if (check_only and rounds) else None),
+               "critique": (rounds[-1].get("critique") if (check_only and rounds) else None),
                "context": "compact" if compact else "full", "linesPath": str(lp), "linesSha256": lines_sha(chosen),
                "deterministicFinal": det_final["status"], "thresholds": TH,
                "model": getattr(client, "model", None),
@@ -474,7 +489,14 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
                "finishedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                "honesty": "PASS only when dialogue-check PASS and critic thresholds met in the same round; "
                           "NEEDS_HUMAN = not PASS within max rounds (or reviser stuck): best round written back, "
-                          "no more LLM calls, TTS stays blocked; BEST_EFFORT = budget stop."}
+                          "no more LLM calls, TTS stays blocked; BEST_EFFORT = budget stop; "
+                          "FLAGGED = check-only mode found issues on locked wording (never rewritten)."}
+    if check_only and approved_by:
+        # Human sign-off on locked wording: recorded next to (never instead of) the critic verdict.
+        summary["approval"] = {"approvedBy": approved_by, "linesSha256": lines_sha(orig), "criticStatus": status,
+                               "at": summary["finishedAt"],
+                               "note": "wording approved by a human expert and locked; critic flags (if any) are "
+                                       "reported in this file, not applied"}
     if write_back and best is not None and status != "PROVIDER_ERROR":
         text = json.dumps(chosen, ensure_ascii=False, indent=2) + "\n"
         lp.write_text(text, encoding="utf-8")
@@ -497,6 +519,14 @@ def gate_status(project: Path, lines_path: Path | None = None) -> tuple[bool, st
     if not p.is_file():
         return False, "no evidence/dialogue-loop.json — run `cli.py dialogue-loop` first"
     s = json.loads(p.read_text(encoding="utf-8"))
+    ap = s.get("approval") or {}
+    if s.get("status") == "FLAGGED" and ap.get("approvedBy"):
+        lp = dc.find_lines(project, lines_path)
+        if lines_sha(load_lines(lp)) != ap.get("linesSha256"):
+            return False, "lines changed after human approval — re-run dialogue-loop --check-only"
+        nflag = len(s.get("flagged") or {})
+        return True, (f"check-only FLAGGED ({nflag} line(s): {sorted((s.get('flagged') or {}).keys())}) — "
+                      f"locked wording human-approved by {ap['approvedBy']}; flags reported, not applied")
     if s.get("status") != "PASS":
         return False, f"dialogue-loop status {s.get('status')} (chosen round {s.get('chosenRound')}) — not PASS"
     lp = dc.find_lines(project, lines_path)
@@ -538,6 +568,11 @@ def main(argv: list[str] | None = None) -> int:
                     help="critic/revise rounds (default 2, env DC_DIALOGUE_MAX_ROUNDS); then NEEDS_HUMAN")
     ap.add_argument("--full-context", action="store_true",
                     help="send full DIALOGUE.md + SKILL + BRIEF/FACTS/TREATMENT (old, ~3× prompt tokens)")
+    ap.add_argument("--check-only", action="store_true",
+                    help="locked/approved wording: one critic pass, no reviser, no write-back (PASS or FLAGGED)")
+    ap.add_argument("--approved-by", default=None,
+                    help="with --check-only: name of the human who approved the locked wording (recorded; lets the "
+                         "TTS/quality gate accept FLAGGED for exactly these lines)")
     ap.add_argument("--target", type=float, default=None)
     ap.add_argument("--model", default=MODEL, help="ignored in free-first mode (chain picks); kept for flags compat")
     ap.add_argument("--effort", default="high", choices=["low", "high", "max"], help="DeepSeek paid reasoning_effort only")
@@ -560,7 +595,8 @@ def main(argv: list[str] | None = None) -> int:
         return 3
     s = run_loop(project, lines_path=Path(a.lines) if a.lines else None,
                  brief=Path(a.brief) if a.brief else None, max_rounds=a.max_rounds, target=a.target,
-                 client=client, max_cny=a.max_cny, min_balance=a.min_balance, compact=not a.full_context)
+                 client=client, max_cny=a.max_cny, min_balance=a.min_balance, compact=not a.full_context,
+                 check_only=a.check_only, approved_by=a.approved_by)
     if not a.no_ledger:
         row = log_cost(s, project, a.item or f"dialogue-loop {project.name}")
         if row:
@@ -568,7 +604,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"dialogue-loop: {s['status']} (round {s['chosenRound']}/{s['maxRounds']}, "
           f"{s['rounds']} round(s); deterministic {s['deterministicFinal']})"
           + (f" — {s['stopReason']}" if s.get("stopReason") else ""))
-    return {"PASS": 0, "BEST_EFFORT": 1, "NEEDS_HUMAN": 1, "PROVIDER_ERROR": 3}.get(s["status"], 1)
+    return {"PASS": 0, "BEST_EFFORT": 1, "NEEDS_HUMAN": 1, "FLAGGED": 1, "PROVIDER_ERROR": 3}.get(s["status"], 1)
 
 
 if __name__ == "__main__":

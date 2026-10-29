@@ -199,8 +199,45 @@ def _asr_words(a: np.ndarray, sr: int, texts: list[str]) -> list[tuple[float, fl
 
     a16 = soxr.resample(a, sr, 16000).astype(np.float32)
     m = WhisperModel(os.environ.get("LEMO_ASR_MODEL", "small"), device="cpu", compute_type="int8")
-    segs, _ = m.transcribe(a16, language="zh", word_timestamps=True, initial_prompt="".join(texts)[:200])
+    # deterministic decode (no temperature fallback): sampling fallback made whisper
+    # occasionally hallucinate a whole unrelated take ("这些人都不知道…") on a clean session
+    segs, _ = m.transcribe(a16, language="zh", word_timestamps=True, initial_prompt="".join(texts)[:200],
+                           temperature=0.0, condition_on_previous_text=False)
     return [(w.start, w.end, w.word) for sg in segs for w in sg.words]
+
+
+def _asr_words_plain(a: np.ndarray, sr: int, texts: list[str]) -> list[tuple[float, float, str]]:
+    """Second-opinion pass: no script prompt + VAD (used only if the prompted pass can't align)."""
+    import soxr
+    from faster_whisper import WhisperModel
+
+    a16 = soxr.resample(a, sr, 16000).astype(np.float32)
+    m = WhisperModel(os.environ.get("LEMO_ASR_MODEL", "small"), device="cpu", compute_type="int8")
+    segs, _ = m.transcribe(a16, language="zh", word_timestamps=True, temperature=0.0,
+                           condition_on_previous_text=False, vad_filter=True)
+    return [(w.start, w.end, w.word) for sg in segs for w in sg.words]
+
+
+def _split_take(a: np.ndarray, texts: list[str], words_fn=None):
+    """Align a session take to the script; retry with a second local ASR pass before
+    declaring the take unusable (re-splitting is free, re-generating costs a request)."""
+    from . import vo_split  # noqa: PLC0415
+
+    fns = [words_fn] if words_fn else [_asr_words, _asr_words_plain]
+    last_err: Exception | None = None
+    for fn in fns:
+        try:
+            bounds, rep = vo_split.align_bounds(a, SR, texts, fn(a, SR, texts))
+        except ValueError as e:
+            last_err = e
+            continue
+        if rep["matchedChars"] >= 0.85:
+            rep["asr"] = getattr(fn, "__name__", "words_fn")
+            return bounds, rep
+        last_err = StepFunError(f"session split: only {rep['matchedChars']:.0%} of script chars aligned — take is unusable")
+    if isinstance(last_err, StepFunError):
+        raise last_err
+    raise StepFunError(f"stepaudio session failed: {last_err}")
 
 
 def synthesize_session(lines: list[dict[str, Any]], out_dir: str, *, role: str, speed: float,
@@ -211,7 +248,7 @@ def synthesize_session(lines: list[dict[str, Any]], out_dir: str, *, role: str, 
     only free way to hold one timbre. The take is split per line by aligning local-ASR
     character timings to the script and snapping cuts into pauses (providers/vo_split.py).
     """
-    from . import vo_split  # noqa: PLC0415
+    import hashlib  # noqa: PLC0415
 
     texts = [str(L.get("say") or L.get("text") or "") for L in lines]
     if sum(len(t) for t in texts) + len(DEFAULT_TONE) > 1000:
@@ -222,21 +259,35 @@ def synthesize_session(lines: list[dict[str, Any]], out_dir: str, *, role: str, 
             "instruction": SESSION_INSTRUCTION, "response_format": "wav", "sample_rate": SR}
     if speed and abs(speed - 1.0) > 1e-3:
         body["speed"] = round(float(speed), 3)
-    raw, _ = _post("/audio/generate", body, timeout=900)
-    if raw[:4] != b"RIFF":
-        raise StepFunError(f"/audio/generate returned non-WAV ({raw[:120]!r})")
-    a = _decode(raw)
-    sf.write(os.path.join(out_dir, "_session.wav"), a, SR)
-    words = (words_fn or _asr_words)(a, SR, texts)
-    bounds, rep = vo_split.align_bounds(a, SR, texts, words)
-    if rep["matchedChars"] < 0.85:
-        raise StepFunError(f"session split: only {rep['matchedChars']:.0%} of script chars aligned — take is unusable")
+    # reuse an identical earlier take (same scripts/role/speed/model) instead of paying a
+    # second request when only the split failed: <out>/_session.wav + _session.json sha
+    key = hashlib.sha256(json.dumps({k: body[k] for k in ("model", "roles", "scripts", "instruction")}
+                                    | {"speed": body.get("speed")}, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+    wav_p, meta_p = os.path.join(out_dir, "_session.wav"), os.path.join(out_dir, "_session.json")
+    reused = False
+    if os.environ.get("LEMO_TTS_STEPAUDIO_REUSE", "1") != "0" and os.path.exists(wav_p) and os.path.exists(meta_p):
+        try:
+            reused = json.load(open(meta_p)).get("sha256") == key
+        except (OSError, ValueError):
+            reused = False
+    if reused:
+        a, _sr = sf.read(wav_p, dtype="float32")
+    else:
+        raw, _ = _post("/audio/generate", body, timeout=900)
+        if raw[:4] != b"RIFF":
+            raise StepFunError(f"/audio/generate returned non-WAV ({raw[:120]!r})")
+        a = _decode(raw)
+        sf.write(wav_p, a, SR)
+        with open(meta_p, "w") as fh:
+            json.dump({"sha256": key, "chars": sum(len(t) for t in texts) + len(DEFAULT_TONE),
+                       "model": GEN_MODEL}, fh)
+    bounds, rep = _split_take(a, texts, words_fn)
     dur = {}
     for (t0, t1), L in zip(bounds, lines):
         clip = _trim(a[int(t0 * SR): int(t1 * SR)])
         sf.write(os.path.join(out_dir, f"{L['id']}.wav"), clip, SR)
         dur[L["id"]] = round(len(clip) / SR, 3)
-    return dur, {"mode": "session", "requests": 1, "sessionSec": round(len(a) / SR, 3),
+    return dur, {"mode": "session", "requests": 0 if reused else 1, "reusedTake": reused, "sessionSec": round(len(a) / SR, 3),
                  "split": rep, "bounds": [[round(x, 3), round(y, 3)] for x, y in bounds]}
 
 

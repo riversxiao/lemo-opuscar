@@ -1,6 +1,8 @@
 """Validate a DeepSeek content plan against schema + style manifest."""
 from __future__ import annotations
 
+import re
+
 import argparse
 import sys
 from typing import Any
@@ -36,6 +38,8 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
         "shots",
         "voice",
         "credits",
+        "content_type",
+        "pacing",
     }
     for k in plan:
         if k not in allowed_top:
@@ -56,6 +60,11 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
     dur = plan.get("targetDurationSec")
     if not isinstance(dur, (int, float)) or not (15 <= float(dur) <= 90):
         _err(errors, "$.targetDurationSec: number in 15..90")
+
+    if "content_type" in plan and plan["content_type"] not in ("market", "concept", "personal", "english"):
+        _err(errors, "$.content_type: market|concept|personal|english")
+    if "pacing" in plan and plan["pacing"] not in ("fast", "standard", "calm"):
+        _err(errors, "$.pacing: fast|standard|calm")
 
     if "schemaVersion" in plan and plan["schemaVersion"] != 1:
         _err(errors, "$.schemaVersion: must be 1 when present")
@@ -103,6 +112,7 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
                 "role",
                 "text",
                 "onScreenText",
+                "onScreenTextEn",
                 "data",
                 "motionPreset",
                 "pose",
@@ -125,6 +135,10 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
         ost = sh.get("onScreenText")
         if ost is not None and (not isinstance(ost, str) or len(ost) > 120):
             _err(errors, f"{p}.onScreenText: string max 120")
+        ose = sh.get("onScreenTextEn")
+        if ose is not None and (not isinstance(ose, str) or len(ose) > 40
+                                or not re.fullmatch(r"[A-Za-z0-9 .·%&/,'+\-]*", ose)):
+            _err(errors, f"{p}.onScreenTextEn: Latin title max 40")
         mp = sh.get("motionPreset")
         if not isinstance(mp, str) or not mp or len(mp) > 40:
             _err(errors, f"{p}.motionPreset: required string")
@@ -158,7 +172,7 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
                 if k not in ("provider", "voiceId", "lines"):
                     _err(errors, f"$.voice.{k}: unknown key")
             prov = voice.get("provider", "none")
-            if prov not in ("none", "edge", "kokoro", "qwen3", "omnivoice"):
+            if prov not in ("none", "edge", "kokoro", "qwen3", "omnivoice", "stepaudio", "elevenlabs"):
                 _err(errors, "$.voice.provider: invalid")
             if "voiceId" in voice and (
                 not isinstance(voice["voiceId"], str) or len(voice["voiceId"]) > 64
@@ -177,7 +191,7 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
                         _err(errors, f"{lp}: object")
                         continue
                     for k in ln:
-                        if k not in ("id", "text", "shotId"):
+                        if k not in ("id", "text", "shotId", "role", "cap", "say"):
                             _err(errors, f"{lp}.{k}: unknown")
                     lid = ln.get("id")
                     if not isinstance(lid, str) or not ID_RE.match(lid):
@@ -189,6 +203,12 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
                     lt = ln.get("text")
                     if not isinstance(lt, str) or not lt.strip() or len(lt) > 200:
                         _err(errors, f"{lp}.text: required 1..200")
+                    if "role" in ln and ln["role"] not in ("hook", "turn", "evidence", "payoff", "sting"):
+                        _err(errors, f"{lp}.role: hook|turn|evidence|payoff|sting")
+                    if "cap" in ln and (not isinstance(ln["cap"], str) or len(ln["cap"]) > 200):
+                        _err(errors, f"{lp}.cap: string max 200")
+                    if "say" in ln and (not isinstance(ln["say"], str) or not ln["say"].strip() or len(ln["say"]) > 200):
+                        _err(errors, f"{lp}.say: string 1..200 (TTS-only pronunciation of text)")
                     sid = ln.get("shotId")
                     if sid is not None:
                         if not isinstance(sid, str) or not ID_RE.match(sid):
