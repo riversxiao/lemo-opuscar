@@ -281,7 +281,7 @@ def synthesize_session(lines: list[dict[str, Any]], out_dir: str, *, role: str, 
         a = _decode(raw)
         sf.write(wav_p, a, SR)
         with open(meta_p, "w") as fh:
-            json.dump({"sha256": key, "chars": sum(len(t) for t in texts) + len(DEFAULT_TONE),
+            json.dump({"sha256": key, "chars": sum(len(t) for t in texts) + len(tone),
                        "model": GEN_MODEL}, fh)
     bounds, rep = _split_take(a, texts, words_fn)
     dur = {}
