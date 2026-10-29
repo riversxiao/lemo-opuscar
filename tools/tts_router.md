@@ -11,7 +11,7 @@ python core/tts/tts_router.py --list --json
 
 # synthesize
 python core/tts/tts_router.py lines.json out_dir \
-  [--provider edge|kokoro|qwen3|omnivoice|stepaudio|auto] \
+  [--provider edge|kokoro|qwen3|omnivoice|stepaudio|elevenlabs|auto] \
   [--fallback edge,kokoro] [--voice …] [--rate +0%] [--pitch +0Hz]
 ```
 
@@ -64,6 +64,7 @@ Defaults: **`edge`** (Yunxi). Env overrides: `LEMO_TTS_PROVIDER`, `LEMO_TTS_FALL
 | `qwen3` | `providers/http_speech.py` | optional HTTP | **needs-server** until `LEMO_TTS_QWEN3_BASE` is set |
 | `omnivoice` | same HTTP client | optional HTTP | **needs-server** until `LEMO_TTS_OMNIVOICE_BASE` is set |
 | `stepaudio` | `providers/stepaudio.py` | StepFun cloud | **needs-key** until `STEPFUN_API_KEY` is set; explicit only (not in `auto`) |
+| `elevenlabs` | `providers/elevenlabs.py` | ElevenLabs cloud | **needs-key** until `ELEVENLABS_API_KEY` is set; explicit only (not in `auto`) |
 
 ### StepAudio (StepFun free preview)
 
@@ -87,6 +88,18 @@ Defaults: **`edge`** (Yunxi). Env overrides: `LEMO_TTS_PROVIDER`, `LEMO_TTS_FALL
   centroid ≥0.80 and every pair ≥0.70, else high FAIL. Setup (not committed):
   `python3 -m venv /workspace/.venv-spk && /workspace/.venv-spk/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu && /workspace/.venv-spk/bin/pip install --no-deps resemblyzer && /workspace/.venv-spk/bin/pip install webrtcvad-wheels librosa`
   then `ln -s /workspace/.venv-spk .venv-spk` (or set `LEMO_SPK_PYTHON`).
+
+
+### ElevenLabs
+
+- Route: `POST /v1/text-to-speech/{voice_id}?output_format=pcm_24000` → 24 kHz mono WAV.
+- Model default: `eleven_multilingual_v2` (Chinese VO). Override with `LEMO_TTS_ELEVENLABS_MODEL`.
+- Env: **`ELEVENLABS_API_KEY`** (preferred; alias `ELEVEN_API_KEY`), `ELEVENLABS_VOICE_ID` (alias
+  `LEMO_TTS_ELEVENLABS_VOICE`; default `21m00Tcm4TlvDq8ikWAM` / Rachel public demo voice),
+  `LEMO_TTS_ELEVENLABS_BASE` (default `https://api.elevenlabs.io/v1`).
+- Explicit only: `--provider elevenlabs` (not in `auto`). `--list` reports `needs-key` until the key is set.
+- Key is never printed. Edge/Kokoro `*Neural` voice names in `--voice` are ignored in favour of the ElevenLabs voice id.
+
 
 ### Enable kokoro (offline second path)
 

@@ -482,13 +482,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     t = sub.add_parser(
         "tts",
-        help="synthesize VO via tts_router (edge/kokoro/auto; qwen3|omnivoice when *_BASE set)",
+        help="synthesize VO via tts_router (edge/kokoro/auto; qwen3|omnivoice when *_BASE set; stepaudio|elevenlabs when key set)",
     )
     t.add_argument("--project", help="film project root (required unless --list)")
     t.add_argument(
         "--provider",
         default="edge",
-        help="edge|kokoro|qwen3|omnivoice|stepaudio|auto (default edge; stepaudio = StepFun free gen-preview, explicit only)",
+        help="edge|kokoro|qwen3|omnivoice|stepaudio|elevenlabs|auto (default edge; stepaudio/elevenlabs need keys, explicit only)",
     )
     t.add_argument(
         "--fallback",

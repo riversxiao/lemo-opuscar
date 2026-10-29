@@ -170,8 +170,29 @@ def probe_stepaudio() -> ProviderStatus:
 PROBES["stepaudio"] = probe_stepaudio
 
 
+def probe_elevenlabs() -> ProviderStatus:
+    """ElevenLabs multilingual TTS. Explicit opt-in only (not in auto)."""
+    if not (os.environ.get("ELEVENLABS_API_KEY") or os.environ.get("ELEVEN_API_KEY")):
+        return ProviderStatus(
+            "elevenlabs",
+            "needs-key",
+            "set ELEVENLABS_API_KEY (alias ELEVEN_API_KEY); voice via ELEVENLABS_VOICE_ID "
+            "(default 21m00Tcm4TlvDq8ikWAM / Rachel) + model eleven_multilingual_v2",
+            "cloud",
+        )
+    return ProviderStatus(
+        "elevenlabs",
+        "ready",
+        "ElevenLabs /v1/text-to-speech (eleven_multilingual_v2; voice ELEVENLABS_VOICE_ID)",
+        "cloud",
+    )
+
+
+PROBES["elevenlabs"] = probe_elevenlabs
+
+
 def list_statuses() -> list[ProviderStatus]:
-    return [PROBES[name]() for name in ("edge", "kokoro", "qwen3", "omnivoice", "stepaudio")]
+    return [PROBES[name]() for name in ("edge", "kokoro", "qwen3", "omnivoice", "stepaudio", "elevenlabs")]
 
 
 def ready_providers(prefer: list[str] | None = None) -> list[str]:

@@ -1428,6 +1428,13 @@ else
   bad "stepaudio mock (see /tmp/dc_stepaudio_mock.log)"
 fi
 
+# elevenlabs provider: local mock API, fake key, no network
+if env -u ELEVEN_API_KEY -u ELEVENLABS_API_KEY python3 "$CTL/tests/elevenlabs_mock.py" >/tmp/dc_elevenlabs_mock.log 2>&1; then
+  ok "elevenlabs: needs-key without ELEVENLABS_API_KEY; mock TTS writes wav+dur; xi-api-key + multilingual_v2; listed in --list"
+else
+  bad "elevenlabs mock (see /tmp/dc_elevenlabs_mock.log)"
+fi
+
 # visual-check: synthetic film with known defects (OCR/ffmpeg local), semantic layer mocked, quality gate, speaker metric
 if env -u OPENROUTER_API_KEY python3 "$CTL/tests/visual_check_mock.py" >/tmp/dc_visual_check_mock.log 2>&1; then
   ok "visual-check: wrong caption chars / corrupt frame / clipped text / subtitle≠VO → high; no false positive on correct text; :free-only + billing-delta stop; hook-subs rework; quality gate; speaker metric"
