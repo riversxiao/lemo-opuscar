@@ -8,16 +8,31 @@ stops on any billing delta (OpenRouter calls are monkeypatched), and the rework 
 """
 import json, os, subprocess, sys, tempfile, wave
 from pathlib import Path
-import numpy as np
+import importlib.util
+import shutil
 
 ROOT = Path(__file__).resolve().parents[3]
+SKIP = 77  # test_mvp.sh reports this exit code as SKIP (a prerequisite is missing)
+
+# Optional prerequisites: numpy, Pillow, OpenCV, RapidOCR, ffmpeg and a Noto CJK font
+# ($WORDFILM_CJK_FONT, else the Debian/Ubuntu fonts-noto-cjk paths).
+_missing = [m for m in ("numpy", "PIL", "cv2", "rapidocr_onnxruntime") if importlib.util.find_spec(m) is None]
+_missing += [b for b in ("ffmpeg", "ffprobe") if shutil.which(b) is None]
+FONT = next((p for p in [os.environ.get("WORDFILM_CJK_FONT") or "",
+                         "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+                         "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"] if p and os.path.exists(p)), None)
+if not FONT:
+    _missing.append("Noto CJK font (set WORDFILM_CJK_FONT)")
+if _missing:
+    print("SKIP: missing " + ", ".join(_missing))
+    sys.exit(SKIP)
+
+import numpy as np  # noqa: E402
+
 sys.path.insert(0, str(ROOT / "tools" / "deepseek-controller"))
 sys.path.insert(0, str(ROOT / "core" / "tts"))
 import visual_check as V  # noqa: E402
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
-
-FONT = next((p for p in ["/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc", "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"] if os.path.exists(p)), None)
-assert FONT, "Noto CJK font needed for the fixture"
 tmp = Path(tempfile.mkdtemp())
 P = tmp / "film"
 (P / "audio" / "vo").mkdir(parents=True)

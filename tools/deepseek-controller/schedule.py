@@ -348,12 +348,13 @@ def main(argv: list[str] | None = None) -> int:
     durs = load_durations(lines, dur_path if dur_path.is_file() else None, voices_dir)
 
     # Caption News renders exactly main.js DUR (locked demo or style version), so
-    # caption copy past it is cut at render time whatever the target says.
+    # caption copy past it is cut at render time whatever the target says. An
+    # unlocked main.js with timeline.json syncShots takes DUR from the schedule.
     locked = None
     if style == "caption-news":
-        from apply_caption_timeline import _engine_dur
+        from apply_caption_timeline import locked_engine_dur
 
-        locked = _engine_dur(project)
+        locked = locked_engine_dur(project)
 
     timeline, errors = schedule(
         lines=lines,

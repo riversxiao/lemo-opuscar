@@ -85,6 +85,24 @@ def _main_js_unlocked(project: Path) -> bool:
     return "main.js" in (lock.get("unlocked") or []) and "main.js" not in (lock.get("protectedSha256") or {})
 
 
+def locked_engine_dur(project: Path, tl: dict[str, Any] | None = None) -> float | None:
+    """main.js DUR when the render length is fixed, else None.
+
+    timeline.json syncShots=true on an unlocked style-version main.js rewrites DUR
+    from the schedule (sync_main_shots), so copy longer than the current DUR is
+    not an overrun there. Everywhere else the render stops at DUR.
+    """
+    if tl is None:
+        tl_path = project / "timeline.json"
+        try:
+            tl = load_json(tl_path) if tl_path.is_file() else {}
+        except (OSError, ValueError):
+            tl = {}
+    if isinstance(tl, dict) and tl.get("syncShots") and _main_js_unlocked(project):
+        return None
+    return _engine_dur(project)
+
+
 def sync_main_shots(project: Path, shot_list: list[dict[str, Any]], dur: float) -> bool:
     """timeline.json syncShots=true: rewrite project-copy main.js SHOTS a/b (in order)
     and DUR from the schedule. Only when engine.lock.json lists main.js as unlocked
@@ -150,7 +168,8 @@ def apply_caption_timeline(
                 f"schedule did not pass ({errs}); fix the copy and re-run schedule "
                 f"before applying (--force applies it anyway, diagnostics only)"
             )
-        locked = _engine_dur(project)
+        # syncShots on a locked main.js is refused below (sync_main_shots).
+        locked = None if tl.get("syncShots") else locked_engine_dur(project, tl)
         content = float(parsed.get("contentDurationSec") or parsed.get("scheduledDurationSec") or 0.0)
         if locked and content > locked + 1e-6:
             raise ValueError(

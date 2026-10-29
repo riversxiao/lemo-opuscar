@@ -15,10 +15,6 @@ if [ -z "${PLAYWRIGHT_CHROME:-}" ] && [ -x /usr/bin/google-chrome ]; then
   export PLAYWRIGHT_CHROME=/usr/bin/google-chrome
 fi
 
-# Never let tests append to the real fixtures/budget-ledger.jsonl (handoff etc. log $0 rows).
-export DC_BUDGET_LEDGER="${DC_BUDGET_LEDGER:-/tmp/dc-test-budget-ledger.jsonl}"
-rm -f "$DC_BUDGET_LEDGER"
-
 ok() { echo "PASS: $*"; pass=$((pass+1)); }
 bad() { echo "FAIL: $*"; fail=$((fail+1)); }
 # skip <what> <why>: a prerequisite of this machine is missing (not a code failure)
@@ -27,7 +23,9 @@ skip() { echo "SKIP: $1 ($2)"; skipped=$((skipped+1)); }
 # Everything the harness writes goes to a scratch dir, never into tracked fixtures.
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/dc-mvp.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
+# Never let tests append to the real fixtures/budget-ledger.jsonl (handoff etc. log $0 rows).
 export WORDFILM_BUDGET_LEDGER="$WORK/budget-ledger.jsonl"
+unset DC_BUDGET_LEDGER
 SWISS_PROJ="$WORK/out-swiss-motion"
 cp -a "$FIX/out-swiss-motion" "$SWISS_PROJ"
 
@@ -1581,7 +1579,7 @@ fi
 # ---- dialogue-loop (mocked LLM; no network, no real ledger) ----
 DLL=/tmp/dc-dialogue-loop; rm -rf "$DLL"; mkdir -p "$DLL"
 mkloop() { rm -rf "$DLL/$1"; mkdir -p "$DLL/$1"; cp -r "$DLG/content" "$DLL/$1/"; rm -rf "$DLL/$1/evidence"; }
-LEDGER_N0=$( [ -f "$DC_BUDGET_LEDGER" ] && wc -l <"$DC_BUDGET_LEDGER" || echo 0 )
+LEDGER_N0=$( [ -f "$WORDFILM_BUDGET_LEDGER" ] && wc -l <"$WORDFILM_BUDGET_LEDGER" || echo 0 )
 REAL_N0=$(wc -l <"$CTL/fixtures/budget-ledger.jsonl")
 mkloop p
 if "${CLI[@]}" tts --project "$DLL/p" --provider edge --out "$DLL/p/voices" >"$DLL/p-pre.out" 2>&1; then
@@ -1632,7 +1630,7 @@ if [ "$rc" = 3 ] && grep -q "provider failure" "$DLL/e.out" && cmp -s "$DLL/e-or
 else
   bad "dialogue-loop provider error: rc=$rc $(cat $DLL/e.out)"
 fi
-LEDGER_N1=$( [ -f "$DC_BUDGET_LEDGER" ] && wc -l <"$DC_BUDGET_LEDGER" || echo 0 )
+LEDGER_N1=$( [ -f "$WORDFILM_BUDGET_LEDGER" ] && wc -l <"$WORDFILM_BUDGET_LEDGER" || echo 0 )
 if [ "$LEDGER_N0" = "$LEDGER_N1" ] && [ "$REAL_N0" = "$(wc -l <"$CTL/fixtures/budget-ledger.jsonl")" ] && PYTHONPATH="$CTL" python3 -c "
 import dialogue_loop as D
 ev=D.evaluate_critique({'lines':[{'id':'L01','scores':{'factual':5,'natural':5,'asr_safe':5,'function_fit':5},'issues':[]}],
@@ -1666,18 +1664,25 @@ else
 fi
 
 # visual-check: synthetic film with known defects (OCR/ffmpeg local), semantic layer mocked, quality gate, speaker metric
-if env -u OPENROUTER_API_KEY python3 "$CTL/tests/visual_check_mock.py" >/tmp/dc_visual_check_mock.log 2>&1; then
+env -u OPENROUTER_API_KEY python3 "$CTL/tests/visual_check_mock.py" >"$WORK/visual_check_mock.log" 2>&1 && rc=0 || rc=$?
+if [ "$rc" = 0 ]; then
   ok "visual-check: wrong caption chars / corrupt frame / clipped text / subtitle≠VO → high; no false positive on correct text; :free-only + billing-delta stop; hook-subs rework; quality gate; speaker metric"
+elif [ "$rc" = 77 ]; then
+  skip "visual-check mock" "$(grep '^SKIP:' "$WORK/visual_check_mock.log" | head -1 | sed 's/^SKIP: //')"
 else
-  bad "visual-check mock (see /tmp/dc_visual_check_mock.log)"
+  bad "visual-check mock: $(tail -20 "$WORK/visual_check_mock.log")"
 fi
 
-# budget ledger: tests write to \$DC_BUDGET_LEDGER, never the real fixtures ledger
+# budget ledger: tests write to \$WORDFILM_BUDGET_LEDGER, never the real fixtures ledger
 if PYTHONPATH="$CTL" python3 -c "
 import budget,os
-assert str(budget.ledger_path())==os.path.realpath('$DC_BUDGET_LEDGER')
+assert str(budget.ledger_path())==os.path.realpath('$WORDFILM_BUDGET_LEDGER')
+del os.environ['WORDFILM_BUDGET_LEDGER']; os.environ['DC_BUDGET_LEDGER']='$WORK/legacy-ledger.jsonl'
+assert str(budget.ledger_path())==os.path.realpath('$WORK/legacy-ledger.jsonl')
+os.environ['WORDFILM_BUDGET_LEDGER']='$WORK/new-ledger.jsonl'
+assert str(budget.ledger_path())==os.path.realpath('$WORK/new-ledger.jsonl')
 " && ! grep -q 'fixtures/handoff-mini' "$CTL/fixtures/budget-ledger.jsonl"; then
-  ok "budget ledger honors DC_BUDGET_LEDGER; no handoff-mini noise in real ledger"
+  ok "budget ledger honors WORDFILM_BUDGET_LEDGER (upstream DC_BUDGET_LEDGER as fallback); no handoff-mini noise in real ledger"
 else
   bad "budget ledger env override / noise"
 fi

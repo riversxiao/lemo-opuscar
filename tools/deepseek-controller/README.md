@@ -151,7 +151,7 @@ Lines need `function` (hook|turn|evidence|payoff|sting), ≤35字 each, hook in 
 Caption long-form (90 s): `timeline.json` `"capsMode": "per-line"` (one caption card per VO line, `cap` field)
 and `"syncShots": true` (schedule rewrites the project-copy style-version `main.js` SHOTS a/b + DUR; refused on hash-locked main.js).
 Multi-line shots now play lines back to back (+0.2 s gap) instead of stacking at shot start.
-Tests write spend rows to `$DC_BUDGET_LEDGER` (default in tests: /tmp), never `fixtures/budget-ledger.jsonl`.
+Tests write spend rows to `$WORDFILM_BUDGET_LEDGER` (upstream name `$DC_BUDGET_LEDGER` still honoured; the harness points it at a temp dir), never `fixtures/budget-ledger.jsonl`.
 
 ## Quality flags (post E2E fixes)
 

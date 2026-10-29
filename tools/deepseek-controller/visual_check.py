@@ -52,6 +52,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 W, H = 1920, 1080
 SAFE = 0.05
+EDGE_PX = 5  # OCR box within this many px of the frame edge = clipped text
 
 # ---------------------------------------------------------------- small helpers
 
@@ -459,7 +460,9 @@ def text_issues(sch: Schedule, frames: dict[float, Path], whys: dict[float, str]
         for b in boxes:
             if len(norm(b["text"])) < 2 or b["score"] < 0.5:
                 continue
-            edge = b["x0"] <= 2 or b["y0"] <= 2 or b["x1"] >= fw - 3 or b["y1"] >= fh - 3
+            # OCR detector quads sit a few px inside the glyphs (RapidOCR 1.4.4 reports
+            # x1=956 for text cut at the right edge of a 960px frame), so allow EDGE_PX.
+            edge = b["x0"] <= EDGE_PX or b["y0"] <= EDGE_PX or b["x1"] >= fw - 1 - EDGE_PX or b["y1"] >= fh - 1 - EDGE_PX
             unsafe = b["x0"] < SAFE * fw or b["y0"] < SAFE * fh or b["x1"] > (1 - SAFE) * fw or b["y1"] > (1 - SAFE) * fh
             key = (norm(b["text"]), edge)
             if edge and key not in seen_clip:
