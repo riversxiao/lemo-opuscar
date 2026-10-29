@@ -17,8 +17,12 @@
 #                   after scaffold, end card as a ${OUTRO_SEC:-1.5}s outro, visual_dupe.py keyframe gate
 #                   against the series (FAIL on near-duplicates) before quality; TP ≤ −2 dBTP.
 #      REUSE_VOICES=1  re-render with the existing voices/ (no TTS call; use after a picture/gate fix).
-#      MUSIC_LIBRARY=<bed dir>  StepAudio bed from /workspace/films/_music-library (reused, no request);
+#      MUSIC_LIBRARY=<bed dir>  StepAudio bed from <films>/_music-library (reused, no request);
 #                   default for finance-v003: _music-library/finance-calm-01. MUSIC_LIBRARY=none → procedural.
+#                   <films> = $WORDFILM_FILMS, else <repo>/films when it exists, else /workspace/films.
+#      WORDFILM_TP_CEIL / WORDFILM_TP_RETRY_ABOVE (mux.sh true-peak; finance-v003 default -2.8 / -2.0),
+#      WORDFILM_TTS_STEPAUDIO_ROLE / _TONE / _INSTRUCTION (series voice prompts). The upstream LEMO_*
+#                   spellings of these still work; WORDFILM_* wins. Exported under the WORDFILM_* name.
 set -euo pipefail
 TERM_DIR=$(cd "$1" && pwd); P=${2:-${TERM_DIR}-v001}
 REPO=$(cd "$(dirname "$0")/../../../.." && pwd); CTL="$REPO/tools/deepseek-controller"
@@ -26,18 +30,20 @@ NAME=$(basename "$P"); SRC="$TERM_DIR/src"
 STYLE_VERSION=${STYLE_VERSION:-finance-v002}
 TTS_PROVIDER=${TTS_PROVIDER:-stepaudio}
 V3=0; case "$STYLE_VERSION" in finance-v00[3-9]) V3=1;; esac
+FILMS=$(PYTHONPATH="$CTL" python3 -c "import common; print(common.films_root())")
 if [ "$V3" = 1 ]; then
-  MUSIC_LIBRARY=${MUSIC_LIBRARY:-/workspace/films/_music-library/finance-calm-01}
-  export LEMO_TP_CEIL=${LEMO_TP_CEIL:--2.8} LEMO_TP_RETRY_ABOVE=${LEMO_TP_RETRY_ABOVE:--2.0}
+  MUSIC_LIBRARY=${MUSIC_LIBRARY:-$FILMS/_music-library/finance-calm-01}
+  export WORDFILM_TP_CEIL="${WORDFILM_TP_CEIL:-${LEMO_TP_CEIL:--2.8}}"
+  export WORDFILM_TP_RETRY_ABOVE="${WORDFILM_TP_RETRY_ABOVE:-${LEMO_TP_RETRY_ABOVE:--2.0}}"
 fi
 MUSIC_LIBRARY=${MUSIC_LIBRARY:-none}
 # Series default (wen hao): narration speed 1.0 — never the standard +10% / brisk StepAudio prompts.
 PACING=${PACING:-calm}
 FINANCE_TTS_SPEED=${FINANCE_TTS_SPEED:-1.0}
-export LEMO_TTS_STEPAUDIO_SPEED="$FINANCE_TTS_SPEED"
-export LEMO_TTS_STEPAUDIO_ROLE="${LEMO_TTS_STEPAUDIO_ROLE:-三十五岁左右的普通话男声，中低音，通俗金融学口播，语速正常、吐字清楚，关键词加重，句尾不拖音，像跟朋友把一件事讲明白；整片始终是同一个人同一个音色}"
-export LEMO_TTS_STEPAUDIO_TONE="${LEMO_TTS_STEPAUDIO_TONE:-（把一件事讲清楚）}"
-export LEMO_TTS_STEPAUDIO_INSTRUCTION="${LEMO_TTS_STEPAUDIO_INSTRUCTION:-安静录音棚，同一位男声从头到尾讲完整篇口播，语速正常、不赶，句与句之间自然换气；关键词加重；纯人声，无背景音乐，无音效}"
+export WORDFILM_TTS_STEPAUDIO_SPEED="$FINANCE_TTS_SPEED"
+export WORDFILM_TTS_STEPAUDIO_ROLE="${WORDFILM_TTS_STEPAUDIO_ROLE:-${LEMO_TTS_STEPAUDIO_ROLE:-三十五岁左右的普通话男声，中低音，通俗金融学口播，语速正常、吐字清楚，关键词加重，句尾不拖音，像跟朋友把一件事讲明白；整片始终是同一个人同一个音色}}"
+export WORDFILM_TTS_STEPAUDIO_TONE="${WORDFILM_TTS_STEPAUDIO_TONE:-${LEMO_TTS_STEPAUDIO_TONE:-（把一件事讲清楚）}}"
+export WORDFILM_TTS_STEPAUDIO_INSTRUCTION="${WORDFILM_TTS_STEPAUDIO_INSTRUCTION:-${LEMO_TTS_STEPAUDIO_INSTRUCTION:-安静录音棚，同一位男声从头到尾讲完整篇口播，语速正常、不赶，句与句之间自然换气；关键词加重；纯人声，无背景音乐，无音效}}"
 APPROVED=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['approvedBy'])" "$SRC/lines.json")
 cd "$REPO"
 
@@ -103,7 +109,7 @@ PY
 if [ "$TTS_PROVIDER" = elevenlabs ]; then
   el_plan "$SRC/plan.json" "$SRC/plan.el.json" "${EL_VOICE:-TKaUqol7GKx4m7enpCpP}"
   # the provider reads the voice from env (plan voiceId alone is not used → would fall back to Rachel)
-  ELEVENLABS_VOICE_ID=${EL_VOICE:-TKaUqol7GKx4m7enpCpP} LEMO_TTS_ELEVENLABS_MODEL=${EL_MODEL:-eleven_v4} \
+  ELEVENLABS_VOICE_ID=${EL_VOICE:-TKaUqol7GKx4m7enpCpP} WORDFILM_TTS_ELEVENLABS_MODEL=${EL_MODEL:-eleven_v4} \
     build_one "$SRC/plan.el.json" "$P" "$NAME" elevenlabs 1
   python3 -c "import json,sys;d=json.load(open(sys.argv[1]));print('ElevenLabs chars this film:',d.get('chars'))" "$P/voices/spoken.json" 2>/dev/null || true
   exit 0
@@ -114,5 +120,5 @@ if [ "${EL_BACKUP:-0}" = 1 ]; then
   # Same approved lines, ElevenLabs voice. say-fields stay as approved; the provider spells numbers
   # in Chinese words (97.5% → 百分之九十七点五) and joins letter spellings (E-S → ES) for eleven_v4.
   el_plan "$SRC/plan.json" "$SRC/plan.el.json" "${EL_VOICE:-uDnTdfbGbx3cHHFnY83O}"
-  ELEVENLABS_VOICE_ID=${EL_VOICE:-uDnTdfbGbx3cHHFnY83O} LEMO_TTS_ELEVENLABS_MODEL=${EL_MODEL:-eleven_v4} build_one "$SRC/plan.el.json" "$P/backup-el" "$NAME-el" elevenlabs 0 "$P/$NAME-el.mp4"
+  ELEVENLABS_VOICE_ID=${EL_VOICE:-uDnTdfbGbx3cHHFnY83O} WORDFILM_TTS_ELEVENLABS_MODEL=${EL_MODEL:-eleven_v4} build_one "$SRC/plan.el.json" "$P/backup-el" "$NAME-el" elevenlabs 0 "$P/$NAME-el.mp4"
 fi

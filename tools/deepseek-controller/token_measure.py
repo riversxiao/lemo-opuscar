@@ -9,7 +9,7 @@ Steps (each call labelled via FreeFirstClient.step):
 Writes <project>/evidence/token-usage.json and TOKENS.md. Never prints keys. Free-first only unless
 --allow-paid (OFF by default); when every free model fails → status PROVIDER_ERROR, nothing paid.
 
-  python3 token_measure.py --project /workspace/films/var-tokens --brief BRIEF.md --target 45
+  python3 token_measure.py --project "$WORDFILM_FILMS/var-tokens" --brief BRIEF.md --target 45
 """
 from __future__ import annotations
 

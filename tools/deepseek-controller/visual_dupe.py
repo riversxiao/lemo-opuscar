@@ -10,8 +10,9 @@ within the film and against every other film in the series index. A pair is a
 near-duplicate when  ham ≤ HAM_MAX  and  corr ≥ CORR_MIN  (both: same layout *and* look),
 or corr ≥ CORR_HARD. Any near-duplicate → FAIL. Writes <film>/evidence/visual-dupe.json.
 
-Index: /workspace/films/_visual-index/<series>.json  {films:{name:{mp4, shots:[{shot,t,file,dhash}]}}}
+Index: <films>/_visual-index/<series>.json  {films:{name:{mp4, shots:[{shot,t,file,dhash}]}}}
 Usage: visual_dupe.py --project <film> [--series finance] [--others a,b,c] [--register]
+<films> = $WORDFILM_FILMS, else <repo>/films when it exists, else /workspace/films (common.films_root).
 """
 from __future__ import annotations
 
@@ -24,10 +25,11 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+from common import films_root
+
 HAM_MAX = 10
 CORR_MIN = 0.85
 CORR_HARD = 0.95
-FILMS = Path("/workspace/films")
 DEFAULT_OTHERS = ["erm-v001", "var-plain-v003", "risk-appetite-v001", "var-template-v002"]
 
 
@@ -98,6 +100,7 @@ def main(argv=None) -> int:
     ap.add_argument("--register", action="store_true", help="add this film to the series index on PASS")
     a = ap.parse_args(argv)
     film = Path(a.project).resolve()
+    FILMS = films_root()
     idx_p = FILMS / "_visual-index" / f"{a.series}.json"
     idx = json.loads(idx_p.read_text("utf-8")) if idx_p.is_file() else {"films": {}}
     mine = keyframes(film)
