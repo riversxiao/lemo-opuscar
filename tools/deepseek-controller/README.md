@@ -146,6 +146,6 @@ python3 $CTL/cli.py handoff --project /workspace/films/fensan-pictogram-finance-
 
 See [`docs/nle-handoff.md`](docs/nle-handoff.md) and repo [`docs/integrations/nle-handoff.md`](../../docs/integrations/nle-handoff.md).
 
-## 12-film matrix
+## 18-film matrix
 
-See [docs/MATRIX-12.md](docs/MATRIX-12.md). CLI: `python3 tools/deepseek-controller/cli.py matrix`.
+See [docs/MATRIX-18.md](docs/MATRIX-18.md) (full factorial; 16/18 delivery-pass). CLI: `python3 tools/deepseek-controller/cli.py matrix [--path flash]`.

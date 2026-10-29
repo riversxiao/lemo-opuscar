@@ -1051,14 +1051,15 @@ else
   bad "hyperframes missing needsUser"
 fi
 
-# --- matrix tracker (12-film epic; no remux) ---
+# --- matrix tracker (18-film full factorial; no remux) ---
 if "${CLI[@]}" matrix >/tmp/dc-matrix.out 2>/tmp/dc-matrix.err \
-  && grep -q 'filled 12/12' /tmp/dc-matrix.out \
+  && grep -q 'filled 18/18' /tmp/dc-matrix.out \
   && grep -q 'M01' /tmp/dc-matrix.out \
   && grep -q 'M08' /tmp/dc-matrix.out \
   && grep -q 'M12' /tmp/dc-matrix.out \
+  && grep -q 'M18' /tmp/dc-matrix.out \
   && grep -q 'delivery-pass' /tmp/dc-matrix.out; then
-  ok "matrix lists 12/12 with delivery-pass"
+  ok "matrix lists 18/18 with delivery-pass"
 else
   bad "matrix list: $(cat /tmp/dc-matrix.err /tmp/dc-matrix.out)"
 fi
@@ -1132,6 +1133,14 @@ else
   bad "budget: $(cat /tmp/dc-bud.err /tmp/dc-bud2.err /tmp/dc-bud-sum.err /tmp/dc-bud.out /tmp/dc-bud-sum.json 2>/dev/null)"
 fi
 
+if "${CLI[@]}" budget append --ledger "$BUD_LEDGER" --item "test-cny" --usd 0.05 --cny 0.5 --kind opencode-session --session-id ses_test --path-label flash >/tmp/dc-bud3.out 2>/tmp/dc-bud3.err \
+  && "${CLI[@]}" budget summary --ledger "$BUD_LEDGER" --json >/tmp/dc-bud-sum2.json 2>/tmp/dc-bud-sum2.err \
+  && python3 -c "import json;d=json.load(open('/tmp/dc-bud-sum2.json')); assert abs(d['totalCny']-0.5)<1e-9, d"; then
+  ok "budget --cny tracked in totalCny"
+else
+  bad "budget: $(cat /tmp/dc-bud.err /tmp/dc-bud2.err /tmp/dc-bud-sum.err /tmp/dc-bud.out /tmp/dc-bud-sum.json 2>/dev/null)"
+fi
+
 if test -f "$CTL/fixtures/budget-ledger.jsonl" && test -f "$CTL/budget.py" \
   && grep -q 'budget-ledger.jsonl' "$CTL/docs/BUDGET.md"; then
   ok "budget.py + ledger fixture + BUDGET.md wire-up"
@@ -1154,14 +1163,47 @@ fi
 if "${CLI[@]}" matrix --filled >/tmp/dc-matrix-f.out 2>/tmp/dc-matrix-f.err \
   && grep -q 'M05' /tmp/dc-matrix-f.out \
   && ! grep -E '^M0[0-9].* empty ' /tmp/dc-matrix-f.out \
-  && ! grep -E '^M1[0-2].* empty ' /tmp/dc-matrix-f.out; then
+  && ! grep -E '^M1[0-8].* empty ' /tmp/dc-matrix-f.out; then
   ok "matrix --filled hides empty"
 else
   bad "matrix --filled: $(cat /tmp/dc-matrix-f.err /tmp/dc-matrix-f.out)"
 fi
 
-if test -f "$CTL/docs/MATRIX-12.md" && test -f "$CTL/fixtures/matrix-12.json"; then
-  ok "MATRIX-12.md + matrix-12.json present"
+if test -f "$CTL/docs/MATRIX-18.md" && test -f "$CTL/fixtures/matrix-18.json"; then
+  ok "MATRIX-18.md + matrix-18.json present"
+else
+  bad "matrix docs/fixture missing"
+fi
+
+# Cross-style x flash cells (M13-M18): every cell has a real mp4 + evidence, flash path
+"${CLI[@]}" matrix --path flash >/tmp/dc-matrix-flash.out 2>/tmp/dc-matrix-flash.err || true
+if python3 -c "
+import json,os
+d=json.load(open('$CTL/fixtures/matrix-18.json'))
+cells=d['cells']; assert len(cells)==18
+keys={(c['topic'],c['style'],c['path']) for c in cells}; assert len(keys)==18
+new=[c for c in cells if c['id'] in ('M13','M14','M15','M16','M17','M18')]
+assert len(new)==6 and all(c['path']=='flash' and c['role']=='cross' for c in new)
+assert all(c['status']!='empty' and os.path.exists(c['mp4']) and os.path.exists(c['evidence']) for c in new)
+assert all(c['status']!='delivery-pass' or json.load(open(c['evidence'])).get('deliveryAllowed') for c in new)
+" && grep -q 'M13' /tmp/dc-matrix-flash.out && ! grep -q ' controller ' /tmp/dc-matrix-flash.out; then
+  ok "matrix-18 full factorial; M13-M18 cross x flash honest status + --path flash"
+else
+  bad "matrix-18 cross x flash: $(cat /tmp/dc-matrix-flash.err)"
+fi
+
+# Loader rejects a non-factorial tracker
+python3 -c "
+import json;d=json.load(open('$CTL/fixtures/matrix-18.json'));d['cells']=d['cells'][:12];json.dump(d,open('/tmp/dc-matrix-bad.json','w'))"
+if PYTHONPATH="$CTL" python3 -c "
+import matrix
+try:
+    matrix.load_matrix('/tmp/dc-matrix-bad.json')
+except Exception:
+    raise SystemExit(0)
+raise SystemExit(1)
+"; then
+  ok "matrix loader rejects 12-cell tracker"
 else
   bad "matrix docs/fixture missing"
 fi

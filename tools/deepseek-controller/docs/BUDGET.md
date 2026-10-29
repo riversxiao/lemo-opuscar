@@ -1,6 +1,6 @@
 # Budget ledger (showcase)
 
-**Scope:** costs observed while building the deepseek-controller + 12-film matrix epic.  
+**Scope:** costs observed while building the deepseek-controller + 18-film matrix epics.  
 **Timezone:** Asia/Shanghai (UTC+8).  
 **Rule:** no secrets; mark unknowns as `unknown` / placeholders. Do **not** silently route free-tier failures to paid models (see 额度总管 / OpenCode pin).
 
@@ -19,6 +19,11 @@ python3 tools/deepseek-controller/cli.py budget append \
   --item "quality --delivery M01" --usd 0 --kind local --path-label controller \
   --duration 12.5 --project /workspace/films/matrix-fuli-swiss-controller
 
+# DeepSeek official run: real billed CNY from /user/balance delta + OpenCode session tokens
+python3 tools/deepseek-controller/cli.py budget append --kind opencode-session \
+  --item "AIGC教父-2026-10-29 M13 matrix-fuli-pictogram-flash" --usd 0.056603 --cny 0.50 \
+  --tokens-in 86629 --tokens-out 23598 --path-label flash --session-id ses_matrix18_fuli_pictogram_20261029
+
 # one-shot seed from OpenCode session costs on this box
 python3 tools/deepseek-controller/cli.py budget import-opencode --min-usd 0.01
 # dry-run first:
@@ -35,6 +40,7 @@ Module: `tools/deepseek-controller/budget.py`.
 | When | Item | Path | Amount | Notes |
 |---|---|---|---|---|
 | 2026-10-28 | OpenCode → OpenRouter `deepseek/deepseek-v4.1-flash` | Flash films (fuli swiss, fensan pictogram, liudong caption, + whiteboard sibling) | **~$0.43** | Free OpenCode pool hit `FreeUsageLimitError` (429); later official flash 402 (balance); then explicit OpenRouter. **Do not repeat as default.** Seeded into JSONL via `budget import-opencode`. |
+| 2026-10-29 | DeepSeek official `deepseek-flash` via OpenCode | Cross×flash M13–M18 (6 films) | **¥4.61 CNY** | Balance ¥14.94→¥10.33 (Asia/Shanghai 11:23–12:2x). Per cell ¥0.50/0.81/1.18/0.86/0.67/0.45 = ¥4.47 + ¥0.14 late-billed between runs. Cap ¥10. No OpenRouter. JSONL rows carry `cny` + `meta.sessionId`. |
 | 2026-10-29 | OpenCode free pool | glm-5.3-flash-free probe | **$0** | Still exhausted (429) at morning check; pin stays free; fail loud if free hangs |
 | ongoing | Controller render | `cli.py` scaffold→still→video→mux | **$0 LLM** | Local Chromium Canvas2D; no Seedance/Kling |
 | ongoing | TTS edge | `zh-CN-YunxiNeural` via edge-tts | **$0** | Default VO for controller + flash natives |
@@ -56,6 +62,7 @@ Module: `tools/deepseek-controller/budget.py`.
 - Agent edits under OpenCode / DeepSeek Flash: **cash cost only when routed to paid OpenRouter**.
 - 2026-10-28 four-film Flash batch ≈ **$0.43** after free exhaustion — ledger line above / JSONL import.
 - Promotion to `--delivery` (2026-10-29): plan retrofit + quality only; M02 audio-only loudnorm; **$0** extra model spend.
+- Cross×flash M13–M18 (2026-10-29): DeepSeek official API only, **¥4.61** total (~¥0.45–1.18 per film, ~81–114k input tokens). `budget summary` prints `totalCny`; `usd` stays the OpenCode estimate.
 
 ### Handoff (`path=handoff`)
 - OpenFilm / HyperFrames / Premiere XML packaging: **$0** cash; auto-logged on `cli.py handoff`.

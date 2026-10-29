@@ -279,6 +279,8 @@ def cmd_budget(args: argparse.Namespace) -> int:
             print(f"ledger: {s['ledger']}")
             print(f"entries: {s['entries']}")
             print(f"totalUsd: ${s['totalUsd']:.6f}")
+            if s.get("totalCny"):
+                print(f"totalCny: ¥{s['totalCny']:.4f} (rows with billed CNY, e.g. DeepSeek balance delta)")
             print(f"tokensIn/Out: {s['tokensIn']} / {s['tokensOut']}")
             if s["byKind"]:
                 print("byKind:")
@@ -295,6 +297,7 @@ def cmd_budget(args: argparse.Namespace) -> int:
                 "kind": args.kind,
                 "item": args.item,
                 "usd": args.usd,
+                "cny": args.cny,
                 "tokensIn": args.tokens_in,
                 "tokensOut": args.tokens_out,
                 "durationSec": args.duration,
@@ -303,13 +306,15 @@ def cmd_budget(args: argparse.Namespace) -> int:
                 "model": args.model,
                 "source": args.source or "cli",
                 "notes": args.notes or "",
+                "meta": {"sessionId": args.session_id} if args.session_id else {},
             },
             path=ledger,
         )
         if args.json:
             print(json.dumps(row, ensure_ascii=False, indent=2))
         else:
-            print(f"OK appended → {ledger_path(ledger)} usd=${row['usd']}")
+            extra = f" cny=¥{row['cny']}" if "cny" in row else ""
+            print(f"OK appended → {ledger_path(ledger)} usd=${row['usd']}{extra}")
         return 0
     if action == "import-opencode":
         res = import_opencode_sessions(
@@ -337,7 +342,7 @@ def cmd_budget(args: argparse.Namespace) -> int:
 
 
 def cmd_matrix(args: argparse.Namespace) -> int:
-    """List 12-film comparison matrix status (tracker JSON; no render)."""
+    """List 18-film comparison matrix status (tracker JSON; no render)."""
     import json
     from matrix import cell_by_id, format_table, load_matrix, summary
 
@@ -356,7 +361,7 @@ def cmd_matrix(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(summary(data), ensure_ascii=False, indent=2))
         return 0
-    print(format_table(data, filled_only=args.filled))
+    print(format_table(data, filled_only=args.filled, path=getattr(args, "path", None)))
     return 0
 
 
@@ -511,14 +516,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     mx = sub.add_parser(
         "matrix",
-        help="list 12-film comparison matrix status (docs/MATRIX-12.md)",
+        help="list 18-film comparison matrix status (docs/MATRIX-18.md)",
     )
     mx.add_argument(
         "--tracker",
         default=None,
-        help="override fixtures/matrix-12.json",
+        help="override fixtures/matrix-18.json",
     )
     mx.add_argument("--json", action="store_true", help="JSON summary or single cell")
+    mx.add_argument("--path", choices=["controller", "flash"], default=None, help="only cells on this path")
     mx.add_argument("--filled", action="store_true", help="hide empty cells")
     mx.add_argument("--id", help="show one cell (e.g. M01)")
     mx.set_defaults(func=cmd_matrix)
@@ -554,6 +560,8 @@ def build_parser() -> argparse.ArgumentParser:
     bga.add_argument("--model", default=None)
     bga.add_argument("--source", default="cli")
     bga.add_argument("--notes", default="")
+    bga.add_argument("--cny", type=float, default=None, help="billed CNY (e.g. DeepSeek /user/balance delta)")
+    bga.add_argument("--session-id", default=None, dest="session_id", help="OpenCode session id → meta.sessionId")
     bga.set_defaults(func=cmd_budget)
 
     bgi = bg_sub.add_parser(

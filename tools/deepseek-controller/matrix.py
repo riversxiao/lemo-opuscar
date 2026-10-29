@@ -1,4 +1,8 @@
-"""12-film comparison matrix tracker (read-only status helper)."""
+"""18-film comparison matrix tracker (read-only status helper).
+
+Full factorial topic × style × path (3×3×2). The original 12-cell epic (M01–M12)
+is preserved; M13–M18 are the cross-style × flash follow-up.
+"""
 from __future__ import annotations
 
 import json
@@ -6,14 +10,27 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent
-DEFAULT_TRACKER = ROOT / "fixtures" / "matrix-12.json"
+DEFAULT_TRACKER = ROOT / "fixtures" / "matrix-18.json"
 
 
 def load_matrix(path: Path | None = None) -> dict[str, Any]:
     p = path or DEFAULT_TRACKER
     data = json.loads(p.read_text(encoding="utf-8"))
-    if not isinstance(data.get("cells"), list) or len(data["cells"]) != 12:
-        raise ValueError(f"matrix tracker must have exactly 12 cells: {p}")
+    cells = data.get("cells")
+    if not isinstance(cells, list):
+        raise ValueError(f"matrix tracker has no cells list: {p}")
+    dims = data.get("dimensions") or {}
+    full = 1
+    for axis in ("topic", "style", "path"):
+        full *= len(dims.get(axis) or [])
+    if full and len(cells) != full:
+        raise ValueError(f"matrix tracker must have {full} cells (full factorial), got {len(cells)}: {p}")
+    keys = [(c.get("topic"), c.get("style"), c.get("path")) for c in cells]
+    if len(set(keys)) != len(keys):
+        raise ValueError(f"matrix tracker has duplicate topic/style/path cells: {p}")
+    ids = [c.get("id") for c in cells]
+    if len(set(ids)) != len(ids):
+        raise ValueError(f"matrix tracker has duplicate cell ids: {p}")
     return data
 
 
@@ -71,6 +88,7 @@ def format_table(
     *,
     filled_only: bool = False,
     cell_id: str | None = None,
+    path: str | None = None,
 ) -> str:
     data = data or load_matrix()
     labels = data.get("topicLabels") or {}
@@ -79,6 +97,8 @@ def format_table(
         if cell_id and c["id"].upper() != cell_id.upper():
             continue
         if filled_only and c["status"] == "empty":
+            continue
+        if path and c.get("path") != path:
             continue
         e = enrich_cell(c)
         topic = labels.get(c["topic"], c["topic"])

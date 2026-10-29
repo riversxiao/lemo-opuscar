@@ -132,7 +132,7 @@ Evidence: `evidence/quality-mux-delivery-real-assets.json`.
 - Demo `audio/mix.py` needs freepats/swarm — prefer **`cli mix` / `music_bed.py`** for a placeholder bed; `--vo-only` keeps silence. See `docs/MUSIC-BED.md`.
 - **Pictogram**: intro/finale animation skeleton still Olympics under lock (brand_strings only overlays HUD text).
 - Fonts.sh subsets `main.js` only — extend charset to timeline/lines for full CJK glyphs.
-- Style unlock / HyperFrames / multi-route TTS / 12-film matrix still open.
+- Style unlock / HyperFrames / multi-route TTS still open. Matrix: see MATRIX-18.md (caption×flash cross cells M14/M16 overflow the 30s lock).
 
 ## Audio note
 

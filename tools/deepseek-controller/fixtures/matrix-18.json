@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "title": "12-film comparison matrix",
-  "updated": "2026-10-29T10:37:42+08:00",
+  "title": "18-film comparison matrix",
+  "updated": "2026-10-29T12:30:00+08:00",
   "filmRoot": "/workspace/films",
   "pathConvention": "/workspace/films/matrix-{topic}-{style}-{path}",
   "dimensions": {
@@ -193,6 +193,84 @@
       "mp4": "/workspace/films/matrix-liudong-pictogram-controller/matrix-liudong-pictogram-controller.mp4",
       "evidence": "/workspace/films/matrix-liudong-pictogram-controller/evidence/quality-mux-delivery.json",
       "notes": "Cross: 流动性 on Pictogram; finance-v001 unlock; soft-pulse; --delivery PASS"
+    },
+    {
+      "id": "M13",
+      "topic": "fuli",
+      "style": "pictogram",
+      "path": "flash",
+      "role": "cross",
+      "status": "delivery-pass",
+      "canonical": "/workspace/films/matrix-fuli-pictogram-flash",
+      "alias": null,
+      "mp4": "/workspace/films/matrix-fuli-pictogram-flash/matrix-fuli-pictogram-flash.mp4",
+      "evidence": "/workspace/films/matrix-fuli-pictogram-flash/evidence/quality-mux-delivery.json",
+      "notes": "Cross×Flash: 复利 on Pictogram (seed fensan-pictogram-ds-v001, engine.js/poses byte-identical); 31.20s music+SRT voice.provider=none; timeline edl-beats retrofit (M06 precedent; read-time scheduler 49.2s on catalog cards kept as evidence/schedule-readtime-diagnostic.json); --delivery PASS; DeepSeek ¥0.50"
+    },
+    {
+      "id": "M14",
+      "topic": "fuli",
+      "style": "caption",
+      "path": "flash",
+      "role": "cross",
+      "status": "muxed",
+      "canonical": "/workspace/films/matrix-fuli-caption-flash",
+      "alias": null,
+      "mp4": "/workspace/films/matrix-fuli-caption-flash/matrix-fuli-caption-flash.mp4",
+      "evidence": "/workspace/films/matrix-fuli-caption-flash/evidence/quality-mux-delivery.json",
+      "notes": "Cross×Flash: 复利 on Caption (seed liudong-caption-ds-v001; draw/ease infra unchanged); 30.00s, −14.4 LUFS/−1.0 dBTP, readcheck PASS; --delivery FAIL: schedule_fits_target (VO+read-time schedule 32.25s > locked 30s) + asr_check (L05 复利→复立 homophone residual after zh-tolerant; L02/L06/L07 raw sim 0.86–0.91). Not promoted. DeepSeek ¥0.81"
+    },
+    {
+      "id": "M15",
+      "topic": "fensan",
+      "style": "swiss",
+      "path": "flash",
+      "role": "cross",
+      "status": "delivery-pass",
+      "canonical": "/workspace/films/matrix-fensan-swiss-flash",
+      "alias": null,
+      "mp4": "/workspace/films/matrix-fensan-swiss-flash/matrix-fensan-swiss-flash.mp4",
+      "evidence": "/workspace/films/matrix-fensan-swiss-flash/evidence/quality-mux-delivery.json",
+      "notes": "Cross×Flash: 分散投资 on Swiss (seed fuli-swiss-ds-v001; ease.js/main.js/index.html identical); 32.00s signal #1F3FFF; plan metadata normalize (schema 34→0 errors, raw kept); --delivery PASS (pad 7.25s, ASR 0 mismatches); DeepSeek ¥1.18"
+    },
+    {
+      "id": "M16",
+      "topic": "fensan",
+      "style": "caption",
+      "path": "flash",
+      "role": "cross",
+      "status": "muxed",
+      "canonical": "/workspace/films/matrix-fensan-caption-flash",
+      "alias": null,
+      "mp4": "/workspace/films/matrix-fensan-caption-flash/matrix-fensan-caption-flash.mp4",
+      "evidence": "/workspace/films/matrix-fensan-caption-flash/evidence/quality-mux-delivery.json",
+      "notes": "Cross×Flash: 分散投资 on Caption (seed liudong-caption-ds-v001; draw/ease infra unchanged; font subset regenerated offline); 30.00s, −14.3 LUFS/−1.1 dBTP, readcheck PASS, ASR 0 mismatches; --delivery FAIL only on schedule_fits_target (31.25s > locked 30s). Not promoted. DeepSeek ¥0.86"
+    },
+    {
+      "id": "M17",
+      "topic": "liudong",
+      "style": "swiss",
+      "path": "flash",
+      "role": "cross",
+      "status": "delivery-pass",
+      "canonical": "/workspace/films/matrix-liudong-swiss-flash",
+      "alias": null,
+      "mp4": "/workspace/films/matrix-liudong-swiss-flash/matrix-liudong-swiss-flash.mp4",
+      "evidence": "/workspace/films/matrix-liudong-swiss-flash/evidence/quality-mux-delivery.json",
+      "notes": "Cross×Flash: 流动性 on Swiss (seed fuli-swiss-ds-v001; ease.js/main.js/index.html identical); 32.00s signal #E2231A, 8 VO lines; plan normalize; --delivery PASS (pad 0.25s, ASR 0 mismatches); DeepSeek ¥0.67"
+    },
+    {
+      "id": "M18",
+      "topic": "liudong",
+      "style": "pictogram",
+      "path": "flash",
+      "role": "cross",
+      "status": "delivery-pass",
+      "canonical": "/workspace/films/matrix-liudong-pictogram-flash",
+      "alias": null,
+      "mp4": "/workspace/films/matrix-liudong-pictogram-flash/matrix-liudong-pictogram-flash.mp4",
+      "evidence": "/workspace/films/matrix-liudong-pictogram-flash/evidence/quality-mux-delivery.json",
+      "notes": "Cross×Flash: 流动性 on Pictogram (seed fensan-pictogram-ds-v001, engine.js/poses byte-identical; scenes.js copy/counts only, one F.jp→F.zh font call on end card); 31.21s music+SRT voice.provider=none, 14 cues; Flash did an audio-only −0.7 dB fix; timeline edl-beats retrofit (M06/M13 precedent); --delivery PASS; DeepSeek ¥0.45"
     }
   ],
   "siblings": [
@@ -208,8 +286,9 @@
     }
   ],
   "nextKnife": [
-    "Later epic: cross-style × flash (6 more → 18)",
+    "M14 fuli×caption×flash: cut VO/copy to fit 30s (schedule 32.25s) + ASR lexicon 复立→复利, then re-gate",
+    "M16 fensan×caption×flash: trim copy to fit 30s (schedule 31.25s), then re-gate",
     "Optional polish: Caption Commons packs; Swiss German-poster literal rebrand"
   ],
-  "proofNote": "Controller native+cross 9 cells delivery-pass prior. Flash natives M02/M06/M10 promoted to delivery-pass 2026-10-29 Asia/Shanghai (plan.json + evidence; M02 audio-only TP fix; M06 no-VO music+SRT; M10 ASR lexicon). Matrix 12/12 delivery-pass for this epic."
+  "proofNote": "Full factorial 18/18 filled 2026-10-29 Asia/Shanghai. M01–M12 delivery-pass (prior epics). Cross×Flash M13–M18 made via OpenCode deepseek/deepseek-flash on DeepSeek official API only (balance ¥14.94→¥10.33, ¥4.61 total incl. ¥0.14 late-billed between runs not attributed per cell): M13/M15/M17/M18 delivery-pass; M14/M16 muxed — caption 30s lock overflowed by Flash copy (schedule_fits_target FAIL; M14 also ASR homophone residual). 16/18 delivery-pass."
 }

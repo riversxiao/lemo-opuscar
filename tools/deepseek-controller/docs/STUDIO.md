@@ -111,7 +111,7 @@ Avoid dual controllers: if Studio later arrives, **diff its plan/hash/ledger/exp
 ## 6. Recommended next step
 
 1. **If you have the evaluation Studio** (the `../../opuscar-studio/README.md` tree): put it on the box (path or private clone) and ask for a **diff against `tools/deepseek-controller/`** — import only ledger + expert-candidate gaps.
-2. **If you do not:** treat Studio as **out of scope**; 12-film matrix epic started — see docs/MATRIX-12.md (`cli.py matrix`). HyperFrames/OpenFilm handoff wired; TTS multi-route — see docs/TTS.md.
+2. **If you do not:** treat Studio as **out of scope**; 18-film matrix filled — see docs/MATRIX-18.md (`cli.py matrix`). HyperFrames/OpenFilm handoff wired; TTS multi-route — see docs/TTS.md.
 3. **Do not** rename community documentary repos or HyperFrames/OpenFilm as “Opuscar Studio integrated.”
 
 ---

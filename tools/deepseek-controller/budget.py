@@ -57,6 +57,9 @@ def append_entry(
         "notes": entry.get("notes") or "",
         "meta": entry.get("meta") or {},
     }
+    # Optional billed amount in CNY (e.g. DeepSeek official API balance delta).
+    if entry.get("cny") is not None:
+        row["cny"] = round(float(entry["cny"]), 4)
     # Drop null duration for cleaner lines
     if row["durationSec"] is None:
         del row["durationSec"]
@@ -109,6 +112,7 @@ def read_entries(path: Path | None = None) -> list[dict[str, Any]]:
 def summarize(path: Path | None = None) -> dict[str, Any]:
     rows = read_entries(path)
     total_usd = sum(float(r.get("usd") or 0) for r in rows)
+    total_cny = sum(float(r.get("cny") or 0) for r in rows)
     tin = sum(int(r.get("tokensIn") or 0) for r in rows)
     tout = sum(int(r.get("tokensOut") or 0) for r in rows)
     by_kind: dict[str, float] = {}
@@ -121,6 +125,7 @@ def summarize(path: Path | None = None) -> dict[str, Any]:
     return {
         "entries": len(rows),
         "totalUsd": round(total_usd, 6),
+        "totalCny": round(total_cny, 4),
         "tokensIn": tin,
         "tokensOut": tout,
         "byKind": {k: round(v, 6) for k, v in sorted(by_kind.items())},
