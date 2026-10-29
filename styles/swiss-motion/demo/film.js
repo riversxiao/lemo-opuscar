@@ -2,14 +2,32 @@
 // The only exception: the red circle's escape (linear, no snap, leaves the grid).
 import { clamp, lerp, seg, E, snap, lin, steps, track, E8, E16, BEAT, BAR } from './ease.js';
 
-export const W = 1920, H = 1080, DUR = 44;
+export let W = 1920, H = 1080;
+export const DUR = 44;
 export const C = {
   page: '#EAE9E5', paper: '#FFFFFF', ink: '#111111', red: '#E30613',
   grid: '#CFCEC9', pgrid: '#E2E1DC', bass: '#CFCEC9', mute: '#77766F', col: '#E2E1DC', wall: '#DFDED9',
 };
-// ---------- frame grid: 12 columns, margin 96, gutter 24 ----------
-const FM = 96, FG = 24, FC = 122;
-export const fx = i => FM + i * (FC + FG);
+// ---------- frame layouts: the frame size comes from the viewport (setFrame, called by main.js) ----------
+// 16:9 spread: page on the left, poster on the right. 9:16 is its own layout, not a crop: page on top, poster
+// below, a narrower measure (statements wrap) and a larger vertical rhythm. The portrait anchors are mirrored by
+// tools/deepseek-controller/apply_swiss_texts.py POS_BOX_PORTRAIT (page 300..560, center and wall 1300..1560).
+const LAND = {
+  FM: 96, FC: 122, ncol: 12, capLine: 36, capText: 66, redY: 300, title: [168, 276], page: [168, 252], measure: Infinity, lineH: 0,
+  center: [780, 848], wall: [928, 1004], numBase: 1044, numH: 700, numClipW: 1100, notesCol: 4, notesRule: 962, notesY: 992,
+  counterCol: 6, counterY: [1016, 1044], hud: [1290, 460], credit: 372, wallY: 452,
+  cam: { spread: [1471, 540, 1, 0], pageOut: [860, 540, 1, 0], rot: [960, 540, 1.34, -Math.PI / 2], wall: [960, 452, 0.42, 0] },
+};
+const PORT = {
+  FM: 72, FC: 136, ncol: 6, capLine: 120, capText: 150, redY: 552, title: [420, 528], page: [350, 440], measure: 936, lineH: 90,
+  center: [1340, 1430], wall: [1340, 1430], numBase: 944, numH: 380, numClipW: 1080, notesCol: 3, notesRule: 862, notesY: 892,
+  counterCol: 5, counterY: [916, 944], hud: [640, 1300], credit: 624, wallY: 860,
+  cam: { spread: [540, 1460, 0.83, 0], pageOut: [540, 760, 0.95, 0], rot: [540, 960, 0.9, -Math.PI / 2], wall: [540, 860, 0.44, 0] },
+};
+let LY = LAND;
+// ---------- frame grid: 12 columns, margin 96, gutter 24 (portrait: 6 columns, margin 72) ----------
+const FG = 24;
+export const fx = i => LY.FM + i * (LY.FC + FG);
 // ---------- poster (local coordinates): 706×1008; 7 columns × 91 = the 7 notes of A Dorian; 16 rows × 40 = 16 eighth notes ----------
 export const PW = 706, PH = 1008, PM = 35, PMX = 34.5, CW = 91, RH = 40, NC = 7;
 export const px = c => PMX + c * CW, py = r => PM + r * RH;
@@ -63,7 +81,11 @@ function drawLine(g, L, t, x, ySmall, yBig, bigSize = 76) {
   font(g, 500, 30); g.fillStyle = C.mute;
   for (const wd of sm) { revealText(g, wd, cx, ySmall, 30, snap(t, ts[i] + E16, E16), q); cx += textW(g, wd + ' '); i++; }
   cx = x; font(g, L.soft ? 400 : 700, bigSize); g.fillStyle = C.ink;
-  for (const wd of bg) { revealText(g, wd, cx, yBig, bigSize, snap(t, ts[i] + E16, E16), q); cx += textW(g, wd + ' '); i++; }
+  let y = yBig;   // portrait: a word that would cross the measure starts the next line
+  for (const wd of bg) {
+    if (cx > x && cx + textW(g, wd) > x + LY.measure) { cx = x; y += LY.lineH; }
+    revealText(g, wd, cx, y, bigSize, snap(t, ts[i] + E16, E16), q); cx += textW(g, wd + ' '); i++;
+  }
 }
 
 // ======================================================================
@@ -227,14 +249,18 @@ function drawGridExt(g, G) {       // grid extends beyond the poster to fill the
 
 // ======================================================================
 // camera: poster centre, zoom, rotation
-const SPREAD = [1471, 540, 1, 0];
-const CAM = track([
-  [0, SPREAD],
-  [T.pageOut, [860, 540, 1, 0], BEAT],
-  [T.rot, [960, 540, 1.34, -Math.PI / 2], T.rotD],
-  [T.wall, [960, 452, 0.42, 0], T.wallD],
-  [T.home, SPREAD, BEAT],
+const camTrack = k => track([
+  [0, k.spread],
+  [T.pageOut, k.pageOut, BEAT],
+  [T.rot, k.rot, T.rotD],
+  [T.wall, k.wall, T.wallD],
+  [T.home, k.spread, BEAT],
 ]);
+let CAM = camTrack(LAND.cam);
+// frame size from the viewport: portrait (taller than wide) uses the 9:16 layout, anything else the 16:9 spread
+export function setFrame(w, h) {
+  W = w; H = h; LY = h > w ? PORT : LAND; CAM = camTrack(LY.cam);
+}
 export function posterMatrix(t) {
   const [cx, cy, s, r] = CAM(t);
   return new DOMMatrix().translate(cx, cy).rotate(r * 180 / Math.PI).scale(s).translate(-PW / 2, -PH / 2);
@@ -246,13 +272,14 @@ const RULES = [[4.0, '1', 'Grid'], [8.0, '2', 'Typeface'], [12.0, '3', 'Space'],
 let NUM_SIZE = 980, NUM_ASC = 0.72;
 export function measureNumeral(g) { font(g, 700, 100); NUM_ASC = g.measureText('4').actualBoundingBoxAscent / 100; NUM_SIZE = Math.round(700 / NUM_ASC); }
 function drawNumeral(g, t) {
-  const base = 1044, h = NUM_SIZE * NUM_ASC;
+  const size = LY.numH === 700 ? NUM_SIZE : Math.round(LY.numH / NUM_ASC);
+  const base = LY.numBase, h = size * NUM_ASC;
   for (let i = 0; i < RULES.length; i++) {
     const [tr, n] = RULES[i], tn = RULES[i + 1] ? RULES[i + 1][0] : 99;
     if (t < tr || t > tn + .01) continue;
     const up = steps(t, tr, tr + BEAT, 4), down = snap(t, tn, E8 * 2);
-    g.save(); g.beginPath(); g.rect(0, base - h - 40, 1100, h + 40); g.clip();
-    font(g, 700, NUM_SIZE); g.fillStyle = C.ink;
+    g.save(); g.beginPath(); g.rect(0, base - h - 40, LY.numClipW, h + 40); g.clip();
+    font(g, 700, size); g.fillStyle = C.ink;
     const lsb = -g.measureText(n).actualBoundingBoxLeft;       // optical left alignment
     g.fillText(n, fx(0) - lsb, base + (1 - up) * (h + 40) + down * (h + 40));
     g.restore();
@@ -269,13 +296,15 @@ function drawRuleNotes(g, t) {
   const ri = RULES.findLastIndex(r => t >= r[0]); if (ri < 0) return;
   const tr = RULES[ri][0], tn = RULES[ri + 1] ? RULES[ri + 1][0] : 99, q = snap(t, tn, E8);
   font(g, 500, 19); g.fillStyle = C.ink;
-  NOTES[ri].forEach((s, i) => { if (s) revealText(g, s, fx(4), 992 + i * 26, 19, snap(t, tr + BEAT + i * E16, E16), q); });
-  g.fillRect(fx(4), 962, FC * 2 + FG, 1);
+  const nx = fx(LY.notesCol);
+  NOTES[ri].forEach((s, i) => { if (s) revealText(g, s, nx, LY.notesY + i * 26, 19, snap(t, tr + BEAT + i * E16, E16), q); });
+  g.fillRect(nx, LY.notesRule, LY.FC * 2 + FG, 1);
 }
 function captionRow(g, x, p, q, a, b, c) {
-  g.fillStyle = C.ink; g.fillRect(fx(0) + x, 36, (fx(5) + FC - fx(0)) * p * (1 - q), 1);
+  const yl = LY.capLine, yt = LY.capText;
+  g.fillStyle = C.ink; g.fillRect(fx(0) + x, yl, (fx(5) + LY.FC - fx(0)) * p * (1 - q), 1);
   font(g, 500, 19);
-  revealText(g, a, fx(0) + x, 66, 19, p, q); revealText(g, b, fx(2) + x, 66, 19, p, q); revealText(g, c, fx(4) + x, 66, 19, p, q);
+  revealText(g, a, fx(0) + x, yt, 19, p, q); revealText(g, b, fx(2) + x, yt, 19, p, q); revealText(g, c, fx(4) + x, yt, 19, p, q);
 }
 function drawCaptions(g, t) {
   if (t < 2.0 || t > T.rot + .1) return;
@@ -284,29 +313,30 @@ function drawCaptions(g, t) {
   if (ri < 0) captionRow(g, 0, p, q, 'A programme in five steps', '1961', '♩ = 120');
   else captionRow(g, 0, p, q, 'Five Rules for a Poster', `Rule 0${RULES[ri][1]} / 05`, RULES[ri][2]);
 }
-function drawBarCounter(g, t, pageX) {
+function drawBarCounter(g, t, pageX, pageY = 0) {
   if (t < 4) return;
-  const bar = Math.floor(t / BAR) + 1, beat = Math.floor((t % BAR) / BEAT) + 1;
-  font(g, 500, 18); g.fillStyle = C.mute; g.fillText('♩ = 120', fx(6) + pageX, 1016);
-  g.fillStyle = C.ink; font(g, 600, 18); g.fillText(`bar ${String(bar).padStart(2, '0')}.${beat}`, fx(6) + pageX, 1044);
+  const bar = Math.floor(t / BAR) + 1, beat = Math.floor((t % BAR) / BEAT) + 1, x = fx(LY.counterCol) + pageX, [y0, y1] = LY.counterY;
+  font(g, 500, 18); g.fillStyle = C.mute; g.fillText('♩ = 120', x, y0 + pageY);
+  g.fillStyle = C.ink; font(g, 600, 18); g.fillText(`bar ${String(bar).padStart(2, '0')}.${beat}`, x, y1 + pageY);
 }
 
 // ======================================================================
 // opening: red line + grid columns + title
 function drawOpening(g, t) {
   if (t > 8.3) return;
-  const Y = 300;
-  for (let c = 0; c < 12; c++) {     // grid columns: grow up and down at once from the red line (one column per sixteenth note); retract when rule one ends
-    const p = snap(t, .5 + c * E16 + E16, E16) * (1 - snap(t, 8.0 + (11 - c) * E16 * .25, E8));
-    if (p > 0) { g.fillStyle = C.col; g.fillRect(fx(c), Y - Y * p, FC, Y * p + (H - Y) * p); }
+  const Y = LY.redY, n = LY.ncol;
+  for (let c = 0; c < n; c++) {     // grid columns: grow up and down at once from the red line (one column per sixteenth note); retract when rule one ends
+    const p = snap(t, .5 + c * E16 + E16, E16) * (1 - snap(t, 8.0 + (n - 1 - c) * E16 * .25, E8));
+    if (p > 0) { g.fillStyle = C.col; g.fillRect(fx(c), Y - Y * p, LY.FC, Y * p + (H - Y) * p); }
   }
   if (t > 4.2) return;
   const pr = lin(t, 0, .5), pout = snap(t, 4.0, E8 * 2);
   if (pr > 0 && pout < 1) { g.fillStyle = C.red; g.fillRect(W * pout, Y, W * (pr - pout), 3); }
   const q = snap(t, 3.875 + E8, E8);
   font(g, 700, 120); g.fillStyle = C.ink;
-  let x = fx(0); ['Five', 'Rules'].forEach((w, i) => { revealText(g, w, x, 168, 120, snap(t, 2.0 + i * E8 + E16, E16), q); x += textW(g, w + ' '); });
-  x = fx(0); ['for', 'a', 'Poster'].forEach((w, i) => { revealText(g, w, x, 276, 120, snap(t, 2.5 + i * E8 + E16, E16), q); x += textW(g, w + ' '); });
+  const [y1, y2] = LY.title;
+  let x = fx(0); ['Five', 'Rules'].forEach((w, i) => { revealText(g, w, x, y1, 120, snap(t, 2.0 + i * E8 + E16, E16), q); x += textW(g, w + ' '); });
+  x = fx(0); ['for', 'a', 'Poster'].forEach((w, i) => { revealText(g, w, x, y2, 120, snap(t, 2.5 + i * E8 + E16, E16), q); x += textW(g, w + ' '); });
 }
 
 // ======================================================================
@@ -372,22 +402,22 @@ function drawWallLabels(g, t, M) {
 function drawEndCard(g, t, opt = {}) {
   if (t < T.cut) return;
   if (t < T.home - E8) return;
-  const p = snap(t, T.home + E8, E8);
+  const p = snap(t, T.home + E8, E8), [y1, y2] = LY.title, nx = fx(LY.notesCol);
   if (opt.poster) {      // poster: the film title as main headline
     captionRow(g, 0, 1, 0, 'Swiss Motion Graphics', 'A Lemo-Opuscar film', 'LemoLab \u00d7 Claude Opus 5.5');
-    font(g, 700, 120); g.fillStyle = C.ink; g.fillText('Five Rules', fx(0), 168); g.fillText('for a Poster', fx(0), 276);
-    font(g, 500, 19); ['Typeface Archivo', 'Score A dorian \u00b7 120 bpm', 'Grid 7 \u00d7 16'].forEach((s, i) => g.fillText(s, fx(4), 992 + i * 26));
-    g.fillRect(fx(4), 962, FC * 2 + FG, 1);
+    font(g, 700, 120); g.fillStyle = C.ink; g.fillText('Five Rules', fx(0), y1); g.fillText('for a Poster', fx(0), y2);
+    font(g, 500, 19); ['Typeface Archivo', 'Score A dorian \u00b7 120 bpm', 'Grid 7 \u00d7 16'].forEach((s, i) => g.fillText(s, nx, LY.notesY + i * 26));
+    g.fillRect(nx, LY.notesRule, LY.FC * 2 + FG, 1);
     return;
   }
   captionRow(g, 0, p, 0, 'Five Rules for a Poster', 'A Lemo-Opuscar film', '2026');
   font(g, 700, 120); g.fillStyle = C.ink;
-  let x = fx(0); ['Swiss', 'Motion'].forEach((w, i) => { revealText(g, w, x, 168, 120, snap(t, T.home + E8 + i * E8, E16)); x += textW(g, w + ' '); });
-  x = fx(0); revealText(g, 'Graphics', x, 276, 120, snap(t, T.home + E8 + 2 * E8, E16));
-  font(g, 600, 36); revealText(g, 'LemoLab × Claude Opus 5.5', fx(0), 372, 36, snap(t, T.home + BEAT * 2, E16));
+  let x = fx(0); ['Swiss', 'Motion'].forEach((w, i) => { revealText(g, w, x, y1, 120, snap(t, T.home + E8 + i * E8, E16)); x += textW(g, w + ' '); });
+  x = fx(0); revealText(g, 'Graphics', x, y2, 120, snap(t, T.home + E8 + 2 * E8, E16));
+  font(g, 600, 36); revealText(g, 'LemoLab × Claude Opus 5.5', fx(0), LY.credit, 36, snap(t, T.home + BEAT * 2, E16));
   font(g, 500, 19); g.fillStyle = C.ink;
-  ['Typeface Archivo', 'Score A dorian · 120 bpm', 'Voice Kokoro af_sarah'].forEach((s, i) => revealText(g, s, fx(4), 992 + i * 26, 19, snap(t, T.home + BEAT * 3 + i * E16, E16)));
-  g.fillRect(fx(4), 962, (FC * 2 + FG) * snap(t, T.home + BEAT * 3, E8), 1);
+  ['Typeface Archivo', 'Score A dorian · 120 bpm', 'Voice Kokoro af_sarah'].forEach((s, i) => revealText(g, s, nx, LY.notesY + i * 26, 19, snap(t, T.home + BEAT * 3 + i * E16, E16)));
+  g.fillRect(nx, LY.notesRule, (LY.FC * 2 + FG) * snap(t, T.home + BEAT * 3, E8), 1);
 }
 
 // ======================================================================
@@ -398,16 +428,17 @@ export function renderFilm(g, t, opt = {}) {
   g.textBaseline = 'alphabetic';
   drawOpening(g, t);
 
-  const pageX = -1200 * snap(t, T.pageOut, BEAT);
-  if (pageX > -1190) {
-    g.save(); g.translate(pageX, 0);
+  const slide = -1200 * snap(t, T.pageOut, BEAT), up = LY === PORT;   // the page leaves to the left (portrait: upward)
+  const pageX = up ? 0 : slide, pageY = up ? slide : 0;
+  if (slide > -1190) {
+    g.save(); g.translate(pageX, pageY);
     drawNumeral(g, t); drawRuleNotes(g, t);
-    for (const L of LINES) if (L.pos === 'page') drawLine(g, L, t, fx(0), 168, 252);
+    for (const L of LINES) if (L.pos === 'page') drawLine(g, L, t, fx(0), LY.page[0], LY.page[1]);
     g.restore();
-    drawBarCounter(g, t, pageX);
+    drawBarCounter(g, t, pageX, pageY);
   }
   drawCaptions(g, t);
-  if (t >= T.home - BEAT) { g.fillStyle = C.red; g.fillRect(0, lerp(452, 300, snap(t, T.home, BEAT)), W, 3); }   // the red line drops to the title line (behind the poster)
+  if (t >= T.home - BEAT) { g.fillStyle = C.red; g.fillRect(0, lerp(LY.wallY, LY.redY, snap(t, T.home, BEAT)), W, 3); }   // the red line drops to the title line (behind the poster)
 
   if (t >= 3.5 - E8) {
     const M = posterMatrix(t);
@@ -431,7 +462,7 @@ export function renderFilm(g, t, opt = {}) {
         g.save(); g.translate(0, PH / 2); g.scale(1, k); g.translate(0, -PH / 2); drawVariant(g, v); g.restore();
       }
       g.setTransform(1, 0, 0, 1, 0, 0);
-      g.fillStyle = C.red; if (t > T.cut && t < T.home - BEAT) g.fillRect(0, 452, cutX, 3);
+      g.fillStyle = C.red; if (t > T.cut && t < T.home - BEAT) g.fillRect(0, LY.wallY, cutX, 3);
       g.setTransform(M);
     }
     const G = gridState(t);
@@ -460,8 +491,8 @@ export function renderFilm(g, t, opt = {}) {
   drawHUD(g, t);
   drawEndCard(g, t, opt);
   if (!opt.nosub) for (const L of LINES) {
-    if (L.pos === 'center') drawLine(g, L, t, fx(0), 780, 848);
-    if (L.pos === 'wall') drawLine(g, L, t, fx(0), 928, 1004);
+    if (L.pos === 'center') drawLine(g, L, t, fx(0), LY.center[0], LY.center[1]);
+    if (L.pos === 'wall') drawLine(g, L, t, fx(0), LY.wall[0], LY.wall[1]);
   }
 }
 
@@ -487,14 +518,14 @@ function drawHUD(g, t) {
   const p = snap(t, T.fly0, E8) * (1 - snap(t, T.gridOff + E8, E8));
   if (p <= 0) return;
   const [l, tp] = circleState(t), c = (l - PMX) / CW, r = (tp - PM) / RH;
-  const on = t < T.fly0 + .01, x = 1290;
+  const on = t < T.fly0 + .01, [x, y] = LY.hud;
   font(g, 500, 26); g.fillStyle = C.mute;
-  revealText(g, 'col', x, 500, 26, p); revealText(g, 'row', x, 540, 26, p);
+  revealText(g, 'col', x, y + 40, 26, p); revealText(g, 'row', x, y + 80, 26, p);
   font(g, 700, 26); g.fillStyle = C.ink;
-  revealText(g, (c < 0 ? '−' : '') + Math.abs(c).toFixed(2), x + 80, 500, 26, p); revealText(g, r.toFixed(2), x + 80, 540, 26, p);
+  revealText(g, (c < 0 ? '−' : '') + Math.abs(c).toFixed(2), x + 80, y + 40, 26, p); revealText(g, r.toFixed(2), x + 80, y + 80, 26, p);
   g.fillStyle = on ? C.ink : C.red; font(g, 700, 26);
-  revealText(g, on ? 'on grid' : 'off grid', x, 596, 26, p);
-  g.fillStyle = C.ink; g.fillRect(x, 460, 240 * p, 1);
+  revealText(g, on ? 'on grid' : 'off grid', x, y + 136, 26, p);
+  g.fillStyle = C.ink; g.fillRect(x, y, 240 * p, 1);
 }
 
 // ======================================================================

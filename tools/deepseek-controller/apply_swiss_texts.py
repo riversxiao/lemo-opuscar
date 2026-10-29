@@ -53,14 +53,15 @@ POS_BOX: dict[str, tuple[float, float, float, float]] = {
     "wall": (FX0, 900.0, 1100.0, 1040.0),
 }
 
-# 9:16 (1080x1920) portrait layout of film.js. The swiss portrait layout (FEAT-004)
-# must keep these in sync: margin FM=72 (fx(0)=72, text column 72..1008), page
-# statement band y 300..560, center band y 1180..1380, wall band y 1560..1760.
+# 9:16 (1080x1920) portrait layout of film.js (PORT: margin FM=72, fx(0)=72, text
+# column 72..1008, statements wrap at a 936 px measure on a 90 px line). Page band:
+# small line y 350, big lines 440/530. Center and wall bands (poster above them):
+# small y 1340, big lines 1430/1520. Keep in sync with film.js PORT.
 FX0_PORTRAIT = 72.0
 POS_BOX_PORTRAIT: dict[str, tuple[float, float, float, float]] = {
     "page": (FX0_PORTRAIT, 300.0, 1008.0, 560.0),
-    "center": (FX0_PORTRAIT, 1180.0, 1008.0, 1380.0),
-    "wall": (FX0_PORTRAIT, 1560.0, 1008.0, 1760.0),
+    "center": (FX0_PORTRAIT, 1300.0, 1008.0, 1560.0),
+    "wall": (FX0_PORTRAIT, 1300.0, 1008.0, 1560.0),
 }
 
 POS_BOX_BY_ASPECT: dict[str, dict[str, tuple[float, float, float, float]]] = {

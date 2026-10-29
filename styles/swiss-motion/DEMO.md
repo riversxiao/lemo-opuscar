@@ -127,3 +127,5 @@ styles/swiss-motion/demo/
 3. `tts.py` → `asr_check.py` (0 mismatches) → `tools/words.py`.
 4. `music/score.py` (onsets from `score.json`; check sweep onsets ≤ 5 ms) → `events.mjs` → `mix.py` (prints voice/music/foley dB per line).
 5. `video.mjs --workers 3` (1056 frames in ~12 s) → `mux.sh … 24 0`. Or simply `sh styles/swiss-motion/demo/build.sh` (~55 s from zero).
+
+Vertical: `main.js` sizes the canvas from the viewport and calls `setFrame`, so `--size 1080x1920` on every render tool gives the 9:16 layout in `film.js` (`PORT`; `LAND` keeps the 16:9 frames pixel-identical). Portrait: 6 columns on a 72 px margin, caption row at y 120, statements at y 350 / 440 wrapped at a 936 px measure on a 90 px line, a 380 px numeral, the poster below the page at 0.83 (the page slides up instead of left), rotation at 0.9, the wall at 0.44 with three posters in frame and the outer two bleeding, centre and wall lines at y 1340 / 1430. `tools/deepseek-controller/apply_swiss_texts.py` `POS_BOX_PORTRAIT` mirrors these anchors.
