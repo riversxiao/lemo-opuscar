@@ -32,6 +32,7 @@ PACKS = {
     'hdri': ['core/assets/polyhaven/lythwood_lounge_2k.hdr', 'core/assets/polyhaven/photo_studio_loft_hall_2k.hdr'],
     **{f'instruments-{lib}': ['core/audio/instruments/index.json', f'core/audio/instruments/{lib}'] for lib in SAMPLE_LIBS},
 }
+ASPECT = re.compile(r'[1-9][0-9]*:[1-9][0-9]*')
 STYLE_FIELDS = ('slug', 'en', 'cn', 'category_en', 'category_cn', 'film', 'line', 'line_cn', 'frame_sec')
 SIGN_OFF = re.compile(r'(?i:lemolab)|Opus 5\.5|Sign-off')
 # a home folder may be `Alice Smith` (up to three words, none ending in a dot, so a sentence isn't swallowed); /root/ counts when a path follows it
@@ -113,6 +114,9 @@ def style_format(slugs, bad):
             miss = [k for k in STYLE_FIELDS if meta.get(k) in (None, '')]
             if miss: probs.append('style.json lacks ' + ', '.join(miss))
             elif meta['slug'] != slug: probs.append(f'style.json says slug "{meta["slug"]}"')
+            asp = meta.get('aspects')   # optional: the frame shapes the demo has its own layout for (default ["16:9"])
+            if asp is not None and not (isinstance(asp, list) and asp and all(isinstance(a, str) and ASPECT.fullmatch(a) for a in asp)):
+                probs.append('style.json aspects must be a non-empty list like ["16:9", "9:16"]')
         except FileNotFoundError: pass
         except ValueError as e: probs.append(f'style.json is not valid JSON ({e})')
         if os.path.isfile(os.path.join(d, 'STYLE.md')):
