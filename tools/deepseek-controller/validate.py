@@ -57,8 +57,9 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
         _err(errors, "$.language: must be zh|en|zh-en")
 
     aspect = plan.get("aspect", DEFAULT_ASPECT)
-    if aspect not in ASPECT_SIZES:
-        _err(errors, f"$.aspect: must be one of {list(ASPECT_SIZES)}")
+    if not isinstance(aspect, str) or aspect not in ASPECT_SIZES:
+        _err(errors, f"$.aspect: must be one of {list(ASPECT_SIZES)} (a string), got {aspect!r}")
+        aspect = None
 
     dur = plan.get("targetDurationSec")
     if not isinstance(dur, (int, float)) or not (15 <= float(dur) <= 90):

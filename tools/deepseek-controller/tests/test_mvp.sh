@@ -1707,6 +1707,16 @@ else
   bad "aspect 4:3: $(cat /tmp/dc-asp-43.err)"
 fi
 
+# a non-string aspect (LLM-written plan) is reported, not a TypeError crash
+python3 -c "
+import json;d=json.load(open('$FIX/plan-caption-news-portrait.json'));d['aspect']=['9:16'];json.dump(d,open('/tmp/dc-asp-list.json','w'),ensure_ascii=False)"
+"${CLI[@]}" validate /tmp/dc-asp-list.json >/dev/null 2>/tmp/dc-asp-list.err && rc=0 || rc=$?
+if [ "$rc" = 1 ] && grep -q '\$.aspect: must be one of' /tmp/dc-asp-list.err && ! grep -q Traceback /tmp/dc-asp-list.err; then
+  ok "aspect [\"9:16\"] (list) reported as a validation error"
+else
+  bad "aspect list: rc=$rc $(cat /tmp/dc-asp-list.err)"
+fi
+
 if PYTHONPATH="$CTL" python3 -c "
 from common import render_size, project_size, size_arg
 assert render_size('16:9') == (1920, 1080) and render_size('9:16') == (1080, 1920)
