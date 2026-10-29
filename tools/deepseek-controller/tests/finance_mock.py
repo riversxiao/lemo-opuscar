@@ -17,6 +17,7 @@ sys.path.insert(0, str(CTL))
 td = Path(tempfile.mkdtemp(prefix="fin-mock-"))
 os.environ["DC_BUDGET_LEDGER"] = str(td / "ledger.jsonl")
 os.environ["DC_QUOTA_LEDGER"] = str(td / "quota.jsonl")
+os.environ.pop("WORDFILM_QUOTA_LEDGER", None)  # outranks DC_QUOTA_LEDGER: never the real ledger
 import dialogue_loop as D  # noqa: E402
 import llm_free as L  # noqa: E402
 

@@ -11,6 +11,7 @@ from typing import Any
 
 CTL = Path(__file__).resolve().parents[1]
 os.environ.setdefault("DC_QUOTA_LEDGER", "/tmp/dc-test-quota-ledger.jsonl")
+os.environ["WORDFILM_QUOTA_LEDGER"] = os.environ["DC_QUOTA_LEDGER"]  # top-priority name: never the real ledger
 sys.path.insert(0, str(CTL))
 
 import llm_free as L  # noqa: E402
