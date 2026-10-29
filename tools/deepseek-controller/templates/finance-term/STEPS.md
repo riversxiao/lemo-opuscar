@@ -18,6 +18,8 @@ Prefer **OpenCode + `VOLCENGINE_CODING_API_KEY`** (Volcano Coding Plan) for draf
 
 ## 通俗金融学 defaults (wen hao)
 
+- Captions/screen show content only: `text`/`cap`/`onScreenText` must never carry stage directions (「屏幕上写…」). Put the acronym in brackets instead (「叫风险价值（VaR）」); `say` speaks Chinese only. dialogue-check and validate FAIL on 屏幕上/画面上/字幕上.
+
 - **Narration speed 1.0** hardcoded in `build_term.sh` (`FINANCE_TTS_SPEED=1.0`, pacing `calm`). Never `fast` profile, never standard +10% / brisk StepAudio role.
 - **One memorable contrast** per film (e.g. 愿意 ≠ 扛得住). Do not stack definitions.
 - **Term + Chinese once** on screen (English label optional once); speak the Chinese term — do not letter-spell English in `say` unless the approved line requires it.

@@ -11,6 +11,7 @@ Checks (FAIL unless noted):
              pacing profile (pacing_profile.py: fast 5.8 / standard 5.3 / calm 4.6 字/秒).
   jinju      strong 金句升华 patterns (「让我们…」「其实…才是…」「归根结底」…)
   same-say   `say` must keep the CJK key chars of `text` (no short paraphrase)
+  stage-dir  caption/screen fields (text, cap) must not carry stage directions (「屏幕上…」)
 WARN only: weaker cliché words, investment-advice tone, ending-line flourish,
            a line longer than the profile's lineMaxChars (FAIL stays at 35).
 
@@ -34,6 +35,12 @@ MAX_CHARS = 35
 DEFAULT_RATE = pp.PROFILES[pp.DEFAULT]["cps"]  # 5.3 字/秒 (was 4.5 → scripts padded to fill time)
 DEFAULT_TOL = 0.15
 HOOK_WITHIN = 3
+# Stage directions leaking into on-screen/caption text → FAIL (金融专家 2026-10-29)
+STAGE_DIR_RE = re.compile(r"屏幕上|画面上|字幕上|\[(?:屏幕|画面|字幕)[^\]]*\]")
+
+
+def stage_directions(s: str) -> list[str]:
+    return STAGE_DIR_RE.findall(str(s or ""))
 
 # Strong 金句 / 万能升华 → FAIL
 JINJU_FAIL = [
@@ -133,6 +140,10 @@ def check_lines(
             a, b = _cjk(str(ln["text"])), _cjk(str(ln["say"]))
             if a and b and len(b) < 0.8 * len(a):
                 fails.append(f"{lid}: say ({len(b)}字) shorter than text ({len(a)}字) — no paraphrase")
+        for fld in ("text", "cap"):
+            hit = stage_directions(ln.get(fld))
+            if hit:
+                fails.append(f"{lid}: {fld} has a stage direction 「{hit[0]}」 — captions/screen show content only")
         for pat, label in JINJU_FAIL:
             if re.search(pat, spoken):
                 fails.append(f"{lid}: 金句升华 pattern 「{label}」 in 「{spoken}」")

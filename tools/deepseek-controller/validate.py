@@ -137,6 +137,9 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
         text = sh.get("text")
         if not isinstance(text, str) or not text.strip() or len(text) > 200:
             _err(errors, f"{p}.text: required string 1..200")
+        for _k in ("text", "onScreenText", "onScreenTextEn"):
+            if re.search(r"屏幕上|画面上|字幕上", str(sh.get(_k) or "")):
+                _err(errors, f"{p}.{_k}: stage direction (屏幕上…) — screen text shows content only")
         ost = sh.get("onScreenText")
         if ost is not None and (not isinstance(ost, str) or len(ost) > 120):
             _err(errors, f"{p}.onScreenText: string max 120")

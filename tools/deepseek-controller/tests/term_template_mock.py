@@ -265,4 +265,16 @@ ok("EL_BACKUP" in (CTL / "templates" / "finance-term" / "build_term.sh").read_te
    and BT.main(["build", "--out", str(td / "empty-out")]) == 0 if (td / "empty-out").mkdir() is None else False,
    "build --el-backup wired (off by default)")
 
+# 11) stage directions never reach captions/screen
+import dialogue_check as DC  # noqa: E402
+base = [{"id": "L01", "function": "hook", "text": "甲。"}, {"id": "L02", "function": "evidence",
+        "text": "这一百万，叫风险价值，屏幕上写 VaR。", "cap": "这一百万，叫{风险价值}，屏幕上写 VaR。", "say": "这一百万，叫风险价值。"},
+        {"id": "L03", "function": "payoff", "text": "乙。"}]
+r = DC.check_lines(base, 40)
+ok(r["status"] == "FAIL" and any("屏幕上" in f for f in r["fails"]), "dialogue-check FAILs 「屏幕上」 in text/cap")
+base[1].update(text="这一百万，叫风险价值（VaR）。", cap="这一百万，叫{风险价值}（VaR）。")
+ok(not any("stage direction" in f for f in DC.check_lines(base, 40)["fails"]), "（VaR） caption passes the stage-direction lint")
+bad = json.loads(json.dumps(pl2)); bad["shots"][1]["onScreenText"] = "屏幕上写 VaR"
+ok(any("stage direction" in e for e in validate.validate_plan(bad)), "validate rejects 屏幕上 in onScreenText")
+
 print(f"term template mock: {n} checks OK")
