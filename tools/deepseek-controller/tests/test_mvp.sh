@@ -27,6 +27,7 @@ trap 'rm -rf "$WORK"' EXIT
 # Never let tests append to the real fixtures/budget-ledger.jsonl (handoff etc. log $0 rows).
 export WORDFILM_BUDGET_LEDGER="$WORK/budget-ledger.jsonl"
 export DC_QUOTA_LEDGER="$WORK/quota-ledger.jsonl"   # TokenHarbor quota estimate: never the real one
+export WORDFILM_QUOTA_LEDGER="$DC_QUOTA_LEDGER"     # outranks DC_QUOTA_LEDGER: a developer export must not leak in
 unset DC_BUDGET_LEDGER
 SWISS_PROJ="$WORK/out-swiss-motion"
 cp -a "$FIX/out-swiss-motion" "$SWISS_PROJ"
@@ -791,6 +792,24 @@ PY
     bad "$cell trimmed timeline: $(cat $WORK/dc-trim-$cell.chk)"
   fi
 done
+
+# 21d) the end-card outro never passes a caption-news lock: clamped to the time left, WARN when clamped
+if PYTHONPATH="$CTL" python3 -c "
+import schedule as S
+def run(lock):
+    return S.schedule(lines=[], shots=[{'id': 's1', 'text': '', 'beats': 40}], target_duration=30, beat_grid=0.5,
+                      durs={}, outro_sec=1.5, locked_duration=lock, locked_label='locked caption-news')
+t, e = run(None); assert t['scheduledDurationSec'] == 21.5 and t['outroSec'] == 1.5 and not t['warnings'], t
+t, e = run(30.0); assert t['scheduledDurationSec'] == 21.5 and t['outroSec'] == 1.5 and not t['warnings'], t
+t, e = run(21.0); assert t['scheduledDurationSec'] == 21.0 and t['outroSec'] == 1.0 and t['ok'], t
+assert any('outro clamped 1.50s -> 1.00s' in w for w in t['warnings']), t['warnings']
+t, e = run(20.0); assert t['scheduledDurationSec'] == 20.0 and t['outroSec'] == 0 and t['ok'], t
+assert any('outro clamped 1.50s -> 0.00s' in w for w in t['warnings']), t['warnings']
+" >"$WORK/dc-outro-lock.log" 2>&1; then
+  ok "outro vs caption-news lock: clamped to the time left before the locked DUR (WARN), unchanged without a lock"
+else
+  bad "outro vs lock: $(tail -5 "$WORK/dc-outro-lock.log")"
+fi
 
 # 22) caption locked-main readcheck helper
 if python3 - <<'PY'
@@ -1838,7 +1857,7 @@ else
 fi
 
 # free-first LLM chain (TokenHarbor → OpenRouter :free; no OpenCode; no paid without --allow-paid)
-if env -u DEEPSEEK_API_KEY python3 "$CTL/tests/llm_free_mock.py" >$WORK/dc_llm_free_mock.log 2>&1; then
+if env -u DEEPSEEK_API_KEY WORDFILM_QUOTA_LEDGER="$WORK/real-quota.jsonl" python3 "$CTL/tests/llm_free_mock.py" >$WORK/dc_llm_free_mock.log 2>&1; then
   ok "llm_free: TokenHarbor→nemotron:free→flint:free; 429 retry same; quota advances; no paid without --allow-paid; ledger logs model"
 else
   bad "llm_free mock (see $WORK/dc_llm_free_mock.log)"
@@ -1852,20 +1871,34 @@ else
 fi
 
 # pacing P1: TP limiter, end-card outro, sub-beats + {keyword} frames, rework ≤2 rounds, rhythm, token steps, ElevenLabs speed
-if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY python3 "$CTL/tests/finance_mock.py" >$WORK/dc_finance_mock.log 2>&1; then
+if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY WORDFILM_QUOTA_LEDGER="$WORK/real-quota.jsonl" python3 "$CTL/tests/finance_mock.py" >$WORK/dc_finance_mock.log 2>&1; then
   ok "finance mock: 2-round NEEDS_HUMAN cap, compact critic/reviser context, quota-aware routing ($(tail -1 $WORK/dc_finance_mock.log))"
 else
   bad "finance mock (see $WORK/dc_finance_mock.log)"
 fi
-if env -u STEP_API_KEY -u LEMO_PACING -u ELEVENLABS_API_KEY python3 "$CTL/tests/p1_mock.py" >$WORK/dc_p1_mock.log 2>&1; then
+if env -u STEP_API_KEY -u LEMO_PACING -u ELEVENLABS_API_KEY WORDFILM_QUOTA_LEDGER="$WORK/real-quota.jsonl" python3 "$CTL/tests/p1_mock.py" >$WORK/dc_p1_mock.log 2>&1; then
   ok "pacing P1: TP≤−1 limiter; end-card outro; sub-beats ≤ maxShot + keyword frames; rework ≤2 rounds (WARN untouched); rhythm dim; per-step tokens; elevenlabs speed"
 else
   bad "pacing P1 mock (see $WORK/dc_p1_mock.log)"
 fi
-if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY -u STEP_API_KEY -u ELEVENLABS_API_KEY -u DEEPSEEK_API_KEY python3 "$CTL/tests/term_template_mock.py" >$WORK/dc_term_mock.log 2>&1; then
+if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY -u STEP_API_KEY -u ELEVENLABS_API_KEY -u DEEPSEEK_API_KEY WORDFILM_QUOTA_LEDGER="$WORK/real-quota.jsonl" python3 "$CTL/tests/term_template_mock.py" >$WORK/dc_term_mock.log 2>&1; then
   ok "finance-term template: check-only approval gate, role/cap/say, zh number folding + number gate, spoken units, beatsAuthored, vo_srt, probe_fps, StepAudio reuse/2nd pass, batch_terms ($(tail -1 $WORK/dc_term_mock.log))"
 else
   bad "finance-term template mock (see $WORK/dc_term_mock.log)"
+fi
+# finance-v003 viz gates (upstream mock, offline): scene lint, visual_dupe compare + series root / WARN, quality gates
+if ! python3 -c 'import numpy, PIL' 2>/dev/null; then
+  skip "viz mock (visual_dupe)" "numpy / Pillow not installed"
+elif env -u WORDFILM_FILMS python3 "$CTL/tests/viz_mock.py" >$WORK/dc_viz_mock.log 2>&1; then
+  ok "finance-v003 viz: scene lint, visual_dupe series root beside the project, no comparison film → WARN not PASS ($(tail -1 $WORK/dc_viz_mock.log))"
+else
+  bad "viz mock (see $WORK/dc_viz_mock.log): $(tail -3 $WORK/dc_viz_mock.log)"
+fi
+# the four LLM mocks above (llm_free, finance, p1, finance-term) ran with a developer-style WORDFILM_QUOTA_LEDGER export: none may write to it
+if [ ! -e "$WORK/real-quota.jsonl" ] && [ ! -e "$WORK/real-quota.header.json" ]; then
+  ok "quota ledger isolation: mocks never write to an exported WORDFILM_QUOTA_LEDGER (it outranks DC_QUOTA_LEDGER)"
+else
+  bad "quota ledger isolation: mocks wrote $(wc -l <"$WORK/real-quota.jsonl" 2>/dev/null || echo 0) rows to the exported WORDFILM_QUOTA_LEDGER"
 fi
 
 # budget ledger: tests write to \$WORDFILM_BUDGET_LEDGER, never the real fixtures ledger
@@ -2258,6 +2291,29 @@ if python3 -m py_compile "$ROOT/tools/portrait_check.py" \
   ok "portrait_check.py --dry-run plans natives + reframe sample under \$WORDFILM_CACHE, writes nothing; bad slug / --t rejected"
 else
   bad "portrait_check.py dry run: $(cat $WORK/dc-pc.out $WORK/dc-pc2.out 2>/dev/null | head -30)"
+fi
+# Offline real run (no render, no network): caption-news without its footage is skipped before any font fetch.
+# Nothing rendered → exit 1; a REF still the run did not produce → problem; library files a copy no longer has
+# (listed in its file list) are dropped, fetched files stay.
+if [ ! -d "$ROOT/node_modules/playwright-core" ]; then
+  skip "portrait_check.py exit status" "node_modules/playwright-core missing (npm install)"
+else
+  PCR="$WORK/pc-run"; PCS="$PCR/portrait-check/styles/caption-news"
+  WORDFILM_CACHE="$PCR" python3 "$ROOT/tools/portrait_check.py" caption-news >$WORK/dc-pc3.out 2>&1 && pc_rc1=0 || pc_rc1=$?
+  echo stale >"$PCS/stale-from-other-lib.txt"; echo kept >"$PCS/fetched.bin"
+  python3 -c "import json,sys; p=sys.argv[1]; l=json.load(open(p)); json.dump(l+['stale-from-other-lib.txt'], open(p,'w'))" \
+    "$PCS/.portrait-check-files.json"
+  mkdir -p "$PCR/ref/caption-news/land" && echo ref >"$PCR/ref/caption-news/land/l_22.3.jpg"
+  WORDFILM_CACHE="$PCR" python3 "$ROOT/tools/portrait_check.py" caption-news --compare "$PCR/ref" >$WORK/dc-pc4.out 2>&1 && pc_rc2=0 || pc_rc2=$?
+  if [ "$pc_rc1" = 1 ] && grep -q 'nothing rendered: every style was skipped' $WORK/dc-pc3.out \
+    && ! grep -q '^  fonts' $WORK/dc-pc3.out \
+    && [ "$pc_rc2" = 1 ] && grep -q 'reference l_22.3.jpg has no still in this run (skipped)' $WORK/dc-pc4.out \
+    && grep -q 'dropped 1 file' $WORK/dc-pc4.out && [ ! -e "$PCS/stale-from-other-lib.txt" ] && [ -e "$PCS/fetched.bin" ] \
+    && [ -f "$PCS/STYLE.md" ]; then
+    ok "portrait_check.py exit status: all skipped → 1, REF still without a current one → 1; copy drops stale library files, keeps fetched ones"
+  else
+    bad "portrait_check.py exit status (rc $pc_rc1 / $pc_rc2): $(cat $WORK/dc-pc3.out $WORK/dc-pc4.out | tail -12)"
+  fi
 fi
 skip "portrait_check.py renders" "downloads fonts and footage; run python3 tools/portrait_check.py [--footage] by hand"
 
