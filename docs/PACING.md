@@ -90,8 +90,14 @@ writes `evidence/token-usage.json` + `TOKENS.md`.
   `--max-rounds N` / `DC_DIALOGUE_MAX_ROUNDS`.
 - Compact context (default): `RULES_COMPACT` checklist + the film's FACTS + compact lines; reviser gets only flagged
   lines and returns only those; critic output capped (low ≤3, short details). `--full-context` = old behaviour.
-- Quota-aware routing (`llm_free.py`): TokenHarbor has no usage API (dashboard only), so every TokenHarbor call's
-  tokens go to a local ledger (rolling 7 days; `DC_QUOTA_LEDGER`, else next to `DC_BUDGET_LEDGER`, else
-  `~/.cache/wordfilm/tokenharbor-usage.jsonl`). At ≥ `DC_TH_ROUTE_PCT` (0.8) × `DC_TH_WEEKLY_BUDGET` (1,250,000) the
-  client puts OpenRouter `nvidia/nemotron-3.5-lightning:free` → `recursive/flint-v1.0:free` first and TokenHarbor last.
-  `python3 llm_free.py` prints the current estimate. NVIDIA NIM stays out. Never paid without `--allow-paid`.
+- Quota-aware routing (`llm_free.py`). **Primary signal:** TokenHarbor response headers `x-th-free-used-pct`
+  (percent used) + `x-th-free-resets` (UTC reset; ISO-8601 / RFC 1123 / epoch). Each TokenHarbor response (incl.
+  HTTP errors) writes them to `<ledger stem>.header.json` beside the ledger; the value is trusted until its reset
+  time passes (no reset header → `DC_TH_HEADER_TTL_SEC`, 6 h). A response showing ≥80 % reroutes **mid-batch**
+  (the next call already goes to OpenRouter); the next batch/client reads the state file at start.
+  **Fallback** (no fresh header): local ledger of every TokenHarbor call's tokens (rolling 7 days; `DC_QUOTA_LEDGER`,
+  else `~/.cache/wordfilm/tokenharbor-usage.jsonl`) vs `DC_TH_WEEKLY_BUDGET` (1,250,000). At ≥ `DC_TH_ROUTE_PCT`
+  (0.8) the client puts OpenRouter `nvidia/nemotron-3.5-lightning:free` → `recursive/flint-v1.0:free` first and
+  TokenHarbor last. `routing.source` says which signal decided (`header x-th-free-used-pct` / `local-ledger`);
+  the ledger estimate is kept as `ledgerPct`. `python3 llm_free.py` prints both. NVIDIA NIM stays out.
+  Never paid without `--allow-paid`.

@@ -147,5 +147,108 @@ cr.routing = cr.reroute()
 s5 = D.run_loop(proj("rt"), client=cr, settle_sec=0, log=lambda *_: None)
 ok(s5["routing"]["routed"], "dialogue_loop records routing in summary")
 
+# 4) header-based quota (primary signal) — x-th-free-used-pct / x-th-free-resets
+from datetime import datetime, timedelta, timezone
+qh = td / "hq.jsonl"
+os.environ["DC_QUOTA_LEDGER"] = str(qh)
+hp = L.quota_header_path()
+ok(hp == td / "hq.header.json", f"header state beside temp ledger ({hp.name})")
+ok(L.parse_th_headers({"X-TH-Free-Used-Pct": "83.5%"})["pct"] == 0.835, "header pct parsed (percent, case-insensitive)")
+ok(L.parse_th_headers({"content-type": "application/json"}) is None, "no header → None")
+ok(L.parse_th_headers({"x-th-free-used-pct": "n/a"}) is None, "garbage header → None")
+ok(L.parse_reset("2026-10-30T00:00:00Z") == datetime(2026, 10, 30, tzinfo=timezone.utc).timestamp(), "ISO Z reset")
+ok(L.parse_reset("Fri, 30 Oct 2026 00:00:00 GMT") == datetime(2026, 10, 30, tzinfo=timezone.utc).timestamp(), "RFC1123 reset")
+ok(L.parse_reset("2026-10-30T00:00:00") == datetime(2026, 10, 30, tzinfo=timezone.utc).timestamp(), "naive reset = UTC")
+fut = (datetime.now(timezone.utc) + timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+past = (datetime.now(timezone.utc) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+hdr = {"pct": "12"}
+seen.clear()
+
+
+def trh(url, headers, body):
+    seen.append((url, body["model"]))
+    r = {"model": body["model"], "choices": [{"message": {"content": "{\"ok\": 1}"}}],
+         "usage": {"prompt_tokens": 60, "completion_tokens": 40, "total_tokens": 100}}
+    if "tokenharbor" in url and hdr.get("pct") is not None:
+        return r, {"x-th-free-used-pct": hdr["pct"], "x-th-free-resets": hdr.get("resets", fut)}
+    return r
+
+
+ch = L.FreeFirstClient(transport=trh, sleep_fn=lambda *_: None)
+ok(ch.routing["source"].startswith("local-ledger"), "no header seen yet → ledger fallback")
+ch.chat_json("s", "u", step="h1")
+st = L.quota_status()
+ok(st["source"] == "header x-th-free-used-pct" and st["pct"] == 0.12, f"header recorded & primary ({st['source']})")
+ok(not ch.routing["routed"], "header 12% → TokenHarbor stays first")
+hdr["pct"] = "81.2"
+ch.chat_json("s", "u", step="h2")
+ok(seen[-1][1] == "deepseek-v4.1-flash:free", "the call that returned 81% was TokenHarbor")
+ok(ch.routing["routed"] and ch.routing.get("trigger") == "mid-batch header" and ch.routing["source"].startswith("header"),
+   "header ≥80% → reroutes mid-batch even though ledger is ~0%")
+ok(ch.routing["ledgerPct"] < 0.01, "ledger estimate kept alongside header")
+ch.chat_json("s", "u", step="h3")
+ok(seen[-1][1] == "nvidia/nemotron-3.5-lightning:free", "next call in the same batch → OpenRouter nemotron")
+ok(L.FreeFirstClient(transport=trh).routing["routed"], "next batch: persisted header routes at start")
+# header lower than ledger wins (primary)
+with qh.open("a") as f:
+    f.write(json.dumps({"ts": time.time() - 60, "provider": "tokenharbor", "total": 1_200_000}) + "\n")
+L.record_header({"pct": 0.3, "resetsAt": L.parse_reset(fut), "resetsRaw": fut, "observedAt": time.time()})
+r = L.FreeFirstClient(transport=trh).routing
+ok(not r["routed"] and r["pct"] == 0.3 and r["ledgerPct"] > 0.9, "fresh header 30% overrides ledger 96%")
+# stale header (reset passed) → ledger fallback
+L.record_header({"pct": 0.3, "resetsAt": L.parse_reset(past), "resetsRaw": past, "observedAt": time.time() - 7200})
+r = L.FreeFirstClient(transport=trh).routing
+ok(r["source"].startswith("local-ledger") and r["routed"], "reset time passed → header ignored, ledger 96% routes")
+# no reset header → TTL
+L.record_header({"pct": 0.95, "resetsAt": None, "resetsRaw": None, "observedAt": time.time() - 7 * 3600})
+ok(L.header_quota() is None, "no reset + older than TTL → ignored")
+L.record_header({"pct": 0.95, "resetsAt": None, "resetsRaw": None, "observedAt": time.time()})
+ok(L.FreeFirstClient(transport=trh).routing["routed"], "no reset + fresh → used")
+# dict-carried headers on HTTP-error-free path; OpenRouter headers ignored
+hp.unlink()
+L.FreeFirstClient(transport=lambda u, h, b: {"__headers__": {"x-th-free-used-pct": "50"}, "model": b["model"],
+                  "choices": [{"message": {"content": "{}"}}], "usage": {}}, quota_route=False).chat_json("s", "u")
+ok(L.header_quota()["pct"] == 0.5, "__headers__ dict form accepted")
+hp.unlink()
+os.environ["TOKENHARBOR_API_KEY"] = ""
+L.FreeFirstClient(transport=lambda u, h, b: ({"model": b["model"], "choices": [{"message": {"content": "{}"}}]},
+                  {"x-th-free-used-pct": "99"})).chat_json("s", "u")
+ok(not hp.exists(), "x-th headers from non-TokenHarbor providers are ignored")
+os.environ["TOKENHARBOR_API_KEY"] = "test-th"
+# real (non-mock) transport path: headers read from the urlopen response object
+import io
+import email.message
+
+
+class _Resp(io.BytesIO):
+    def __init__(self, data, hdrs):
+        super().__init__(data)
+        self.headers = email.message.Message()
+        for k, v in hdrs.items():
+            self.headers[k] = v
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        self.close()
+
+
+_orig = L.urllib.request.urlopen
+L.urllib.request.urlopen = lambda req, timeout=None: _Resp(json.dumps(
+    {"model": "m", "choices": [{"message": {"content": "{}"}}], "usage": {"total_tokens": 5}}).encode(),
+    {"X-Th-Free-Used-Pct": "88", "X-Th-Free-Resets": fut})
+qh.write_text("")  # ledger 0 % → only the header can route
+try:
+    cu = L.FreeFirstClient(sleep_fn=lambda *_: None)
+    cu.chat_json("s", "u")
+finally:
+    L.urllib.request.urlopen = _orig
+ok(cu.call_log[-1]["provider"] == "tokenharbor" and L.header_quota()["pct"] == 0.88 and cu.routing["routed"],
+   "urlopen path captures TokenHarbor response headers → routed")
+ok("test-th" not in hp.read_text(), "no keys in header state")
+ok(all(not s_["paid"] for s_ in ch._slots), "header routing never adds paid slots")
+os.environ["DC_QUOTA_LEDGER"] = _q
+
 shutil.rmtree(td, ignore_errors=True)
 print(f"finance mock: {n} checks passed")

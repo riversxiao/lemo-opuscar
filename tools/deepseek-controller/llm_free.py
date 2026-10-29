@@ -16,20 +16,27 @@ Error classes:
 
 Never prints API keys. Per-call model is recorded in self.call_log and usage.
 
-Quota-aware routing (finance): TokenHarbor documents no usage/quota API (usage is dashboard-only;
-/v1/usage, /v1/key, /v1/me → 404), so usage is tracked in a local ledger of every TokenHarbor call's
-total tokens (rolling 7-day window). When used ≥ DC_TH_ROUTE_PCT (0.8) × DC_TH_WEEKLY_BUDGET
-(1,250,000 tokens), the client routes to OpenRouter nemotron-3.5-lightning:free → flint-v1.0:free first
+Quota-aware routing (finance). PRIMARY signal: TokenHarbor response headers `x-th-free-used-pct`
+(percent of the free quota used, e.g. "83.5") and `x-th-free-resets` (UTC reset time). Every TokenHarbor
+response's headers are persisted to a small state file next to the ledger
+(`<ledger stem>.header.json`); the header value is trusted until its reset time passes (no reset header →
+for DC_TH_HEADER_TTL_SEC, default 6 h). FALLBACK when no fresh header exists: a local ledger of every
+TokenHarbor call's total tokens (rolling 7-day window; there is no usage endpoint — /v1/usage, /v1/key,
+/v1/me → 404) against DC_TH_WEEKLY_BUDGET (1,250,000 tokens). When used ≥ DC_TH_ROUTE_PCT (0.8),
+the client routes to OpenRouter nemotron-3.5-lightning:free → flint-v1.0:free first
 and keeps TokenHarbor only as the last free fallback. Checked at client start and before each batch
-(`reroute()`, called by dialogue_loop / token_measure). Ledger: $DC_QUOTA_LEDGER (tests), else
+(`reroute()`, called by dialogue_loop / token_measure) and immediately mid-batch when a response header
+crosses the threshold. Ledger: $DC_QUOTA_LEDGER (tests), else
 ~/.cache/wordfilm/tokenharbor-usage.jsonl (shared by every real run on this machine).
 NVIDIA NIM is not in the chain (timeouts). Never paid.
 """
 from __future__ import annotations
 
+import email.utils
 import json
 import os
 import time
+from datetime import datetime, timezone
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -56,6 +63,9 @@ RATE_LIMIT_RETRIES = int(os.environ.get("DC_LLM_RATE_LIMIT_RETRIES", "3"))
 TH_WEEKLY_BUDGET = int(float(os.environ.get("DC_TH_WEEKLY_BUDGET", "1250000")))
 TH_ROUTE_PCT = float(os.environ.get("DC_TH_ROUTE_PCT", "0.8"))
 QUOTA_WINDOW_SEC = 7 * 86400
+TH_HEADER_TTL_SEC = float(os.environ.get("DC_TH_HEADER_TTL_SEC", str(6 * 3600)))
+TH_HDR_PCT = "x-th-free-used-pct"
+TH_HDR_RESETS = "x-th-free-resets"
 
 
 def quota_ledger_path() -> Path:
@@ -76,6 +86,107 @@ def record_usage(row: dict[str, Any], path: Path | None = None, now: float | Non
                                 "total": int(row.get("total") or 0)}) + "\n")
     except OSError:
         pass
+
+
+def quota_header_path(ledger: Path | None = None) -> Path:
+    """Header state lives beside the ledger (so temp test ledgers get temp header state)."""
+    lp = ledger or quota_ledger_path()
+    return lp.with_name(lp.stem + ".header.json")
+
+
+def _hget(headers: Any, name: str) -> str | None:
+    if headers is None:
+        return None
+    try:
+        items = headers.items()
+    except AttributeError:
+        return None
+    for k, v in items:
+        if str(k).lower() == name:
+            return None if v is None else str(v).strip()
+    return None
+
+
+def parse_reset(raw: str | None) -> float | None:
+    """UTC reset time → epoch seconds. Accepts ISO-8601 (Z / offset / naive=UTC), RFC 1123, epoch s/ms."""
+    if not raw:
+        return None
+    raw = raw.strip()
+    try:
+        x = float(raw)
+        return x / 1000.0 if x > 1e11 else x
+    except ValueError:
+        pass
+    try:
+        d = datetime.fromisoformat(raw.replace("Z", "+00:00").replace("z", "+00:00"))
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=timezone.utc)
+        return d.timestamp()
+    except ValueError:
+        pass
+    try:
+        d = email.utils.parsedate_to_datetime(raw)
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=timezone.utc)
+        return d.timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_th_headers(headers: Any, now: float | None = None) -> dict[str, Any] | None:
+    """`x-th-free-used-pct` (percent, "83.5" / "83.5%") + `x-th-free-resets` → state dict, or None."""
+    raw = _hget(headers, TH_HDR_PCT)
+    if raw is None or raw == "":
+        return None
+    try:
+        pct = float(raw.rstrip("%").strip()) / 100.0
+    except ValueError:
+        return None
+    if pct < 0:
+        return None
+    rraw = _hget(headers, TH_HDR_RESETS)
+    return {"pct": round(pct, 4), "resetsAt": parse_reset(rraw), "resetsRaw": rraw,
+            "observedAt": round(now or time.time(), 1)}
+
+
+def record_header(state: dict[str, Any], ledger: Path | None = None) -> None:
+    p = quota_header_path(ledger)
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(state) + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
+def header_quota(ledger: Path | None = None, now: float | None = None) -> dict[str, Any] | None:
+    """Fresh header state, or None (missing, unreadable, past its reset, or older than the TTL w/o reset)."""
+    p = quota_header_path(ledger)
+    now = now or time.time()
+    if not p.is_file():
+        return None
+    try:
+        st = json.loads(p.read_text(encoding="utf-8"))
+        pct = float(st["pct"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    ra = st.get("resetsAt")
+    if ra is not None:
+        if now >= float(ra):
+            return None  # quota has reset since the header was seen
+    elif now - float(st.get("observedAt") or 0) > TH_HEADER_TTL_SEC:
+        return None
+    return {"pct": round(pct, 4), "resetsAt": ra, "resetsRaw": st.get("resetsRaw"),
+            "observedAt": st.get("observedAt"), "file": str(p)}
+
+
+def quota_status(path: Path | None = None, now: float | None = None, budget: int | None = None) -> dict[str, Any]:
+    """Routing signal: fresh TokenHarbor header (primary) else the local ledger estimate (fallback)."""
+    q = quota_usage(path, now=now, budget=budget)
+    h = header_quota(path, now=now)
+    if h is None:
+        return {**q, "header": None}
+    return {**q, "pct": h["pct"], "source": f"header {TH_HDR_PCT}",
+            "ledgerPct": q["pct"], "resetsAt": h["resetsAt"], "resetsRaw": h["resetsRaw"], "header": h}
 
 
 def quota_usage(path: Path | None = None, now: float | None = None, budget: int | None = None) -> dict[str, Any]:
@@ -235,12 +346,13 @@ class FreeFirstClient:
         self.weekly_budget = weekly_budget or TH_WEEKLY_BUDGET
         self._base_order = list(self._slots)
         self.routing: dict[str, Any] = {}
+        self.header_seen: dict[str, Any] | None = None
         self.reroute()
 
     def reroute(self) -> dict[str, Any]:
         """Before a batch: if TokenHarbor ≥ route_pct of the weekly budget, OpenRouter :free goes first and
         TokenHarbor becomes the last free fallback. Never adds paid slots."""
-        q = quota_usage(self.quota_path, budget=self.weekly_budget)
+        q = quota_status(self.quota_path, budget=self.weekly_budget)
         others = [s for s in self._base_order if s["provider"] != "tokenharbor"]
         th = [s for s in self._base_order if s["provider"] == "tokenharbor"]
         hot = self.quota_route and q["pct"] >= self.route_pct and bool(others) and bool(th)
@@ -248,6 +360,19 @@ class FreeFirstClient:
         self.routing = {**q, "routePct": self.route_pct, "routed": hot,
                         "order": [f"{s['provider']}/{s['model']}" for s in self._slots]}
         return self.routing
+
+    def _observe_headers(self, slot: dict[str, Any], headers: Any) -> None:
+        """TokenHarbor quota headers → state file; reroute now if they cross the threshold."""
+        if slot.get("provider") != "tokenharbor":
+            return
+        st = parse_th_headers(headers)
+        if st is None:
+            return
+        record_header(st, self.quota_path)
+        self.header_seen = st
+        if self.quota_route and st["pct"] >= self.route_pct and not self.routing.get("routed"):
+            self.reroute()
+            self.routing["trigger"] = "mid-batch header"
 
     def balance(self) -> float | None:
         """Paid DeepSeek balance only; free providers return None (no CNY spend)."""
@@ -331,13 +456,23 @@ class FreeFirstClient:
             headers["HTTP-Referer"] = "https://github.com/riversxiao/wordfilm"
             headers["X-Title"] = "wordfilm-dialogue-loop"
         t0 = time.time()
+        resp_headers: Any = None
         try:
             if self._transport is not None:
                 r = self._transport(url, headers, body)
+                # mocks may return (dict, headers) or a dict carrying "__headers__"
+                if isinstance(r, tuple) and len(r) == 2:
+                    r, resp_headers = r
+                elif isinstance(r, dict) and "__headers__" in r:
+                    r = dict(r)
+                    resp_headers = r.pop("__headers__")
             else:
                 req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)
-                r = json.load(urllib.request.urlopen(req, timeout=self.timeout))
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    resp_headers = resp.headers
+                    r = json.load(resp)
         except urllib.error.HTTPError as e:
+            self._observe_headers(slot, getattr(e, "headers", None))
             raw = e.read().decode("utf-8", "replace")[:800]
             if _is_quota_body(e.code, raw):
                 raise QuotaExhausted(f"{slot['provider']}/{slot['model']} quota: HTTP {e.code}") from None
@@ -347,6 +482,7 @@ class FreeFirstClient:
         except (urllib.error.URLError, TimeoutError, ValueError) as e:
             raise ProviderError(f"{slot['provider']}/{slot['model']} transport: {e}") from None
 
+        self._observe_headers(slot, resp_headers)
         if isinstance(r, dict) and r.get("error"):
             err = r["error"]
             msg = err if isinstance(err, str) else json.dumps(err)
@@ -402,5 +538,6 @@ if __name__ == "__main__":
     c = FreeFirstClient(allow_paid=False)
     r = c.routing
     print("slots:", r["order"])
-    print(f"tokenharbor 7-day usage {r['used']}/{r['budget']} ({r['pct']:.1%}; route at {r['routePct']:.0%}) "
-          f"routed={r['routed']} — {r['source']} {r['ledger']}")
+    print(f"tokenharbor used {r['pct']:.1%} (route at {r['routePct']:.0%}) routed={r['routed']} — source: {r['source']}"
+          + (f", resets {r.get('resetsRaw')}" if r.get('header') else "")
+          + f"; ledger estimate {r['used']}/{r['budget']} ({r.get('ledgerPct', r['pct']):.1%}) {r['ledger']}")
