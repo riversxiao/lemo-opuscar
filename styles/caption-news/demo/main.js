@@ -158,7 +158,7 @@ function lowerThird(t, t0, zh, en, x = P(120, 72), y = P(742, BAND - 330)) {   /
 }
 
 // ---------- caption card: one line per language, chunks slam in one after another ----------
-// portrait caption card (under the band): the chunks stacked on two balanced lines, the English wrapped on up to two lines
+// portrait caption card (under the band): the chunks stacked on two balanced lines, the English wrapped on up to two lines (fitEn)
 const PCAP = { x: 72, w: 936, zh: 76, en: 32 };
 function capLayout(parts, big) {
   if (!PORT) {
@@ -182,6 +182,16 @@ function wrapWords(s, font, maxW) {   // greedy word wrap (portrait English line
   for (const w of s.split(' ')) { const tryL = line ? line + ' ' + w : w; if (line && tw(tryL, font) > maxW) { out.push(line); line = w; } else line = tryL; }
   if (line) out.push(line); return out;
 }
+// portrait English: wrap to at most two lines at PCAP.en px; longer copy steps the size down
+// (no less than 24 px) instead of losing text. If even that needs a third line, it is still
+// drawn (on the same rhythm) and a warning names the line, so nothing is cut silently.
+const EN_MIN = 24, WARNED = new Set();
+function fitEn(s, maxW, n = 2) {
+  let size = PCAP.en, f, ls;
+  for (;; size -= 2) { f = `500 ${size}px ${F.n5}`; ls = wrapWords(s, f, maxW); if (ls.length <= n || size <= EN_MIN) break; }
+  if (ls.length > n && !WARNED.has(s)) { WARNED.add(s); console.warn(`caption-news: English line needs ${ls.length} lines in 9:16 at ${size}px; shorten it: ${s}`); }
+  return { f, ls, lh: Math.round(42 * size / PCAP.en) };
+}
 function capCard(c, t) {
   const [a, b, zh, en, big = 1] = c; if (t < a || t >= b) return;
   const parts = zh.split('|'), L = capLayout(parts, big), size = L.size;
@@ -201,7 +211,7 @@ function capCard(c, t) {
   const ke = eo(seg(t, a + .1, a + .28));
   ctx.save(); ctx.globalAlpha = ke; ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowBlur = 12;
   if (!PORT) text(en, CAP.x, L.enY[0] + (1 - ke) * 10, `500 ${CAP.en}px ${F.n5}`, C.ink);
-  else { const f = `500 ${PCAP.en}px ${F.n5}`; wrapWords(en, f, PCAP.w).slice(0, 2).forEach((l, i) => text(l, PCAP.x, L.enY[i] + (1 - ke) * 10, f, C.ink)); }
+  else { const { f, ls, lh } = fitEn(en, PCAP.w); ls.forEach((l, i) => text(l, PCAP.x, L.enY[0] + i * lh + (1 - ke) * 10, f, C.ink)); }
   ctx.restore();
 }
 function chunkW(p, size) { let w = 0; for (const q of p.split(/(\{[^}]+\})/).filter(Boolean)) { const hot = q[0] === '{'; w += tw(hot ? q.slice(1, -1) : q, `900 ${size}px ${F.zh9}`) + (hot ? 24 : 0); } return w; }
@@ -232,7 +242,7 @@ function hook(t) {
   }
   const ke = eo(seg(t, .3, .5)); ctx.save(); ctx.globalAlpha = ke; ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowBlur = 12;
   if (!PORT) text(HOOK_CUE[3], L, 880, `500 ${CAP.en}px ${F.n5}`, C.ink);
-  else { const f = `500 ${PCAP.en}px ${F.n5}`; wrapWords(HOOK_CUE[3], f, PCAP.w).slice(0, 2).forEach((l, i) => text(l, L, BAND + 100 + i * 46, f, C.ink)); }
+  else { const { f, ls, lh } = fitEn(HOOK_CUE[3], PCAP.w); ls.forEach((l, i) => text(l, L, BAND + 100 + i * Math.round(lh * 46 / 42), f, C.ink)); }
   ctx.restore();
   ctx.restore();
   if (out === 0) { TX.push(PORT ? { id: 'hook', text: '一年没了130万箱蜜蜂', x0: L - 30, y0: 660, x1: W - 72, y1: 1340 } : { id: 'hook', text: '一年没了130万箱蜜蜂', x0: L - 30, y0: 380, x1: 1400, y1: 820 }); }
