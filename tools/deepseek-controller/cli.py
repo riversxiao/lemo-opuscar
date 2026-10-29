@@ -87,6 +87,8 @@ def cmd_schedule(args: argparse.Namespace) -> int:
         argv.append("--pad-under-target")
     if getattr(args, "pacing", None):
         argv += ["--pacing", args.pacing]
+    if getattr(args, "no_beats", False):
+        argv.append("--no-beats")
     if getattr(args, "outro", None) is not None:
         argv += ["--outro", str(args.outro)]
     if args.output:
@@ -242,6 +244,28 @@ def cmd_dialogue_check(args: argparse.Namespace) -> int:
     if args.json:
         argv.append("--json")
     return dialogue_check.main(argv)
+
+
+def cmd_beats(args: argparse.Namespace) -> int:
+    import beats
+    argv = ["--project", args.project]
+    if args.pacing:
+        argv += ["--pacing", args.pacing]
+    if args.dry_run:
+        argv.append("--dry-run")
+    return beats.main(argv)
+
+
+def cmd_pacing_rework(args: argparse.Namespace) -> int:
+    import pacing_rework
+    argv = ["--project", args.project, "--media", args.media, "--max-rounds", str(args.max_rounds)]
+    if args.mix:
+        argv += ["--mix", args.mix]
+    if args.pacing:
+        argv += ["--pacing", args.pacing]
+    if args.dry_run:
+        argv.append("--dry-run")
+    return pacing_rework.main(argv)
 
 
 def cmd_quality(args: argparse.Namespace) -> int:
@@ -500,6 +524,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--pad-under-target", action="store_true",
                    help="LEGACY hold-last-beat pad to target (quality FAILs padding > 1.5s)")
     s.add_argument("--pacing", help="fast|standard|calm (default plan.json pacing / content_type)")
+    s.add_argument("--no-beats", action="store_true", help="skip beats_runtime.json (P1 sub-beats)")
     s.add_argument("--outro", type=float, default=None, help="outro/brand card seconds (≤1.5)")
     s.add_argument("-o", "--output")
     s.set_defaults(func=cmd_schedule)
@@ -571,6 +596,21 @@ def build_parser() -> argparse.ArgumentParser:
     dl.add_argument("--allow-paid", action="store_true",
                     help="after all free models fail, use paid DeepSeek official (OFF by default)")
     dl.set_defaults(func=cmd_dialogue_loop)
+
+    be = sub.add_parser("beats", help="visual sub-beats + {keyword} emphasis → beats_runtime.json (all styles)")
+    be.add_argument("--project", required=True)
+    be.add_argument("--pacing", default=None)
+    be.add_argument("--dry-run", action="store_true")
+    be.set_defaults(func=cmd_beats)
+
+    pr = sub.add_parser("pacing-rework", help="pacing gate visual FAIL → re-render, max 2 rounds (WARN untouched)")
+    pr.add_argument("--project", required=True)
+    pr.add_argument("--media", required=True)
+    pr.add_argument("--mix", default=None, help="default <project>/out/mix.wav")
+    pr.add_argument("--pacing", default=None)
+    pr.add_argument("--max-rounds", type=int, default=2)
+    pr.add_argument("--dry-run", action="store_true")
+    pr.set_defaults(func=cmd_pacing_rework)
 
     q = sub.add_parser("quality", help="write quality.json and gate delivery")
     q.add_argument("--project", required=True)

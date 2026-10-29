@@ -142,11 +142,13 @@ try:
     (rt / "voices" / "words.json").write_text("{}")
     os.environ.pop("LEMO_TTS_STEPAUDIO_SPEED", None)
     meta = run_tts.run_tts(rt, post_words=False)
-    ok(seen["rate"] == "+20%" and abs(seen["speed"] - 1.18) < 1e-9, "market → fast: edge +20%, stepaudio 1.18")
+    ok(seen["rate"] == "+20%" and abs(seen["speed"]["stepaudio"] - 1.18) < 1e-9
+       and abs(seen["speed"]["elevenlabs"] - pp.PROFILES["fast"]["elevenlabsSpeed"]) < 1e-9,
+       "market → fast: edge +20%, stepaudio 1.18, elevenlabs profile speed")
     ok(meta["pacing"] == "fast" and meta["pauseTrim"]["removedSec"] > 0.9, "run_tts trims pauses after synth")
     ok(not (rt / "voices" / "words.json").exists(), "stale words.json removed on new take")
     run_tts.run_tts(rt, post_words=False, rate="-5%", speed=0.9)
-    ok(seen["rate"] == "-5%" and seen["speed"] == 0.9, "explicit rate/speed win")
+    ok(seen["rate"] == "-5%" and seen["speed"] == {"stepaudio": 0.9, "elevenlabs": 0.9}, "explicit rate/speed win")
 
     # ---- 6 router speed plumbing + StepAudio prompt
     import tts_router

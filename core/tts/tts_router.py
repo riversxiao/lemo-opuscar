@@ -94,7 +94,9 @@ def _default_voice(provider: str, explicit: str | None) -> str | None:
     return None
 
 
-SPEED_PROVIDERS = {"stepaudio"}  # providers that take a float `speed` (edge uses `rate`)
+# providers that take a float `speed` (edge uses `rate`). ElevenLabs: voice_settings.speed
+# (docs: 1.0 normal, recommended 0.7–1.2; not supported on eleven_v4* models → omitted there).
+SPEED_PROVIDERS = {"stepaudio", "elevenlabs"}
 
 
 def _run_one(provider: str, lines: list[dict], out_dir: str, voice: str | None, rate: str, pitch: str,
@@ -111,6 +113,8 @@ def _run_one(provider: str, lines: list[dict], out_dir: str, voice: str | None, 
     }
     if provider == "elevenlabs-dialogue" and content_type:
         opts["content_type"] = content_type
+    if isinstance(speed, dict):   # per-provider speeds (run_tts: pacing profile per provider)
+        speed = speed.get(provider)
     if speed and provider in SPEED_PROVIDERS:
         opts["speed"] = float(speed)
     synth = SYNTH[provider]

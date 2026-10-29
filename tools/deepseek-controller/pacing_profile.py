@@ -39,6 +39,7 @@ PROFILES: dict[str, dict[str, Any]] = {
         "lineMaxChars": 20,         # WARN above (FAIL stays at dialogue_check.MAX_CHARS)
         "maxShotSec": 3.0,
         "changesPer10s": 4.0,
+        "endCardSec": 0.8,          # default outro hold when the last shot is an end/brand card
         "bpm": 128,
     },
     "standard": {
@@ -54,6 +55,7 @@ PROFILES: dict[str, dict[str, Any]] = {
         "lineMaxChars": 26,
         "maxShotSec": 4.5,
         "changesPer10s": 2.5,
+        "endCardSec": 1.0,
         "bpm": 110,
     },
     "calm": {
@@ -69,10 +71,26 @@ PROFILES: dict[str, dict[str, Any]] = {
         "lineMaxChars": 32,
         "maxShotSec": 6.0,
         "changesPer10s": 1.5,
+        "endCardSec": 1.5,
         "bpm": 90,
     },
 }
 DEFAULT = "standard"
+END_ROLES = {"end", "outro", "credits", "brand", "cta", "endcard", "end-card", "logo"}
+
+
+def default_outro(plan: dict[str, Any] | None, prof: dict[str, Any]) -> float:
+    """Outro hold for the end card: plan outroSec wins; else profile endCardSec when the last
+    shot is an end/brand card; else 0. Always ≤ OUTRO_MAX_SEC (duration follows content)."""
+    plan = plan or {}
+    if plan.get("outroSec") is not None:
+        return max(0.0, min(float(plan["outroSec"]), OUTRO_MAX_SEC))
+    shots = plan.get("shots") or []
+    last = shots[-1] if shots else {}
+    role = str(last.get("role") or last.get("k") or last.get("id") or "").lower()
+    if role in END_ROLES:
+        return min(float(prof.get("endCardSec") or 0.0), OUTRO_MAX_SEC)
+    return 0.0
 
 CONTENT_TYPE_PACING = {
     "market": "fast",

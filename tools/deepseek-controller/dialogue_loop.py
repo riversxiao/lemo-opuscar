@@ -53,14 +53,26 @@ from llm_free import ProviderError, BadJSON, FreeFirstClient  # noqa: F401 — r
 
 MODEL = "free-first"  # label; real model is chosen per call by FreeFirstClient
 
-LINE_DIMS = ("factual", "natural", "asr_safe", "function_fit")
-SCRIPT_DIMS = ("factual", "consistency", "hook", "flow", "no_jinju", "natural")
+LINE_DIMS = ("factual", "natural", "asr_safe", "function_fit", "rhythm")
+SCRIPT_DIMS = ("factual", "consistency", "hook", "flow", "no_jinju", "natural", "rhythm")
+# P1 rhythm dimension: a critic reply without it is tolerated (older prompts / mocks); when present
+# it is gated like the others. Deterministic rhythm_check findings are evidence for the critic (sent in
+# the prompt, recorded per round) and are attached to lines the critic already flagged — they do not
+# add a second hard gate (no over-correction: the critic decides whether 13字 really hurts the hook).
+OPTIONAL_DIMS = {"rhythm"}
 # Thresholds (scores are 1–5). Decided here, not by the model.
 TH = {"line_min": 3, "script_min": 4, "max_high": 0, "max_medium": 2}
 EDIT_KEYS = ("text", "say", "cap", "want")
 
 
 # ProviderError / BadJSON come from llm_free (FreeFirstClient raises them).
+import rhythm_check  # noqa: E402
+
+
+def _step(client, label: str) -> None:
+    """Label the next LLM call(s) for per-step token accounting (FreeFirstClient.step)."""
+    if client is not None and hasattr(client, "step"):
+        client.step = label
 
 
 class BudgetStop(RuntimeError):
@@ -138,9 +150,9 @@ def grounding(brief: Path | None, project: Path) -> str:
 
 CRITIC_SYS = """你是严格的中文讲解片台词评审（台词教父标准）。依据下面的规则与片子资料，逐句、整体打分并列出问题。
 只评，不改写。输出严格 JSON，结构：
-{"lines":[{"id":"L01","scores":{"factual":1-5,"natural":1-5,"asr_safe":1-5,"function_fit":1-5},
-  "issues":[{"type":"factual|consistency|awkward|hook|flow|jinju|asr_risk|function","severity":"high|medium|low","detail":"…","suggestion":"…"}]}],
- "script":{"scores":{"factual":1-5,"consistency":1-5,"hook":1-5,"flow":1-5,"no_jinju":1-5,"natural":1-5},
+{"lines":[{"id":"L01","scores":{"factual":1-5,"natural":1-5,"asr_safe":1-5,"function_fit":1-5,"rhythm":1-5},
+  "issues":[{"type":"factual|consistency|awkward|hook|flow|jinju|asr_risk|function|rhythm","severity":"high|medium|low","detail":"…","suggestion":"…"}]}],
+ "script":{"scores":{"factual":1-5,"consistency":1-5,"hook":1-5,"flow":1-5,"no_jinju":1-5,"natural":1-5,"rhythm":1-5},
   "issues":[{"type":"…","severity":"high|medium|low","lines":["L20","L21"],"detail":"…","suggestion":"…"}]},
  "summary":"一句话"}
 评分维度：
@@ -150,6 +162,9 @@ CRITIC_SYS = """你是严格的中文讲解片台词评审（台词教父标准�
 - hook：前 3 拍是否抓人。flow：逻辑递进 hook→定义→证据→转折→收束是否顺。
 - no_jinju：禁止金句升华/万能收尾/口号。
 - asr_safe：TTS 念出后语音识别容易混淆的词（同音近音专有名词等）；若有不改变事实的更清晰说法，给出建议；术语本身必要时可保留，只标 low。
+- rhythm（台词教父节奏）：① hook 第一句 ≤12 字、3 秒内说完；② 长短句交替，别连着三句长句、别一串等长句；
+  ③ 一句只讲一个点（不要一句塞两三个信息）；④ 有 cap 的句子用 {关键词} 标出唯一重点，重点词要是这句真正要记住的词。
+  确定性节奏检查结果（rhythm_check）会附在下面，medium 项必须指出；low 项由你判断是否真的影响节奏。
 - function_fit：function 标签（hook|turn|evidence|payoff|sting）是否符合这句的作用。
 结构已锁定：镜头顺序、每句 shotId 与 function 标签由 TREATMENT 决定，本轮只改措辞（DIALOGUE.md §6「不改故事结构，结构问题单列建议」）。
 对结构本身的意见（转折太晚、标签分布等）只能用 type=structure、severity=low 单列，不要据此压低 flow/hook 分；
@@ -160,7 +175,7 @@ severity：high=事实错/自相矛盾/明显不通；medium=别扭、逻辑跳�
 REVISER_SYS = """[REVISER] 你是中文讲解片台词改写手（台词教父标准）。只改被标记的句子，其余句子不要动。
 硬规则：不新增事实（只用 FACTS 里的事实）；每句 ≤35 字（不计标点）；保留每句的 id、function 与镜头归属；
 text 与 say 同句（若原句有 say，say 必须与 text 同义同关键字，只可标点不同）；禁止金句升华与投资建议；
-口语自然、一口气能念完；若原句有 cap（屏幕短字幕，格式如「降息|{失灵}」，| 分行，{} 为强调），改句后 cap 要与新句一致，长度与原 cap 相近。
+口语自然、一口气能念完；节奏（台词教父）：hook ≤12 字、3 秒内说完，长短句交替，一句一个点；若原句有 cap（屏幕短字幕，格式如「降息|{失灵}」，| 分行，{} 为强调），改句后 cap 要与新句一致，长度与原 cap 相近。
 总字数不得超过给定上限（不要为凑时长加字；同样意思更短更好）。
 输出严格 JSON：{"lines":[{"id":"L22","text":"…","say":"…(可省略)","cap":"…(原有才给)","want":"…"}],"notes":"一句话说明改了什么"}"""
 
@@ -206,7 +221,8 @@ def evaluate_critique(critique: dict[str, Any], ids: list[str]) -> dict[str, Any
     for d in SCRIPT_DIMS:
         v = ssc.get(d)
         if not isinstance(v, (int, float)):
-            reasons.append(f"script.{d} missing")
+            if d not in OPTIONAL_DIMS:
+                reasons.append(f"script.{d} missing")
         elif v < TH["script_min"]:
             reasons.append(f"script.{d}={v} < {TH['script_min']}")
     missing = [i for i in ids if i not in seen]
@@ -298,14 +314,17 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
     try:
         for n in range(1, max_rounds + 1):
             det = dc.check_lines(lines, tgt, **det_kw)
+            rh = rhythm_check.check(lines, cps=float(prof["cps"]))
             guard()
             user = (f"{ground}\n\n# 目标时长 {tgt}s；确定性门禁结果\n" + json.dumps(
                 {k: det.get(k) for k in ("status", "fails", "warns", "duration")}, ensure_ascii=False)
+                + "\n\n# 确定性节奏检查 rhythm_check\n" + json.dumps(rh["issues"], ensure_ascii=False)
                 + "\n\n# 待评台词 lines.json\n" + json.dumps(lines, ensure_ascii=False, indent=1))
+            _step(client, f"critic r{n}")
             critique = client.chat_json(CRITIC_SYS, user)
             ev = evaluate_critique(critique, ids)
             rec = {"round": n, "lines": lines, "linesSha256": lines_sha(lines), "deterministic": det,
-                   "critique": critique, "criticEval": ev, "thresholds": TH,
+                   "rhythm": rh, "critique": critique, "criticEval": ev, "thresholds": TH,
                    "pass": det["status"] == "PASS" and ev["pass"]}
             log(f"round {n}: dialogue-check {det['status']}; critic {'PASS' if ev['pass'] else 'FAIL'} "
                 f"(high {ev['counts']['high']}, medium {ev['counts']['medium']}, low {ev['counts']['low']})"
@@ -318,6 +337,10 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
             flagged = dict(ev["flagged"])
             for k, v in det_flagged(det, ids).items():
                 flagged.setdefault(k, []).extend(v)
+            if not ev["pass"]:   # critic already failing → hand the deterministic rhythm hits to the reviser too
+                for k, v in rhythm_check.flagged(rh, ids).items():
+                    if k in flagged:
+                        flagged[k].extend(v)
             if n == max_rounds:
                 rounds.append(rec)
                 (ev_dir / f"round-{n}.json").write_text(json.dumps(rec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -333,6 +356,7 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
                      + f"\n\n# 字数约束：当前总字数 {d.get('totalChars')}；总字数上限 {d.get('maxChars')} 字"
                      f"（目标时长是上限，不要为凑时长加字，更短更紧凑可以）；单句 ≤ {dc.MAX_CHARS} 字，"
                      f"建议 ≤ {prof['lineMaxChars']} 字（节奏 {prof['name']}）。")
+            _step(client, f"reviser r{n}")
             rev = client.chat_json(REVISER_SYS, ruser)
             new, changes = apply_revision(lines, rev, set(flagged))
             rec["flagged"] = flagged

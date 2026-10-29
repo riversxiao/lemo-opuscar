@@ -329,7 +329,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("--pacing", help="fast|standard|calm (default plan.json pacing / content_type → profile)")
     ap.add_argument("--outro", type=float, default=None,
-                    help=f"outro/brand card seconds after the last line (≤{pp.OUTRO_MAX_SEC}; default plan.json outroSec or 0)")
+                    help=f"outro/brand card seconds after the last line (≤{pp.OUTRO_MAX_SEC}; default plan.json outroSec, "
+                         "else profile endCardSec when the last shot is an end/brand card, else 0)")
+    ap.add_argument("--no-beats", action="store_true",
+                    help="do not write beats_runtime.json (P1 sub-beats / keyword emphasis)")
     ap.add_argument("-o", "--output", help="timeline.parsed.json path")
     args = ap.parse_args(argv)
 
@@ -369,7 +372,7 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
-    outro = args.outro if args.outro is not None else float(plan_d.get("outroSec") or 0.0)
+    outro = args.outro if args.outro is not None else pp.default_outro(plan_d, prof)
     timeline, errors = schedule(
         lines=lines,
         shots=shots,
@@ -402,6 +405,20 @@ def main(argv: list[str] | None = None) -> int:
         )
     print(f"OK scheduled {timeline['scheduledDurationSec']}s{pad_note} pacing={prof['name']} "
           f"({prof['source']}) overhead={timeline['shotOverheadSec']}s/shot → {out}")
+
+    # P1 visual sub-beats + {keyword} emphasis (all styles, page.mjs bridge). Opt out: --no-beats.
+    if not args.no_beats and Path(out).resolve() == (project / "timeline.parsed.json").resolve():
+        try:
+            import beats as beats_mod
+
+            old_rt = beats_mod._load(project / "beats_runtime.json", {}) or {}
+            rt = beats_mod.build(project, prof["name"], drift=old_rt.get("drift"))
+            beats_mod.write(project, rt)
+            st = rt["stats"]
+            print(f"OK beats {st['reframes']} reframes, {st['emphasis']} keyword frames; "
+                  f"beat max {st['beatMaxSec']}s (edit shot max {st['editShotMaxSec']}s) → beats_runtime.json")
+        except (SystemExit, Exception) as e:  # never block scheduling on the visual layer
+            print(f"WARN: beats_runtime not written: {e}", file=sys.stderr)
 
     # Caption News: push cues into touchable timeline.json (main.js SHOTS/DUR stay locked).
     if style == "caption-news" and (project / "timeline.json").is_file():

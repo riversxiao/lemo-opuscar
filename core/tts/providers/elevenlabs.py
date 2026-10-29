@@ -83,7 +83,20 @@ def _decode_audio(raw: bytes, content_type: str | None) -> np.ndarray:
     return _decode_pcm24(raw)
 
 
-def _post_tts(text: str, *, voice: str, model: str, timeout: float = 120.0) -> tuple[bytes, str | None]:
+SPEED_MIN, SPEED_MAX = 0.7, 1.2   # ElevenLabs docs: recommended speed range (1.0 = normal)
+
+
+def voice_settings(model: str, speed: float | None = None) -> dict[str, Any]:
+    """voice_settings body. `speed` is clamped to 0.7–1.2 and omitted on Eleven v4 models
+    (docs: v4 ignores speed/style; pace with punctuation instead)."""
+    vs: dict[str, Any] = {"stability": 0.5, "similarity_boost": 0.75}
+    if speed and abs(float(speed) - 1.0) > 1e-6 and not str(model).startswith("eleven_v4"):
+        vs["speed"] = round(min(SPEED_MAX, max(SPEED_MIN, float(speed))), 3)
+    return vs
+
+
+def _post_tts(text: str, *, voice: str, model: str, timeout: float = 120.0,
+              speed: float | None = None) -> tuple[bytes, str | None]:
     key = api_key()
     if not key:
         raise ElevenLabsError("ELEVENLABS_API_KEY not set")
@@ -91,7 +104,7 @@ def _post_tts(text: str, *, voice: str, model: str, timeout: float = 120.0) -> t
     body = {
         "text": text,
         "model_id": model,
-        "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+        "voice_settings": voice_settings(model, speed),
     }
     data = json.dumps(body, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
@@ -123,6 +136,9 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
         )
     voice = voice_id(opts.get("voice"))
     model = str(opts.get("model") or model_id())
+    speed = opts.get("speed")
+    if speed is None and os.environ.get("LEMO_TTS_ELEVENLABS_SPEED"):
+        speed = float(os.environ["LEMO_TTS_ELEVENLABS_SPEED"])
     os.makedirs(out_dir, exist_ok=True)
     dur: dict[str, float] = {}
     for L in lines:
@@ -132,7 +148,7 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
             sys.exit(f"tts_router: elevenlabs line {lid!r} has empty text")
         line_voice = voice_id(L.get("voice") or voice)
         try:
-            raw, ctype = _post_tts(text, voice=line_voice, model=L.get("model") or model)
+            raw, ctype = _post_tts(text, voice=line_voice, model=L.get("model") or model, speed=speed)
             a = http_speech._trim(_decode_audio(raw, ctype), SR)
         except ElevenLabsError as e:
             sys.exit(f"tts_router: elevenlabs failed on {lid}: {e}")

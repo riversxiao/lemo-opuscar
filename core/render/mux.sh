@@ -83,14 +83,37 @@ if [ "${LEMO_COLOR:-}" = "bt709" ]; then
 else
   VF="$VF,format=yuv420p"; CARGS=""
 fi
-# shellcheck disable=SC2086  (CARGS must split on spaces into several arguments; empty by default)
-ffmpeg -y -loglevel error -i "$V" -i "$A" \
-  -filter_complex "[0:v]$VF[v];[1:a]$LN,aresample=48000$PAD[a]" \
-  -map "[v]" -map "[a]" -c:v libx264 -preset slow -crf 19 -r "$FPS" $CARGS -c:a aac -b:a 256k -movflags +faststart -shortest "$O" \
-  || { rm -f "$O"; die "ffmpeg failed while writing '$O' (its message is above)"; }
-[ -s "$O" ] || { rm -f "$O"; die "no output was written to '$O'"; }
+# True-peak safety: loudnorm falls back to dynamic mode / AAC adds inter-sample overshoot, so the
+# finished file could land above -1 dBTP. After loudnorm, a 4x-oversampled brickwall limiter holds
+# the ceiling (LEMO_TP_CEIL dBFS, default -2.0), then a measured retry trims gain once if the encoded
+# file still has TP > -1.0. LEMO_TP_LIMIT=0 turns the limiter off (legacy behaviour).
+TPC="${LEMO_TP_CEIL:--2.0}"
+case "$TPC" in ''|*[!0-9.-]*) die "LEMO_TP_CEIL must be a number in dBFS, got '$TPC'";; esac
+LIMF() {  # $1 = extra gain dB (<=0)
+  if [ "${LEMO_TP_LIMIT:-1}" = "0" ]; then echo "volume=${1}dB"; return; fi
+  _lin=$(awk -v d="$TPC" 'BEGIN { printf "%.4f", 10 ^ (d / 20) }')
+  echo "volume=${1}dB,aresample=192000,alimiter=limit=${_lin}:attack=0.5:release=40:level=false,aresample=48000"
+}
+mux_once() {  # $1 = extra gain dB
+  # shellcheck disable=SC2086  (CARGS must split on spaces into several arguments; empty by default)
+  ffmpeg -y -loglevel error -i "$V" -i "$A" \
+    -filter_complex "[0:v]$VF[v];[1:a]$LN,$(LIMF "$1"),aresample=48000$PAD[a]" \
+    -map "[v]" -map "[a]" -c:v libx264 -preset slow -crf 19 -r "$FPS" $CARGS -c:a aac -b:a 256k -movflags +faststart -shortest "$O" \
+    || { rm -f "$O"; die "ffmpeg failed while writing '$O' (its message is above)"; }
+  [ -s "$O" ] || { rm -f "$O"; die "no output was written to '$O'"; }
+}
+measure() { ffmpeg -hide_banner -nostats -i "$O" -af ebur128=peak=true -f null - 2>&1 | grep -E "^\s+(I|LRA|Peak):" | head -3; }
+mux_once 0
+R=$(measure)
+if [ "$NORM" = 1 ] && [ "${LEMO_TP_LIMIT:-1}" != "0" ]; then
+  OP=$(echo "$R" | awk '$1 == "Peak:" { print $2 }')
+  if awk -v p="$OP" 'BEGIN { exit !(p + 0 > -1.0) }'; then
+    G=$(awk -v p="$OP" 'BEGIN { printf "%.2f", -(p + 1.4) }')
+    echo "mux.sh: note: true peak $OP dB after limiter; trimming ${G} dB and muxing once more" >&2
+    mux_once "$G"; R=$(measure)
+  fi
+fi
 echo "$O"
-R=$(ffmpeg -hide_banner -nostats -i "$O" -af ebur128=peak=true -f null - 2>&1 | grep -E "^\s+(I|LRA|Peak):" | head -3)
 echo "$R"
 if [ "$NORM" = 1 ]; then
   OI=$(echo "$R" | awk '$1 == "I:" { print $2 }'); OP=$(echo "$R" | awk '$1 == "Peak:" { print $2 }')

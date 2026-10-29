@@ -64,9 +64,15 @@ def run_tts(
     prof = pp.profile(project, pacing)
     if not rate:
         rate = str(prof["edgeRate"])
+    speeds: dict[str, float] = {}
     if speed is None:
         env_speed = os.environ.get("LEMO_TTS_STEPAUDIO_SPEED")
         speed = float(env_speed) if env_speed else float(prof["stepaudioSpeed"])
+        env_el = os.environ.get("LEMO_TTS_ELEVENLABS_SPEED")
+        speeds = {"stepaudio": speed,
+                  "elevenlabs": float(env_el) if env_el else float(prof["elevenlabsSpeed"])}
+    else:   # explicit --speed applies to every speed-capable provider
+        speeds = {"stepaudio": float(speed), "elevenlabs": float(speed)}
     if content_type is None:
         # config field: plan.json {"content_type": "market|concept|personal|english"}
         plan = project / "plan.json"
@@ -95,7 +101,7 @@ def run_tts(
         rate=rate,
         pitch=pitch,
         content_type=content_type,
-        speed=speed,
+        speed=speeds,
     )
     trim = None
     if trim_pauses:
@@ -112,7 +118,7 @@ def run_tts(
         "pacing": prof["name"],
         "pacingSource": prof["source"],
         "rate": rate,
-        "speed": speed if used in ("stepaudio",) else None,
+        "speed": speeds.get(used),
         "pauseTrim": ({"removedSec": trim["removedSec"], "maxPauseSec": trim["maxPauseSec"]}
                       if trim else None),
         "statuses": [s.as_dict() for s in list_statuses()],

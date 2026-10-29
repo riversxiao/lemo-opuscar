@@ -40,3 +40,47 @@ Reference: TV news is about 240–300 字/分 (4–5 字/秒), everyday speech 2
 - shot max / sd, frozen-frame max, visual changes per 10s
 
 It writes `evidence/pacing-check.json`. Under `quality --delivery` it is **report-only (WARN, never blocks)** in P0. `--pacing-enforce` makes FAIL-level misses block, which P1 will use for rework.
+
+# P1 — visual rhythm, rework, delivery blockers
+
+## Delivery blockers (generic, every film)
+- **True peak**: `core/render/mux.sh` now runs `aresample=192000 → alimiter → aresample=48000` (4× oversampled
+  limiter, ceiling `LEMO_TP_CEIL`, default −2.0 dBTP) and re-measures; if TP is still > −1.0 it re-trims.
+  `LEMO_TP_LIMIT=0` disables it. Gate stays TP ≤ −1 dBTP.
+- **End card without pad**: the scheduler gives the last shot (role end/credits/sting, or the final shot) its own
+  outro of `endCardSec` (fast 0.8 / standard 1.0 / calm 1.5 — inside the 1.5 s outro allowance, not counted as pad).
+  `readcheck.mjs --end-pad S` (default 0.5) credits text still on the final frame with that hold; such rows are
+  marked `*` in the report.
+
+## Visual sub-beats (all styles) — `beats.py` + `core/render/page.mjs`
+`cli.py schedule` writes `beats_runtime.json` (opt out `--no-beats`; regenerate with `cli.py beats`).
+Shots longer than the profile `maxShotSec` are split into `ceil(dur/max)` sub-beats; boundaries snap to a VO cue start
+(±1.2 s) when feasible, else even split, each sub-beat ≥ 0.8 s. page.mjs applies, style-agnostic, a body
+`translate+scale` **pull-back** reframe per sub-beat (scale 0.965–0.985, small offsets) — never a push-in, so no text
+enters the 5 % title-safe margin (a clamp enforces it), and `window.TEXTS` boxes are remapped so readcheck/OCR stay right.
+Honest note: these are reframes of the same composition, not new shots or new on-screen text.
+- **Keyword emphasis**: each `{关键词}` in lines.json → a 0.4 s beat (−1.5 % thump + accent-colour border), timed from
+  words.json char timing when available, else text ratio; min gap 2.5 s, kept 0.5 s from beat cuts.
+- `pacing_check.py` measures `shotMaxSec` on visual beats (`shotSource: beats_runtime`) and reports `editShotMaxSec`.
+
+## Pacing gate → rework (`cli.py pacing-rework`)
+FAIL only; WARN is report-only. Max 2 rounds. Per round, visual FAILs only:
+shotMax → rebuild beats (0.85× max if beats exist) · changesPer10s → 0.8× max · frozenMaxSec → drift windows only on spans
+over the fail threshold. Audio/VO FAILs (speechRatio, gaps…) go to `needsUpstream` (re-TTS / re-schedule), never faked.
+Evidence: `evidence/pacing-rework.json`.
+
+## Rhythm dimension (dialogue_loop)
+`rhythm_check.py` (deterministic, 台词教父): hook ≤12字 and ends ≤3 s (medium); cap/payoff without `{}` (medium);
+≥3 consecutive ≥16字 lines (low, alternation); ≥4 lines within ±2字 (low, monotone); ≥3 clauses or a connective
+(而且/并且/同时/另外/以及) (low, one point per line). Findings go into the critic prompt and each round's evidence; the
+critic scores `rhythm` per line and per script (gated like other dims when present). Deterministic hits are attached
+to lines the critic already flags — no separate hard gate (avoid over-correction).
+
+## ElevenLabs speed
+`voice_settings.speed` (ElevenLabs docs: 1.0 normal, recommended 0.7–1.2; not supported on eleven_v4). Clamped to
+0.7–1.2, omitted at 1.0 or on eleven_v4*. Per profile `elevenlabsSpeed`, env `LEMO_TTS_ELEVENLABS_SPEED`, or `--speed`.
+
+## Token accounting
+`llm_free.FreeFirstClient.call_log` rows carry `step` (script-gen / fact-check / critic rN / reviser rN), provider,
+served model, prompt/completion/reasoning/total tokens, latency. `token_measure.py` runs one film's text layer and
+writes `evidence/token-usage.json` + `TOKENS.md`.

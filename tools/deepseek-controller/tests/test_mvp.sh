@@ -1475,6 +1475,13 @@ else
   bad "pacing mock (see /tmp/dc_pacing_mock.log)"
 fi
 
+# pacing P1: TP limiter, end-card outro, sub-beats + {keyword} frames, rework ≤2 rounds, rhythm, token steps, ElevenLabs speed
+if env -u STEP_API_KEY -u LEMO_PACING -u ELEVENLABS_API_KEY python3 "$CTL/tests/p1_mock.py" >/tmp/dc_p1_mock.log 2>&1; then
+  ok "pacing P1: TP≤−1 limiter; end-card outro; sub-beats ≤ maxShot + keyword frames; rework ≤2 rounds (WARN untouched); rhythm dim; per-step tokens; elevenlabs speed"
+else
+  bad "pacing P1 mock (see /tmp/dc_p1_mock.log)"
+fi
+
 # budget ledger: tests write to \$DC_BUDGET_LEDGER, never the real fixtures ledger
 if PYTHONPATH="$CTL" python3 -c "
 import budget,os

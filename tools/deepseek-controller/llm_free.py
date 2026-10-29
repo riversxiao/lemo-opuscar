@@ -165,7 +165,10 @@ class FreeFirstClient:
                 + (("missing: " + "; ".join(missing)) if missing else "")
             )
         self.usage = {"calls": 0, "prompt": 0, "completion": 0, "reasoning": 0, "cacheHit": 0}
-        self.call_log: list[dict[str, Any]] = []  # one row per successful chat
+        # one row per HTTP 200 response (incl. ones whose content then fails JSON parse: ok=False —
+        # those tokens were still spent). `step` labels the pipeline step for per-step accounting.
+        self.call_log: list[dict[str, Any]] = []
+        self.step: str = ""
         self.model = self._slots[0]["model"]  # last-used (updated on success)
         self.provider = self._slots[0]["provider"]
         self.last_slot: dict[str, Any] | None = None
@@ -187,7 +190,9 @@ class FreeFirstClient:
                     return None
         return None
 
-    def chat_json(self, system: str, user: str, retries: int = 2) -> dict[str, Any]:
+    def chat_json(self, system: str, user: str, retries: int = 2, step: str | None = None) -> dict[str, Any]:
+        if step is not None:
+            self.step = step
         last_err: Exception | None = None
         tried: list[str] = []
         for slot in self._slots:
@@ -249,6 +254,7 @@ class FreeFirstClient:
         if slot["provider"] == "openrouter":
             headers["HTTP-Referer"] = "https://github.com/riversxiao/wordfilm"
             headers["X-Title"] = "wordfilm-dialogue-loop"
+        t0 = time.time()
         try:
             if self._transport is not None:
                 r = self._transport(url, headers, body)
@@ -279,11 +285,18 @@ class FreeFirstClient:
         details = u.get("completion_tokens_details") or {}
         self.usage["reasoning"] += int(details.get("reasoning_tokens") or 0)
         self.usage["cacheHit"] += int(u.get("prompt_cache_hit_tokens") or 0)
-        self.call_log.append({
+        row = {
+            "step": self.step or None,
             "provider": slot["provider"], "model": slot["model"], "paid": slot["paid"],
+            "servedModel": (r.get("model") if isinstance(r, dict) else None) or slot["model"],
             "prompt": int(u.get("prompt_tokens") or 0),
             "completion": int(u.get("completion_tokens") or 0),
-        })
+            "reasoning": int(details.get("reasoning_tokens") or 0),
+            "total": int(u.get("total_tokens") or 0) or (int(u.get("prompt_tokens") or 0) + int(u.get("completion_tokens") or 0)),
+            "latencySec": round(time.time() - t0, 2),
+            "ok": True,
+        }
+        self.call_log.append(row)
         try:
             content = r["choices"][0]["message"].get("content")
             if not content:
@@ -291,6 +304,8 @@ class FreeFirstClient:
                 raise BadJSON("empty content (reasoning-only response)")
             return json.loads(content)
         except (KeyError, IndexError, ValueError, TypeError) as e:
+            row["ok"] = False
+            row["error"] = f"bad JSON: {str(e)[:120]}"
             raise BadJSON(str(e)) from None
 
 

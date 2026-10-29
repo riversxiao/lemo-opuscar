@@ -64,6 +64,8 @@ def visual_metrics(media: Path, dur: float) -> dict[str, Any]:
     if len(fs) > len(fd):
         fd.append(max(0.0, dur - fs[-1]))
     return {
+        "frozenSpans": [[round(a, 2), round(a + b, 2)] for a, b in zip(fs, fd)],
+        "sceneChangeTimes": [round(x, 2) for x in ts],
         "sceneChanges": len(ts),
         "changesPer10s": round(len(ts) / dur * 10, 2) if dur else 0.0,
         "longestNoChangeSec": round(longest, 2),
@@ -138,7 +140,17 @@ def measure(project: Path, media: Path | None = None, *, visual: bool = True) ->
             continue
         gaps.append(round(b0 - a1, 2))
     speech = sum(b - a for a, b, _ in segs)
-    shots = [float(s["dur"]) for s in tl.get("shots") or []]
+    edit_shots = [float(s["dur"]) for s in tl.get("shots") or []]
+    shots, shot_src = edit_shots, "timeline"
+    br = project / "beats_runtime.json"
+    if br.is_file():   # P1 visual sub-beats (beats.py → page.mjs): a reframe is a visual cut
+        try:
+            bb = json.loads(br.read_text(encoding="utf-8")).get("beats") or []
+            if bb:
+                shots = [round(float(b["t1"]) - float(b["t0"]), 3) for b in bb]
+                shot_src = "beats_runtime"
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
     hook_end = None
     for a0, a1, lid in segs:
         if (lines.get(lid) or {}).get("function") == "hook":
@@ -171,6 +183,8 @@ def measure(project: Path, media: Path | None = None, *, visual: bool = True) ->
         "shotMeanSec": round(st.mean(shots), 2) if shots else None,
         "shotSdSec": round(st.pstdev(shots), 2) if shots else None,
         "shotMaxSec": max(shots) if shots else None,
+        "shotSource": shot_src,
+        "editShotMaxSec": max(edit_shots) if edit_shots else None,
         "wordsTimingsUsed": words_used,
         "media": str(media) if media else None,
     }
