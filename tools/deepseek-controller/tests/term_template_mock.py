@@ -212,7 +212,7 @@ shutil.copy(CTL / "templates" / "finance-term" / "examples" / "042-var.lines.jso
 ok(BT.main(["plan", "--term", str(root / "042-var")]) == 0, "example lines → plan validates")
 pl = json.loads((root / "042-var" / "src" / "plan.json").read_text("utf-8"))
 ok(pl["voice"]["lines"][1]["text"] == "这个指标叫 VaR，中文是风险价值。" and pl["voice"]["lines"][1]["say"].count("V-A-R") == 1
-   and pl["voice"]["provider"] == "stepaudio" and pl["pacing"] == "standard", "plan: text from cap, say kept, stepaudio/standard")
+   and pl["voice"]["provider"] == "stepaudio" and pl["pacing"] == "calm", "plan: text from cap, say kept, stepaudio/calm")
 ok(BT.term_state(root / "042-var") == "planned" and BT.term_state(root / "043-es") == "awaiting-expert-lines", "status states")
 ok("金融专家" in (root / "042-var" / "src" / "FACTS.md").read_text("utf-8"), "FACTS records the approver")
 ok(BT.main(["init", "--csv", str(csvp), "--out", str(root)]) == 0 and
