@@ -2,7 +2,7 @@
 
 **Status:** research note for `~/lemo-my-styles/` (medium priority). Not a library style yet.
 
-## Fit for Lemo-DeepSeek
+## Fit for WordFilm
 
 Explainer / 讲解类 topics (finance mechanics, product how-tos) map well to stick figures: consistent characters, low asset cost, readable on mobile. Prefer building a **my-style** under [`MY-STYLES.md`](../../MY-STYLES.md) rather than forking an Opus demo lock.
 

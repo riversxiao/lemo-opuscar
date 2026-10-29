@@ -3,7 +3,7 @@ name: lemo-deepseek
 description: Direct and produce a short film made entirely in code with DeepSeek Flash (or stronger DeepSeek), using the Lemo-Opuscar style library. Prefer this over the Claude-only lemo-opuscar skill when the coding agent is DeepSeek. Same styles (Swiss Motion, Watercolor, Caption News, etc.). Engine-lock workflow: copy an Opus demo engine, change content only. Not for editing the user's existing video files, and not for Seedance/Kling/MJ video models.
 ---
 
-# Lemo-DeepSeek（DeepSeek Flash 版）
+# WordFilm（DeepSeek Flash 版）
 
 本技能把 [Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar) 的**代码做片**管线接到 DeepSeek（优先 Flash）。**禁止调用任何文生视频 / 图生视频 API。**
 
@@ -11,7 +11,7 @@ description: Direct and produce a short film made entirely in code with DeepSeek
 
 ## 启动步骤
 
-1. **拿库。** 运行 `sh "<skill base directory>/scripts/setup.sh"`。默认仓库是 fork：`https://github.com/riversxiao/lemo-opuscar`。最后一行打印 `LIB=<path>`。若要钉死版本：`export LEMO_OPUSCAR_PIN=<full-sha-or-tag>`（完整 SHA 优先；钉到无 DeepSeek 覆盖层的提交会失败）。
+1. **拿库。** 运行 `sh "<skill base directory>/scripts/setup.sh"`。默认仓库是 fork：`https://github.com/riversxiao/wordfilm`。最后一行打印 `LIB=<path>`。若要钉死版本：`export LEMO_OPUSCAR_PIN=<full-sha-or-tag>`（完整 SHA 优先；钉到无 DeepSeek 覆盖层的提交会失败）。
 2. **装依赖。** 立刻后台跑 `sh "<skill base directory>/scripts/setup.sh" deps`。需要旁白再 `deps voice`，拨弦再 `deps music`。系统缺 Node 20+ / ffmpeg / Python 3.11+ 时在一轮提问里报告，不要擅自装系统包。
 3. **跟规程。** 先读 `$LIB/AGENTS.deepseek.md`（DeepSeek 覆盖层），再读 `$LIB/AGENTS.md`、`$LIB/DIRECTOR.md`、`$LIB/TECHNIQUE.md`，按 **Start → 一轮提问 → TREATMENT → 复制引擎 → 生产 → 自检** 执行。
 

@@ -1,16 +1,18 @@
 <div align="center">
 
-# Lemo-DeepSeek · riversxiao
+# WordFilm · riversxiao
 
 **用 DeepSeek Flash + 锁定引擎底座，做纯代码短片（不用视频大模型）**
 
 <a href="DEEPSEEK.md"><img alt="DEEPSEEK" src="https://img.shields.io/badge/DEEPSEEK.md-工作流-111?style=for-the-badge"></a>
 <a href="AGENTS.deepseek.md"><img alt="AGENTS" src="https://img.shields.io/badge/AGENTS.deepseek-规程-333?style=for-the-badge"></a>
 <a href="showcase/README.md"><img alt="Showcase" src="https://img.shields.io/badge/-%E2%96%B6%20Showcase%20%E8%AF%95%E7%89%87-E8553A?style=for-the-badge"></a>
-<a href="https://github.com/riversxiao/lemo-opuscar/releases/tag/showcase-v001"><img alt="Release" src="https://img.shields.io/badge/Release-showcase--v001-2EA44F?style=for-the-badge"></a>
+<a href="https://github.com/riversxiao/wordfilm/releases/tag/showcase-v001"><img alt="Release" src="https://img.shields.io/badge/Release-showcase--v001-2EA44F?style=for-the-badge"></a>
 <a href="README.md"><img alt="English" src="https://img.shields.io/badge/README-English-555?style=for-the-badge"></a>
 
-本 fork：[github.com/riversxiao/lemo-opuscar](https://github.com/riversxiao/lemo-opuscar)
+本仓库：[github.com/riversxiao/wordfilm](https://github.com/riversxiao/wordfilm)（原名 `riversxiao/lemo-opuscar`）
+
+**基于 / fork 自 [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar)**（LemoLab，MIT 许可）。原 LICENSE 与版权声明完整保留。
 
 ℹ️ **本 fork 默认 DeepSeek Flash；引擎底座仍来自上游 Opus demo。**  
 上游是 [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar)（Opus 风格引擎）；本仓库改成 DeepSeek 工作流 + 自有试片 showcase。
@@ -23,10 +25,10 @@
 
 | 主题 | 风格 | 静帧 | 成片 |
 |---|---|---|---|
-| 复利 | Swiss Motion | [stills](showcase/stills/fuli-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/fuli-swiss-ds-v001.mp4) |
-| 分散投资 | Pictogram Motion | [stills](showcase/stills/fensan-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/fensan-pictogram-ds-v001.mp4) |
-| 流动性 | Caption News | [stills](showcase/stills/liudong-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/liudong-caption-ds-v001.mp4) |
-| 对冲是什么 | Whiteboard | [stills](showcase/stills/duichong-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/duichong-whiteboard-ds-v001.mp4) |
+| 复利 | Swiss Motion | [stills](showcase/stills/fuli-01.jpg) | [mp4](https://github.com/riversxiao/wordfilm/releases/download/showcase-v001/fuli-swiss-ds-v001.mp4) |
+| 分散投资 | Pictogram Motion | [stills](showcase/stills/fensan-01.jpg) | [mp4](https://github.com/riversxiao/wordfilm/releases/download/showcase-v001/fensan-pictogram-ds-v001.mp4) |
+| 流动性 | Caption News | [stills](showcase/stills/liudong-01.jpg) | [mp4](https://github.com/riversxiao/wordfilm/releases/download/showcase-v001/liudong-caption-ds-v001.mp4) |
+| 对冲是什么 | Whiteboard | [stills](showcase/stills/duichong-01.jpg) | [mp4](https://github.com/riversxiao/wordfilm/releases/download/showcase-v001/duichong-whiteboard-ds-v001.mp4) |
 
 完整说明与对照 → [`showcase/README.md`](showcase/README.md) · 规程 → [`AGENTS.deepseek.md`](AGENTS.deepseek.md) · 用法 → [`DEEPSEEK.md`](DEEPSEEK.md)
 
@@ -37,7 +39,7 @@
 ### 1. Clone 本仓库
 
 ```sh
-git clone https://github.com/riversxiao/lemo-opuscar.git
+git clone https://github.com/riversxiao/wordfilm.git
 cd lemo-opuscar
 
 # 可选：钉死 DeepSeek 控制层提交（完整 40 字符 SHA；勿用裸上游 413a6bd）
@@ -83,14 +85,14 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 ## 🎬 特别放映 · 我的样片
 
 <table><tr>
-<td width="50%" valign="top"><a href="https://github.com/riversxiao/lemo-opuscar/releases/tag/showcase-v001"><img src="docs/showcase-hero.jpg" alt="四支 DeepSeek 样片拼图"></a><br><b>▶ 四支样片</b> · 各约 30 秒<br><sub>复利 · 分散投资 · 流动性 · 对冲——四种风格、同一套 DeepSeek 流程。题材只是样例，换成任意故事都行。</sub></td>
+<td width="50%" valign="top"><a href="https://github.com/riversxiao/wordfilm/releases/tag/showcase-v001"><img src="docs/showcase-hero.jpg" alt="四支 DeepSeek 样片拼图"></a><br><b>▶ 四支样片</b> · 各约 30 秒<br><sub>复利 · 分散投资 · 流动性 · 对冲——四种风格、同一套 DeepSeek 流程。题材只是样例，换成任意故事都行。</sub></td>
 <td width="50%" valign="top"><a href="DEEPSEEK.md"><img src="docs/showcase-workflow.jpg" alt="DeepSeek Flash 工作流条带"></a><br><b>工作流</b> · DeepSeek Flash + 引擎锁定<br><sub>still → TTS / 配乐 → video → mix → mux。只改内容层；锁定的 Opus demo 引擎不动。</sub></td>
 </tr></table>
 
 <div align="center">
 
 这些样片的每一帧、每一刀剪辑，都由 **DeepSeek Flash** 在锁定引擎上编排完成。<br>
-[**▶ 看 Release**](https://github.com/riversxiao/lemo-opuscar/releases/tag/showcase-v001) · [**Showcase 目录**](showcase/README.md) · [**DEEPSEEK.md**](DEEPSEEK.md)
+[**▶ 看 Release**](https://github.com/riversxiao/wordfilm/releases/tag/showcase-v001) · [**Showcase 目录**](showcase/README.md) · [**DEEPSEEK.md**](DEEPSEEK.md)
 
 </div>
 
@@ -102,7 +104,7 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 > **这不是 awesome 合集。** 上方高亮片子都是在这里用 **DeepSeek Flash** + 代码引擎做的。<br>
 > 题材是样片（金融词卡是第一批）。产品、宠物、旅行、教程——同一条流水线。下面是完整风格墙，供引擎锁定 demo 使用。
 
-![Lemo-DeepSeek 封面](docs/cover-deepseek.jpg)
+![WordFilm 封面](docs/cover-deepseek.jpg)
 
 ## 怎么做出来的（本 fork）
 
@@ -124,7 +126,7 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 
 <table>
 <tr>
-<td width="33%" valign="top"><a href="styles/caption-news/STYLE.md"><img src="docs/frames-ds/caption-news.jpg" alt="字幕新闻"></a><br><b>字幕新闻</b><br>Caption News<br><i>流动性 · riversxiao 样片</i><br><sub>DeepSeek Flash 样片；图文优先新闻短片。<a href="https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/liudong-caption-ds-v001.mp4">mp4</a></sub></td>
+<td width="33%" valign="top"><a href="styles/caption-news/STYLE.md"><img src="docs/frames-ds/caption-news.jpg" alt="字幕新闻"></a><br><b>字幕新闻</b><br>Caption News<br><i>流动性 · riversxiao 样片</i><br><sub>DeepSeek Flash 样片；图文优先新闻短片。<a href="https://github.com/riversxiao/wordfilm/releases/download/showcase-v001/liudong-caption-ds-v001.mp4">mp4</a></sub></td>
 <td width="33%" valign="top"><a href="styles/newsreel/STYLE.md"><img src="docs/frames-ds/newsreel.jpg" alt="1920s 新闻影片"></a><br><b>1920s 新闻影片</b><br>1920s Newsreel<br><i>Knock-Knee Alert</i><br><sub>1926 年报纸说查尔斯顿会跳坏膝盖，福特工人野餐会上的孩子照跳不误。</sub></td>
 <td width="33%" valign="top"><a href="styles/countdown/STYLE.md"><img src="docs/frames-ds/countdown.jpg" alt="实时倒计时分屏"></a><br><b>实时倒计时分屏</b><br>Live Countdown Split-screen<br><i>Counting Itself Down</i><br><sub>阿尔忒弥斯二号发射的最后一分钟，一秒不剪：格子从 1 开到 9，点火合成 1。</sub></td>
 </tr>
@@ -169,7 +171,7 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 <tr>
 <td width="33%" valign="top"><a href="styles/impasto/STYLE.md"><img src="docs/frames-ds/impasto.jpg" alt="油画厚涂"></a><br><b>油画厚涂</b><br>Impasto Oil Painting<br><i>The Colour of Rain</i><br><sub>灰色雨中广场，第一把红伞撑开，圆舞曲把整个广场刷上颜色。</sub></td>
 <td width="33%" valign="top"><a href="styles/one-line/STYLE.md"><img src="docs/frames-ds/one-line.jpg" alt="一笔画"></a><br><b>一笔画</b><br>One-line Drawing<br><i>The Line That Never Lifted</i><br><sub>一根不离纸的线画完一个人的一生，再把笔交给孩子。</sub></td>
-<td width="33%" valign="top"><a href="styles/whiteboard/STYLE.md"><img src="docs/frames-ds/whiteboard.jpg" alt="白板讲解"></a><br><b>白板讲解</b><br>Whiteboard Explainer<br><i>对冲是什么 · riversxiao 样片</i><br><sub>DeepSeek Flash 样片；白板 + 云希旁白。<a href="https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/duichong-whiteboard-ds-v001.mp4">mp4</a></sub></td>
+<td width="33%" valign="top"><a href="styles/whiteboard/STYLE.md"><img src="docs/frames-ds/whiteboard.jpg" alt="白板讲解"></a><br><b>白板讲解</b><br>Whiteboard Explainer<br><i>对冲是什么 · riversxiao 样片</i><br><sub>DeepSeek Flash 样片；白板 + 云希旁白。<a href="https://github.com/riversxiao/wordfilm/releases/download/showcase-v001/duichong-whiteboard-ds-v001.mp4">mp4</a></sub></td>
 </tr>
 <tr>
 <td width="33%" valign="top"><a href="styles/urban-sketch/STYLE.md"><img src="docs/frames-ds/urban-sketch.jpg" alt="钢笔淡彩"></a><br><b>钢笔淡彩</b><br>Urban Sketch · Pen &amp; Wash<br><i>Where the Wind Went</i><br><sub>公园只是一张钢笔速写，风把草帽吹到哪里，哪里才有颜色。</sub></td>
@@ -207,14 +209,14 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 
 <table>
 <tr>
-<td width="33%" valign="top"><a href="styles/swiss-motion/STYLE.md"><img src="docs/frames-ds/swiss-motion.jpg" alt="瑞士动态排版"></a><br><b>瑞士动态排版</b><br>Swiss Motion Graphics<br><i>复利 · riversxiao 样片</i><br><sub>DeepSeek Flash 样片，锁定 Swiss 引擎；题材可换。<a href="https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/fuli-swiss-ds-v001.mp4">mp4</a></sub></td>
+<td width="33%" valign="top"><a href="styles/swiss-motion/STYLE.md"><img src="docs/frames-ds/swiss-motion.jpg" alt="瑞士动态排版"></a><br><b>瑞士动态排版</b><br>Swiss Motion Graphics<br><i>复利 · riversxiao 样片</i><br><sub>DeepSeek Flash 样片，锁定 Swiss 引擎；题材可换。<a href="https://github.com/riversxiao/wordfilm/releases/download/showcase-v001/fuli-swiss-ds-v001.mp4">mp4</a></sub></td>
 <td width="33%" valign="top"><a href="styles/spy-titles/STYLE.md"><img src="docs/frames-ds/spy-titles.jpg" alt="60s 间谍片头"></a><br><b>60s 间谍片头</b><br>60s Spy Title Sequence<br><i>The Velvet Cipher</i><br><sub>虚构 1964 年间谍片的片头：追一把被偷的钥匙，几何碎片最后拼成片名。</sub></td>
 <td width="33%" valign="top"><a href="styles/art-deco/STYLE.md"><img src="docs/frames-ds/art-deco.jpg" alt="装饰艺术"></a><br><b>装饰艺术</b><br>Art Deco<br><i>Midnight at the Starlight Hotel</i><br><sub>1930 年的大饭店，门童赶在午夜前把一封信送上顶楼。</sub></td>
 </tr>
 <tr>
 <td width="33%" valign="top"><a href="styles/blueprint/STYLE.md"><img src="docs/frames-ds/blueprint.jpg" alt="蓝图 / 工程制图"></a><br><b>蓝图 / 工程制图</b><br>Blueprint<br><i>Patent Pending: The Cloud Catcher</i><br><sub>发明家的蓝图自己画出一台接云机器，修订云线变成了真的雨云。</sub></td>
 <td width="33%" valign="top"><a href="styles/stained-glass/STYLE.md"><img src="docs/frames-ds/stained-glass.jpg" alt="彩色玻璃窗"></a><br><b>彩色玻璃窗</b><br>Stained Glass<br><i>The Dragon of the East Window</i><br><sub>阳光从清晨移到黄昏，照到哪一格花窗，哪一格的故事就动起来。</sub></td>
-<td width="33%" valign="top"><a href="styles/pictogram-motion/STYLE.md"><img src="docs/frames-ds/pictogram-motion.jpg" alt="象形运动图形"></a><br><b>象形运动图形</b><br>Pictogram Motion<br><i>分散投资 · riversxiao 样片</i><br><sub>DeepSeek Flash 样片；鼓点、无旁白。<a href="https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/fensan-pictogram-ds-v001.mp4">mp4</a></sub></td>
+<td width="33%" valign="top"><a href="styles/pictogram-motion/STYLE.md"><img src="docs/frames-ds/pictogram-motion.jpg" alt="象形运动图形"></a><br><b>象形运动图形</b><br>Pictogram Motion<br><i>分散投资 · riversxiao 样片</i><br><sub>DeepSeek Flash 样片；鼓点、无旁白。<a href="https://github.com/riversxiao/wordfilm/releases/download/showcase-v001/fensan-pictogram-ds-v001.mp4">mp4</a></sub></td>
 </tr>
 <tr>
 <td width="33%" valign="top"><a href="styles/ascii-crt/STYLE.md"><img src="docs/frames-ds/ascii-crt.jpg" alt="ASCII / CRT 终端"></a><br><b>ASCII / CRT 终端</b><br>ASCII / CRT Terminal<br><i>Tranquility.log</i><br><sub>月球基地的 AI 沉睡 40 年后被唤醒，用字符画出“家”来回复。</sub></td>
@@ -287,11 +289,11 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 
 ## 授权
 
-本 fork：**riversxiao / Lemo-DeepSeek** · 引擎底座来自 **LemoLab × Claude Opus** demo。
+本 fork：**riversxiao / WordFilm** · 引擎底座来自 **LemoLab × Claude Opus** demo。
 
 - **代码与文档**（含 `DEEPSEEK.md`、`AGENTS.deepseek.md`、`plugin/skills/lemo-deepseek`）：**MIT**。
 - **上游 demo 引擎及其静帧**（`styles/` 中复用时）：[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.zh-hans)——署名 **LemoLab** 并附 [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar) 链接，改动须注明。
-- **riversxiao 样片与静帧**（`showcase/`、Release `showcase-v001`，以及 `docs/frames-ds/` 中四格样片缩略图）：[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.zh-hans)——署名 **riversxiao/lemo-opuscar** 并附本仓库链接。
+- **riversxiao 样片与静帧**（`showcase/`、Release `showcase-v001`，以及 `docs/frames-ds/` 中四格样片缩略图）：[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.zh-hans)——署名 **riversxiao/wordfilm** 并附本仓库链接。
 - **你用本库做出的片子**：归你自己，无须署名。
 - **样片中的第三方素材**：沿用各自授权（见各 demo 的 `CREDITS`）。
 
@@ -301,7 +303,7 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 
 <div align="center">
 
-⭐ **给本 fork 点个星** · [riversxiao/lemo-opuscar](https://github.com/riversxiao/lemo-opuscar)<br>
+⭐ **给本 fork 点个星** · [riversxiao/wordfilm](https://github.com/riversxiao/wordfilm)<br>
 👀 **Watch → Custom → Releases**，有新样片会通知你<br>
 <sub>上游引擎：<a href="https://github.com/lemomo-ai/lemo-opuscar">lemomo-ai/lemo-opuscar</a></sub>
 

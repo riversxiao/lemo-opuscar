@@ -1,5 +1,5 @@
 #!/bin/sh
-# Lemo-DeepSeek skill: same as upstream setup, but defaults to the riversxiao fork
+# WordFilm skill: same as upstream setup, but defaults to the riversxiao fork
 # (DeepSeek edition). Set LEMO_OPUSCAR_REPO / LEMO_OPUSCAR_PIN to override.
 #   sh setup.sh                    library ready? (clone on first run, update later) → prints LIB=<path>
 #   sh setup.sh deps [voice] [music]
@@ -13,7 +13,7 @@
 # upstream (e.g. bare 413a6bd) fail. Prefer a full 40-char SHA or tag on this fork.
 # Dual pinning: engine/upstream baseline ≠ control-layer (DeepSeek fork) commit — see DEEPSEEK.md.
 set -e
-REPO=${LEMO_OPUSCAR_REPO:-https://github.com/riversxiao/lemo-opuscar.git}
+REPO=${LEMO_OPUSCAR_REPO:-https://github.com/riversxiao/wordfilm.git}
 # Optional: pin to a DeepSeek-era commit/tag (full 40-char SHA preferred)
 PIN=${LEMO_OPUSCAR_PIN:-}
 RESOLVED_PIN=
@@ -34,7 +34,7 @@ require_deepseek_lib() {
   if ! is_deepseek_lib "$1"; then
     echo "✗ $1 is missing the DeepSeek overlay (AGENTS.deepseek.md, DEEPSEEK.md, plugin/skills/lemo-deepseek/)."
     echo "  This path is not a DeepSeek fork, or LEMO_OPUSCAR_PIN landed on a commit without the overlay"
-    echo "  (e.g. bare upstream 413a6bd). Set LEMO_OPUSCAR_REPO=https://github.com/riversxiao/lemo-opuscar.git"
+    echo "  (e.g. bare upstream 413a6bd). Set LEMO_OPUSCAR_REPO=https://github.com/riversxiao/wordfilm.git"
     echo "  and pin a DeepSeek-era commit (full 40-char SHA preferred), not the upstream-only baseline."
     exit 1
   fi
@@ -97,7 +97,7 @@ resolve_pin() {
   fi
 
   echo "✗ could not pin $LIB to $PIN (fetch/resolve failed)."
-  echo "  Prefer a full 40-char SHA or tag on https://github.com/riversxiao/lemo-opuscar"
+  echo "  Prefer a full 40-char SHA or tag on https://github.com/riversxiao/wordfilm"
   echo "  (DeepSeek-era). Do not use bare upstream 413a6bd as the DeepSeek control-layer pin."
   exit 1
 }

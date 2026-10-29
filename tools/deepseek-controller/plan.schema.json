@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/riversxiao/lemo-opuscar/tools/deepseek-controller/plan.schema.json",
-  "title": "Lemo-DeepSeek film plan (content only)",
+  "$id": "https://github.com/riversxiao/wordfilm/tools/deepseek-controller/plan.schema.json",
+  "title": "WordFilm film plan (content only)",
   "description": "Strict JSON plan for Flash. No JS, shaders, expressions, or arbitrary paths. Validated in code by validate.py (jsonschema optional).",
   "type": "object",
   "additionalProperties": false,

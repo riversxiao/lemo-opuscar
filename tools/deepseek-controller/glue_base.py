@@ -129,7 +129,7 @@ def write_credits(
     license_ = credits.get("license") or "CC BY 4.0"
     demo_rel = STYLE_DEMO[style]
     text = (
-        f"{title} — {STYLE_TITLE.get(style, style)} · Lemo-DeepSeek · {author}\n\n"
+        f"{title} — {STYLE_TITLE.get(style, style)} · WordFilm · {author}\n\n"
         f"Year: {year}\n"
         f"License: {license_}\n\n"
         f"Engine cores copied from {demo_rel}/ (locked).\n"

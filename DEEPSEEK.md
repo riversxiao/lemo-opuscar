@@ -1,13 +1,13 @@
-# DeepSeek 版使用说明（Lemo-DeepSeek）
+# DeepSeek 版使用说明（WordFilm）
 
-本 fork（[riversxiao/lemo-opuscar](https://github.com/riversxiao/lemo-opuscar)）在上游 [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar) 之上，增加了 **DeepSeek Flash 友好** 的技能与规程。
+本 fork（[riversxiao/wordfilm](https://github.com/riversxiao/wordfilm)）在上游 [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar) 之上，增加了 **DeepSeek Flash 友好** 的技能与规程。
 
 上游本质不变：用编码智能体写确定性 `render(t)` 做片，**不用视频大模型**。官方 demo 引擎由 Claude Opus 5.5 写成；DeepSeek 侧采用 **「Opus 引擎作只读底座 + Flash 改内容 + 偶发强模型补丁」**。
 
 ## 快速开始
 
 ```bash
-git clone https://github.com/riversxiao/lemo-opuscar.git
+git clone https://github.com/riversxiao/wordfilm.git
 cd lemo-opuscar
 
 # 可选：钉死 DeepSeek 控制层提交（完整 40 字符 SHA 或 tag；勿用裸上游 413a6bd）

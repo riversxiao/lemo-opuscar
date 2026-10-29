@@ -10,7 +10,7 @@ Studio 清点（本机是否存在、与三风格适配器关系）：[`docs/STU
 
 ## English (short)
 
-Minimal controller for Lemo-DeepSeek: `validate` → `adapt` / **`scaffold`** → **`tts`** → `schedule` → `mix` → `quality` → **`handoff`**.
+Minimal controller for WordFilm: `validate` → `adapt` / **`scaffold`** → **`tts`** → `schedule` → `mix` → `quality` → **`handoff`**.
 
 - Plan schema: `plan.schema.json` (content only; rejects code/path/shader-looking keys).
 - Style manifests: `manifests/{swiss-motion,pictogram-motion,caption-news}.json`.

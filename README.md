@@ -1,16 +1,18 @@
 <div align="center">
 
-# Lemo-DeepSeek · riversxiao
+# WordFilm · riversxiao
 
 **DeepSeek Flash + locked Opus demo engines → code-made short films (no video models)**
 
 <a href="DEEPSEEK.md"><img alt="DEEPSEEK" src="https://img.shields.io/badge/DEEPSEEK.md-workflow-111?style=for-the-badge"></a>
 <a href="AGENTS.deepseek.md"><img alt="AGENTS" src="https://img.shields.io/badge/AGENTS.deepseek-rules-333?style=for-the-badge"></a>
 <a href="showcase/README.md"><img alt="Showcase" src="https://img.shields.io/badge/-%E2%96%B6%20Showcase-E8553A?style=for-the-badge"></a>
-<a href="https://github.com/riversxiao/lemo-opuscar/releases/tag/showcase-v001"><img alt="Release" src="https://img.shields.io/badge/Release-showcase--v001-2EA44F?style=for-the-badge"></a>
+<a href="https://github.com/riversxiao/wordfilm/releases/tag/showcase-v001"><img alt="Release" src="https://img.shields.io/badge/Release-showcase--v001-2EA44F?style=for-the-badge"></a>
 <a href="README.zh-CN.md"><img alt="简体中文" src="https://img.shields.io/badge/README-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-555?style=for-the-badge"></a>
 
-This fork: [github.com/riversxiao/lemo-opuscar](https://github.com/riversxiao/lemo-opuscar)
+This repo: [github.com/riversxiao/wordfilm](https://github.com/riversxiao/wordfilm) (formerly `riversxiao/lemo-opuscar`)
+
+**Based on / forked from [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar)** by LemoLab (MIT). Original LICENSE and copyright notices are kept intact.
 
 ℹ️ **This fork defaults to DeepSeek Flash; render engines still come from upstream Opus demos.**  
 Upstream is [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar). Here: DeepSeek workflow + my own film showcase.
@@ -23,10 +25,10 @@ These four are **sample topics** (finance vocab used to demo multiple styles). S
 
 | Topic | Style | Stills | Film |
 |---|---|---|---|
-| Compound interest | Swiss Motion | [stills](showcase/stills/fuli-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/fuli-swiss-ds-v001.mp4) |
-| Diversification | Pictogram Motion | [stills](showcase/stills/fensan-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/fensan-pictogram-ds-v001.mp4) |
-| Liquidity | Caption News | [stills](showcase/stills/liudong-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/liudong-caption-ds-v001.mp4) |
-| What is hedging | Whiteboard | [stills](showcase/stills/duichong-01.jpg) | [mp4](https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/duichong-whiteboard-ds-v001.mp4) |
+| Compound interest | Swiss Motion | [stills](showcase/stills/fuli-01.jpg) | [mp4](https://github.com/riversxiao/wordfilm/releases/download/showcase-v001/fuli-swiss-ds-v001.mp4) |
+| Diversification | Pictogram Motion | [stills](showcase/stills/fensan-01.jpg) | [mp4](https://github.com/riversxiao/wordfilm/releases/download/showcase-v001/fensan-pictogram-ds-v001.mp4) |
+| Liquidity | Caption News | [stills](showcase/stills/liudong-01.jpg) | [mp4](https://github.com/riversxiao/wordfilm/releases/download/showcase-v001/liudong-caption-ds-v001.mp4) |
+| What is hedging | Whiteboard | [stills](showcase/stills/duichong-01.jpg) | [mp4](https://github.com/riversxiao/wordfilm/releases/download/showcase-v001/duichong-whiteboard-ds-v001.mp4) |
 
 Details → [`showcase/README.md`](showcase/README.md) · rules → [`AGENTS.deepseek.md`](AGENTS.deepseek.md) · how-to → [`DEEPSEEK.md`](DEEPSEEK.md)
 
@@ -37,7 +39,7 @@ Use this path day-to-day. Do **not** install the upstream Claude Code plugin.
 ### 1. Clone this repo
 
 ```sh
-git clone https://github.com/riversxiao/lemo-opuscar.git
+git clone https://github.com/riversxiao/wordfilm.git
 cd lemo-opuscar
 
 # Optional: pin a DeepSeek control-layer commit (full 40-char SHA; not bare upstream 413a6bd)
@@ -83,14 +85,14 @@ Loop: TREATMENT → `setup.sh demo <slug>` → content layer only → still → 
 ## 🎬 Feature presentation · my samples
 
 <table><tr>
-<td width="50%" valign="top"><a href="https://github.com/riversxiao/lemo-opuscar/releases/tag/showcase-v001"><img src="docs/showcase-hero.jpg" alt="Four DeepSeek sample shorts"></a><br><b>▶ Four sample shorts</b> · ~30 s each<br><sub>Compound interest · Diversification · Liquidity · Hedging — four styles, one DeepSeek workflow. Topics are samples; any story works.</sub></td>
+<td width="50%" valign="top"><a href="https://github.com/riversxiao/wordfilm/releases/tag/showcase-v001"><img src="docs/showcase-hero.jpg" alt="Four DeepSeek sample shorts"></a><br><b>▶ Four sample shorts</b> · ~30 s each<br><sub>Compound interest · Diversification · Liquidity · Hedging — four styles, one DeepSeek workflow. Topics are samples; any story works.</sub></td>
 <td width="50%" valign="top"><a href="DEEPSEEK.md"><img src="docs/showcase-workflow.jpg" alt="DeepSeek Flash workflow strip"></a><br><b>Workflow</b> · DeepSeek Flash + engine lock<br><sub>still → TTS / score → video → mix → mux. Content layer only; locked Opus demo engines stay untouched.</sub></td>
 </tr></table>
 
 <div align="center">
 
 Every frame and cut in these samples was orchestrated by **DeepSeek Flash** on locked Opus demos.<br>
-[**▶ Watch Release**](https://github.com/riversxiao/lemo-opuscar/releases/tag/showcase-v001) · [**Showcase folder**](showcase/README.md) · [**DEEPSEEK.md**](DEEPSEEK.md)
+[**▶ Watch Release**](https://github.com/riversxiao/wordfilm/releases/tag/showcase-v001) · [**Showcase folder**](showcase/README.md) · [**DEEPSEEK.md**](DEEPSEEK.md)
 
 </div>
 
@@ -102,7 +104,7 @@ Upstream engines & style library by **Lemomo** / [lemomo-ai/lemo-opuscar](https:
 > **Not an awesome list.** Films highlighted above were made here with **DeepSeek Flash** + code engines.<br>
 > Topics are samples (finance vocab is the first set). Product, pets, travel, tutorials — same pipeline. The wall below is the full style library for engine-lock demos.
 
-![Lemo-DeepSeek cover](docs/cover-deepseek.jpg)
+![WordFilm cover](docs/cover-deepseek.jpg)
 
 ## How it works (this fork)
 
@@ -124,7 +126,7 @@ This fork’s style wall — thumbnails regenerated into `docs/frames-ds/`. Four
 
 <table>
 <tr>
-<td width="33%" valign="top"><a href="styles/caption-news/STYLE.md"><img src="docs/frames-ds/caption-news.jpg" alt="Caption News"></a><br><b>Caption News</b><br><i>Liquidity · riversxiao sample</i><br><sub>DeepSeek Flash sample — graphics-first news short. <a href="https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/liudong-caption-ds-v001.mp4">mp4</a></sub></td>
+<td width="33%" valign="top"><a href="styles/caption-news/STYLE.md"><img src="docs/frames-ds/caption-news.jpg" alt="Caption News"></a><br><b>Caption News</b><br><i>Liquidity · riversxiao sample</i><br><sub>DeepSeek Flash sample — graphics-first news short. <a href="https://github.com/riversxiao/wordfilm/releases/download/showcase-v001/liudong-caption-ds-v001.mp4">mp4</a></sub></td>
 <td width="33%" valign="top"><a href="styles/newsreel/STYLE.md"><img src="docs/frames-ds/newsreel.jpg" alt="1920s Newsreel"></a><br><b>1920s Newsreel</b><br><i>Knock-Knee Alert</i><br><sub>1926: the papers say the Charleston will ruin America&#x27;s knees; at Ford&#x27;s own picnic the kids dance it anyway.</sub></td>
 <td width="33%" valign="top"><a href="styles/countdown/STYLE.md"><img src="docs/frames-ds/countdown.jpg" alt="Live Countdown Split-screen"></a><br><b>Live Countdown Split-screen</b><br><i>Counting Itself Down</i><br><sub>The last minute of the Artemis II launch, uncut: one cell opens to nine, and they merge into one at ignition.</sub></td>
 </tr>
@@ -169,7 +171,7 @@ This fork’s style wall — thumbnails regenerated into `docs/frames-ds/`. Four
 <tr>
 <td width="33%" valign="top"><a href="styles/impasto/STYLE.md"><img src="docs/frames-ds/impasto.jpg" alt="Impasto Oil Painting"></a><br><b>Impasto Oil Painting</b><br><i>The Colour of Rain</i><br><sub>In a grey, rainy square one red umbrella opens, and a waltz paints the whole plaza in colour.</sub></td>
 <td width="33%" valign="top"><a href="styles/one-line/STYLE.md"><img src="docs/frames-ds/one-line.jpg" alt="One-line Drawing"></a><br><b>One-line Drawing</b><br><i>The Line That Never Lifted</i><br><sub>One unbroken line draws a whole life, then the pen passes to a child.</sub></td>
-<td width="33%" valign="top"><a href="styles/whiteboard/STYLE.md"><img src="docs/frames-ds/whiteboard.jpg" alt="Whiteboard Explainer"></a><br><b>Whiteboard Explainer</b><br><i>What is hedging · riversxiao sample</i><br><sub>DeepSeek Flash sample — board + Yunxi VO. <a href="https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/duichong-whiteboard-ds-v001.mp4">mp4</a></sub></td>
+<td width="33%" valign="top"><a href="styles/whiteboard/STYLE.md"><img src="docs/frames-ds/whiteboard.jpg" alt="Whiteboard Explainer"></a><br><b>Whiteboard Explainer</b><br><i>What is hedging · riversxiao sample</i><br><sub>DeepSeek Flash sample — board + Yunxi VO. <a href="https://github.com/riversxiao/wordfilm/releases/download/showcase-v001/duichong-whiteboard-ds-v001.mp4">mp4</a></sub></td>
 </tr>
 <tr>
 <td width="33%" valign="top"><a href="styles/urban-sketch/STYLE.md"><img src="docs/frames-ds/urban-sketch.jpg" alt="Urban Sketch · Pen &amp; Wash"></a><br><b>Urban Sketch · Pen &amp; Wash</b><br><i>Where the Wind Went</i><br><sub>A park that is only a pen sketch; wherever the wind carries her straw hat, colour follows.</sub></td>
@@ -207,14 +209,14 @@ This fork’s style wall — thumbnails regenerated into `docs/frames-ds/`. Four
 
 <table>
 <tr>
-<td width="33%" valign="top"><a href="styles/swiss-motion/STYLE.md"><img src="docs/frames-ds/swiss-motion.jpg" alt="Swiss Motion Graphics"></a><br><b>Swiss Motion Graphics</b><br><i>Compound interest · riversxiao sample</i><br><sub>DeepSeek Flash sample on locked Swiss engine — finance vocab demo; any topic works. <a href="https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/fuli-swiss-ds-v001.mp4">mp4</a></sub></td>
+<td width="33%" valign="top"><a href="styles/swiss-motion/STYLE.md"><img src="docs/frames-ds/swiss-motion.jpg" alt="Swiss Motion Graphics"></a><br><b>Swiss Motion Graphics</b><br><i>Compound interest · riversxiao sample</i><br><sub>DeepSeek Flash sample on locked Swiss engine — finance vocab demo; any topic works. <a href="https://github.com/riversxiao/wordfilm/releases/download/showcase-v001/fuli-swiss-ds-v001.mp4">mp4</a></sub></td>
 <td width="33%" valign="top"><a href="styles/spy-titles/STYLE.md"><img src="docs/frames-ds/spy-titles.jpg" alt="60s Spy Title Sequence"></a><br><b>60s Spy Title Sequence</b><br><i>The Velvet Cipher</i><br><sub>Opening titles for an imaginary 1964 spy film: a chase for a stolen key until the shapes lock into the title.</sub></td>
 <td width="33%" valign="top"><a href="styles/art-deco/STYLE.md"><img src="docs/frames-ds/art-deco.jpg" alt="Art Deco"></a><br><b>Art Deco</b><br><i>Midnight at the Starlight Hotel</i><br><sub>A grand hotel, 1930: a bellboy races lifts and revolving doors to deliver one letter before midnight.</sub></td>
 </tr>
 <tr>
 <td width="33%" valign="top"><a href="styles/blueprint/STYLE.md"><img src="docs/frames-ds/blueprint.jpg" alt="Blueprint"></a><br><b>Blueprint</b><br><i>Patent Pending: The Cloud Catcher</i><br><sub>An inventor&#x27;s blueprint draws, explodes and assembles a cloud-catching machine, and its revision cloud starts to rain.</sub></td>
 <td width="33%" valign="top"><a href="styles/stained-glass/STYLE.md"><img src="docs/frames-ds/stained-glass.jpg" alt="Stained Glass"></a><br><b>Stained Glass</b><br><i>The Dragon of the East Window</i><br><sub>Sunlight crosses a cathedral window from dawn to dusk, waking each pane of a knight-and-dragon tale.</sub></td>
-<td width="33%" valign="top"><a href="styles/pictogram-motion/STYLE.md"><img src="docs/frames-ds/pictogram-motion.jpg" alt="Pictogram Motion"></a><br><b>Pictogram Motion</b><br><i>Diversification · riversxiao sample</i><br><sub>DeepSeek Flash sample — beat-locked pictograms; drums, no VO. <a href="https://github.com/riversxiao/lemo-opuscar/releases/download/showcase-v001/fensan-pictogram-ds-v001.mp4">mp4</a></sub></td>
+<td width="33%" valign="top"><a href="styles/pictogram-motion/STYLE.md"><img src="docs/frames-ds/pictogram-motion.jpg" alt="Pictogram Motion"></a><br><b>Pictogram Motion</b><br><i>Diversification · riversxiao sample</i><br><sub>DeepSeek Flash sample — beat-locked pictograms; drums, no VO. <a href="https://github.com/riversxiao/wordfilm/releases/download/showcase-v001/fensan-pictogram-ds-v001.mp4">mp4</a></sub></td>
 </tr>
 <tr>
 <td width="33%" valign="top"><a href="styles/ascii-crt/STYLE.md"><img src="docs/frames-ds/ascii-crt.jpg" alt="ASCII / CRT Terminal"></a><br><b>ASCII / CRT Terminal</b><br><i>Tranquility.log</i><br><sub>A moon-base AI wakes after forty years to a signal from Earth, and replies by drawing “home” in characters.</sub></td>
@@ -287,11 +289,11 @@ This fork’s style wall — thumbnails regenerated into `docs/frames-ds/`. Four
 
 ## Licence
 
-This fork: **riversxiao / Lemo-DeepSeek** · engines from **LemoLab × Claude Opus** demos.
+This fork: **riversxiao / WordFilm** · engines from **LemoLab × Claude Opus** demos.
 
 - **Code and docs** (including `DEEPSEEK.md`, `AGENTS.deepseek.md`, `plugin/skills/lemo-deepseek`): **MIT**.
 - **Upstream demo engines & their stills** (in `styles/`, when reused): [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) — credit **LemoLab** with a link to [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar), and note changes.
-- **riversxiao showcase films & stills** (`showcase/`, Release `showcase-v001`, and the four sample thumbs in `docs/frames-ds/`): [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) — credit **riversxiao/lemo-opuscar** with a link to this repository.
+- **riversxiao showcase films & stills** (`showcase/`, Release `showcase-v001`, and the four sample thumbs in `docs/frames-ds/`): [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) — credit **riversxiao/wordfilm** with a link to this repository.
 - **Films you make with the library**: yours; no credit required.
 - **Third-party assets in demos**: keep their own licences (see each demo’s `CREDITS`).
 
@@ -301,7 +303,7 @@ You are responsible for materials you use in your films.
 
 <div align="center">
 
-⭐ **Star this fork** · [riversxiao/lemo-opuscar](https://github.com/riversxiao/lemo-opuscar)<br>
+⭐ **Star this fork** · [riversxiao/wordfilm](https://github.com/riversxiao/wordfilm)<br>
 👀 **Watch → Custom → Releases** for new sample drops<br>
 <sub>Upstream engines: <a href="https://github.com/lemomo-ai/lemo-opuscar">lemomo-ai/lemo-opuscar</a></sub>
 

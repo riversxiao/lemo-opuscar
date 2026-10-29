@@ -5,7 +5,7 @@ set -e
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 SETUP="$SCRIPT_DIR/setup.sh"
 REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/../../../.." && pwd)
-REPO_URL=${TEST_LEMO_REPO:-https://github.com/riversxiao/lemo-opuscar.git}
+REPO_URL=${TEST_LEMO_REPO:-https://github.com/riversxiao/wordfilm.git}
 
 # DeepSeek-era tip known on the fork at review time (full SHA).
 DS_PIN=${TEST_DS_PIN:-f3d2e1c934be18ac4cb816ecaa5e9d27176afaae}
