@@ -36,27 +36,161 @@ def find_master_mp4(film_dir: Path) -> Path:
     )
 
 
-def probe_duration(path: Path) -> float:
+DEFAULT_WIDTH = 1920
+DEFAULT_HEIGHT = 1080
+DEFAULT_FPS = 24.0
+DEFAULT_DURATION = 30.0
+
+
+def parse_size(spec: str) -> tuple[int, int]:
+    """Parse 'WxH' like core/render/page.mjs takeSize: even ints in 16..8192."""
+    s = str(spec).strip().lower()
+    parts = s.split("x")
+    if len(parts) != 2 or not all(p.isdigit() for p in parts):
+        raise ValueError(f"--size expects WxH (e.g. 1080x1920), got {spec!r}")
+    w, h = int(parts[0]), int(parts[1])
+    for v in (w, h):
+        if v < 16 or v > 8192 or v % 2:
+            raise ValueError(
+                f"--size {spec!r}: width and height must be even integers in 16..8192"
+            )
+    return w, h
+
+
+def parse_fps(spec: str | float | int) -> float:
+    """Parse '24', '29.97' or '30000/1001' into a positive float."""
+    if isinstance(spec, (int, float)):
+        val = float(spec)
+    else:
+        s = str(spec).strip()
+        try:
+            if "/" in s:
+                num, den = s.split("/", 1)
+                val = float(num) / float(den)
+            else:
+                val = float(s)
+        except (ValueError, ZeroDivisionError):
+            raise ValueError(f"--fps expects a number or N/D, got {spec!r}") from None
+    if not (0 < val <= 240):
+        raise ValueError(f"--fps out of range (0, 240]: {spec!r}")
+    return val
+
+
+def fps_timebase(fps: float) -> tuple[int, bool]:
+    """Integer timebase + NTSC flag for xmeml/EDL (29.97 -> (30, True))."""
+    tb = max(1, int(round(fps)))
+    ntsc = abs(fps - tb) > 0.005 and abs(fps * 1.001 - tb) < 0.01
+    return tb, ntsc
+
+
+def _ffprobe_json(path: Path) -> dict[str, Any] | None:
     if not shutil.which("ffprobe"):
-        return 30.0
+        return None
     try:
         out = subprocess.check_output(
             [
                 "ffprobe",
                 "-v",
                 "error",
+                "-select_streams",
+                "v:0",
                 "-show_entries",
-                "format=duration",
+                "stream=width,height,r_frame_rate:format=duration",
                 "-of",
-                "default=nk=1:nw=1",
+                "json",
                 str(path),
             ],
             text=True,
             stderr=subprocess.DEVNULL,
-        ).strip()
-        return float(out)
-    except (subprocess.CalledProcessError, ValueError):
-        return 30.0
+        )
+        return json.loads(out)
+    except (subprocess.CalledProcessError, ValueError, OSError):
+        return None
+
+
+def probe_video(path: Path) -> dict[str, Any]:
+    """Return {width, height, fps, duration, probed} for the first video stream.
+
+    Falls back to 1920x1080 @ 24fps / 30s (probed=False) when ffprobe is
+    missing or the file cannot be read. Fields that ffprobe does return are
+    kept even if others are missing.
+    """
+    info: dict[str, Any] = {
+        "width": DEFAULT_WIDTH,
+        "height": DEFAULT_HEIGHT,
+        "fps": DEFAULT_FPS,
+        "duration": DEFAULT_DURATION,
+        "probed": False,
+    }
+    data = _ffprobe_json(path)
+    if not data:
+        return info
+    streams = data.get("streams") or []
+    st = streams[0] if streams else {}
+    try:
+        w, h = int(st.get("width") or 0), int(st.get("height") or 0)
+        if w > 0 and h > 0:
+            info["width"], info["height"] = w, h
+            info["probed"] = True
+    except (TypeError, ValueError):
+        pass
+    rate = st.get("r_frame_rate")
+    if rate:
+        try:
+            info["fps"] = round(parse_fps(rate), 3)
+        except ValueError:
+            pass
+    try:
+        dur = float((data.get("format") or {}).get("duration"))
+        if dur > 0:
+            info["duration"] = dur
+    except (TypeError, ValueError):
+        pass
+    return info
+
+
+def probe_duration(path: Path) -> float:
+    return float(probe_video(path)["duration"])
+
+
+def resolve_frame(
+    mp4: Path,
+    *,
+    size: tuple[int, int] | None = None,
+    fps: float | None = None,
+) -> dict[str, Any]:
+    """Resolve width/height/fps: explicit flag > ffprobe of master > default.
+
+    Returns {width, height, fps, duration, sizeSource, fpsSource} where the
+    sources are 'flag' | 'probe' | 'default'.
+    """
+    pv = probe_video(mp4)
+    if size:
+        w, h = size
+        size_src = "flag"
+    elif pv["probed"]:
+        w, h = pv["width"], pv["height"]
+        size_src = "probe"
+    else:
+        w, h = DEFAULT_WIDTH, DEFAULT_HEIGHT
+        size_src = "default"
+    if fps:
+        f = float(fps)
+        fps_src = "flag"
+    elif pv["probed"]:
+        f = float(pv["fps"])
+        fps_src = "probe"
+    else:
+        f = DEFAULT_FPS
+        fps_src = "default"
+    return {
+        "width": int(w),
+        "height": int(h),
+        "fps": f,
+        "duration": float(pv["duration"]),
+        "sizeSource": size_src,
+        "fpsSource": fps_src,
+    }
 
 
 def _shot_from_dict(d: dict[str, Any], idx: int) -> dict[str, Any]:
@@ -196,9 +330,13 @@ def write_cmx3600_edl(
     *,
     title: str,
     shots: list[dict[str, Any]],
-    fps: int = 24,
+    fps: float = 24,
 ) -> None:
-    """Minimal CMX3600-style EDL (picture events only; reel MASTER)."""
+    """Minimal CMX3600-style EDL (picture events only; reel MASTER).
+
+    Timecode uses the integer timebase (29.97 -> 30, non-drop).
+    """
+    fps = fps_timebase(float(fps))[0]
 
     def tc(sec: float) -> str:
         total = max(0, int(round(sec * fps)))

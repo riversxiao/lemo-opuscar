@@ -17,12 +17,13 @@ from xml.sax.saxutils import escape
 from .common import (
     copy_stem_audio,
     find_master_mp4,
+    fps_timebase,
     load_shots,
-    probe_duration,
+    resolve_frame,
 )
 
 
-def _frames(sec: float, fps: int) -> int:
+def _frames(sec: float, fps: float) -> int:
     return max(0, int(round(float(sec) * fps)))
 
 
@@ -38,12 +39,18 @@ def write_xmeml(
     master: Path,
     shots: list[dict[str, Any]],
     duration_sec: float,
-    fps: int = 24,
+    fps: float = 24,
     width: int = 1920,
     height: int = 1080,
 ) -> None:
-    """Write a minimal xmeml v5 sequence (one video track of master trims)."""
-    tb = str(fps)
+    """Write a minimal xmeml v5 sequence (one video track of master trims).
+
+    fps may be fractional (29.97 / 23.976): xmeml gets the integer timebase
+    plus <ntsc>TRUE</ntsc>; frame counts use the real rate.
+    """
+    tb_int, is_ntsc = fps_timebase(float(fps))
+    tb = str(tb_int)
+    ntsc = "TRUE" if is_ntsc else "FALSE"
     file_id = "file-master"
     master_uri = escape(_file_url(master))
     master_name = escape(master.name)
@@ -67,7 +74,7 @@ def write_xmeml(
           <duration>{src_out - src_in}</duration>
           <rate>
             <timebase>{tb}</timebase>
-            <ntsc>FALSE</ntsc>
+            <ntsc>{ntsc}</ntsc>
           </rate>
           <start>{rec_in}</start>
           <end>{rec_out}</end>
@@ -85,7 +92,7 @@ def write_xmeml(
           <duration>{dur_f}</duration>
           <rate>
             <timebase>{tb}</timebase>
-            <ntsc>FALSE</ntsc>
+            <ntsc>{ntsc}</ntsc>
           </rate>
           <start>0</start>
           <end>{dur_f}</end>
@@ -103,7 +110,7 @@ def write_xmeml(
     <duration>{dur_f}</duration>
     <rate>
       <timebase>{tb}</timebase>
-      <ntsc>FALSE</ntsc>
+      <ntsc>{ntsc}</ntsc>
     </rate>
     <media>
       <video>
@@ -111,7 +118,7 @@ def write_xmeml(
           <samplecharacteristics>
             <rate>
               <timebase>{tb}</timebase>
-              <ntsc>FALSE</ntsc>
+              <ntsc>{ntsc}</ntsc>
             </rate>
             <width>{width}</width>
             <height>{height}</height>
@@ -138,7 +145,7 @@ def write_xmeml(
             <duration>{dur_f}</duration>
             <rate>
               <timebase>{tb}</timebase>
-              <ntsc>FALSE</ntsc>
+              <ntsc>{ntsc}</ntsc>
             </rate>
             <start>0</start>
             <end>{dur_f}</end>
@@ -157,7 +164,7 @@ def write_xmeml(
     <pathurl>{master_uri}</pathurl>
     <rate>
       <timebase>{tb}</timebase>
-      <ntsc>FALSE</ntsc>
+      <ntsc>{ntsc}</ntsc>
     </rate>
     <duration>{dur_f}</duration>
     <media>
@@ -166,7 +173,7 @@ def write_xmeml(
         <samplecharacteristics>
           <rate>
             <timebase>{tb}</timebase>
-            <ntsc>FALSE</ntsc>
+            <ntsc>{ntsc}</ntsc>
           </rate>
           <width>{width}</width>
           <height>{height}</height>
@@ -191,9 +198,15 @@ def export_premiere(
     *,
     name: str | None = None,
     out_dir: Path | None = None,
-    fps: int = 24,
+    fps: float | None = None,
+    width: int | None = None,
+    height: int | None = None,
 ) -> dict[str, Any]:
-    """Package assets + premiere.xml (xmeml) for Premiere-adjacent import."""
+    """Package assets + premiere.xml (xmeml) for Premiere-adjacent import.
+
+    width/height/fps of None are resolved from the master via ffprobe, then
+    fall back to 1920x1080 @ 24fps.
+    """
     film_dir = film_dir.resolve()
     name = name or film_dir.name
     out = (out_dir or (film_dir / "premiere-handoff")).resolve()
@@ -203,7 +216,11 @@ def export_premiere(
     assets.mkdir(parents=True)
 
     mp4 = find_master_mp4(film_dir)
-    dur = probe_duration(mp4)
+    frame = resolve_frame(
+        mp4, size=(width, height) if width and height else None, fps=fps
+    )
+    width, height, fps = frame["width"], frame["height"], frame["fps"]
+    dur = frame["duration"]
     shots, shot_src, dur_hint = load_shots(film_dir)
     if dur_hint and not shots:
         dur = float(dur_hint)
@@ -233,6 +250,8 @@ def export_premiere(
         shots=shots,
         duration_sec=dur,
         fps=fps,
+        width=width,
+        height=height,
     )
 
     # Also drop a CMX3600 EDL next to XML for NLEs that prefer EDL.
@@ -249,6 +268,10 @@ def export_premiere(
         "sourceMp4": str(mp4),
         "durationSec": round(dur, 3),
         "fps": fps,
+        "width": width,
+        "height": height,
+        "sizeSource": frame["sizeSource"],
+        "fpsSource": frame["fpsSource"],
         "shotSource": shot_src,
         "shotCount": len(shots),
         "shots": shots,
@@ -266,7 +289,7 @@ def export_premiere(
         "limits": [
             "Not a native .prproj / AAF / Resolve .drp — xmeml import only.",
             "No titles, transitions, or color — picture trims + full audio of the mux.",
-            "Frame rate assumed 24fps non-drop; remux films may differ — retime in NLE if needed.",
+            f"Frame size {width}x{height} and rate {fps:g}fps from {frame['sizeSource']}/{frame['fpsSource']} (flag > ffprobe > default 1920x1080@24); retime in NLE if the master differs.",
             "Paid desktop apps are not required on the box; this is an export artifact only.",
         ],
         "needsUser": [
@@ -284,7 +307,7 @@ FCP XML (`xmeml` v5) + master MP4 for **import** into Premiere Pro / Resolve / F
 - source: `{mp4}`
 - duration: {dur:.3f}s
 - shots: **{len(shots)}** (`{shot_src}`)
-- fps assumption: {fps} (non-drop)
+- frame: {width}x{height} @ {fps:g}fps (size from {frame['sizeSource']}, fps from {frame['fpsSource']})
 
 ## Import
 
@@ -304,6 +327,11 @@ FCP XML (`xmeml` v5) + master MP4 for **import** into Premiere Pro / Resolve / F
         "out": str(out),
         "mp4": str(mp4),
         "durationSec": round(dur, 3),
+        "width": width,
+        "height": height,
+        "fps": fps,
+        "sizeSource": frame["sizeSource"],
+        "fpsSource": frame["fpsSource"],
         "shotCount": len(shots),
         "shotSource": shot_src,
         "xml": str(xml_path),

@@ -7,9 +7,53 @@ import json
 import sys
 from pathlib import Path
 
+from .common import parse_fps, parse_size
 from .openfilm import export_openfilm
 from .hyperframes import export_hyperframes
 from .premiere import export_premiere
+
+
+def _size_arg(spec: str) -> tuple[int, int]:
+    try:
+        return parse_size(spec)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(str(e)) from None
+
+
+def _fps_arg(spec: str) -> float:
+    try:
+        return parse_fps(spec)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(str(e)) from None
+
+
+def _add_frame_args(sp: argparse.ArgumentParser, *, fps: bool = True) -> None:
+    sp.add_argument(
+        "--size",
+        type=_size_arg,
+        default=None,
+        metavar="WxH",
+        help="frame size, e.g. 1080x1920 (default: ffprobe of the master, else 1920x1080)",
+    )
+    if fps:
+        sp.add_argument(
+            "--fps",
+            type=_fps_arg,
+            default=None,
+            help="frame rate, e.g. 24, 29.97 or 30000/1001 (default: ffprobe, else 24)",
+        )
+
+
+def _wh(args: argparse.Namespace) -> dict:
+    if args.size:
+        return {"width": args.size[0], "height": args.size[1]}
+    return {}
+
+
+def _frame_line(info: dict) -> str:
+    fps = info.get("fps")
+    rate = f" @ {fps:g}fps (fps from {info.get('fpsSource')})" if fps else ""
+    return f"  frame: {info['width']}x{info['height']} (size from {info['sizeSource']}){rate}"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -25,6 +69,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="also write shots/*.mp4 (re-encode; slower)",
     )
+    _add_frame_args(o)
     o.add_argument("--json", action="store_true")
 
     h = sub.add_parser("hyperframes", help="HyperFrames composition export (lintable locally)")
@@ -37,6 +82,7 @@ def main(argv: list[str] | None = None) -> int:
         help="also run npx hyperframes init --video (optional shape)",
     )
     h.add_argument("--lint", action="store_true", help="run hyperframes lint after export")
+    _add_frame_args(h, fps=False)
     h.add_argument("--json", action="store_true")
 
     pr = sub.add_parser(
@@ -46,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
     pr.add_argument("film_dir")
     pr.add_argument("--name", default=None)
     pr.add_argument("-o", "--out", default=None, help="default: <film>/premiere-handoff")
-    pr.add_argument("--fps", type=int, default=24)
+    _add_frame_args(pr)
     pr.add_argument("--json", action="store_true")
 
     a = sub.add_parser("both", help="openfilm + hyperframes (+ premiere) for one film")
@@ -59,6 +105,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="also write premiere-handoff/ (xmeml)",
     )
+    _add_frame_args(a)
     a.add_argument("--json", action="store_true")
 
     args = p.parse_args(argv)
@@ -70,6 +117,8 @@ def main(argv: list[str] | None = None) -> int:
             name=args.name,
             out_dir=Path(args.out) if args.out else None,
             extract_shots=args.extract_shots,
+            fps=args.fps,
+            **_wh(args),
         )
         if args.json:
             print(json.dumps(info, ensure_ascii=False, indent=2))
@@ -77,6 +126,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"openfilm_handoff: wrote {info['out']}")
             print(f"  mp4: {info['mp4']}")
             print(f"  duration: {info['durationSec']}s")
+            print(_frame_line(info))
             print(f"  shots: {info['shotCount']} ({info['shotSource']})")
             print(f"  next: cd {info['out']} && npx -y openfilm@latest look")
         return 0
@@ -88,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
             out_dir=Path(args.out) if args.out else None,
             try_init_cli=args.try_init_cli,
             run_lint=args.lint,
+            **_wh(args),
         )
         if args.json:
             print(json.dumps(info, ensure_ascii=False, indent=2))
@@ -95,6 +146,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"hyperframes_export: wrote {info['out']}")
             print(f"  mp4: {info['mp4']}")
             print(f"  duration: {info['durationSec']}s")
+            print(_frame_line(info))
             print(f"  shots: {info['shotCount']} ({info['shotSource']})")
             if info.get("lintOk") is True:
                 print("  lint: PASS")
@@ -111,26 +163,36 @@ def main(argv: list[str] | None = None) -> int:
             name=args.name,
             out_dir=Path(args.out) if args.out else None,
             fps=args.fps,
+            **_wh(args),
         )
         if args.json:
             print(json.dumps(info, ensure_ascii=False, indent=2))
         else:
             print(f"premiere_handoff: wrote {info['out']}")
             print(f"  xml: {info['xml']}")
+            print(_frame_line(info))
             print(f"  shots: {info['shotCount']} ({info['shotSource']})")
             print("  import: Premiere File→Import premiere.xml (keep assets/ beside it)")
         return 0
 
     if args.cmd == "both":
-        of = export_openfilm(film, name=args.name, extract_shots=args.extract_shots)
-        hf = export_hyperframes(film, name=args.name, run_lint=args.lint)
+        of = export_openfilm(
+            film,
+            name=args.name,
+            extract_shots=args.extract_shots,
+            fps=args.fps,
+            **_wh(args),
+        )
+        hf = export_hyperframes(film, name=args.name, run_lint=args.lint, **_wh(args))
         blob: dict = {"openfilm": of, "hyperframes": hf}
         if args.with_premiere:
-            blob["premiere"] = export_premiere(film, name=args.name)
+            blob["premiere"] = export_premiere(
+                film, name=args.name, fps=args.fps, **_wh(args)
+            )
         if args.json:
             print(json.dumps(blob, ensure_ascii=False, indent=2))
         else:
-            print(f"openfilm → {of['out']} ({of['shotCount']} shots)")
+            print(f"openfilm → {of['out']} ({of['shotCount']} shots, {of['width']}x{of['height']} from {of['sizeSource']})")
             print(f"hyperframes → {hf['out']} (lint={hf.get('lintOk')})")
             if "premiere" in blob:
                 print(f"premiere → {blob['premiere']['out']}")
