@@ -25,7 +25,7 @@ Sizes are in TECHNIQUE.md §1.
 | `window.EV = [{t, type, …}]` | no | sound and cue events, exported by `events.mjs` |
 | `window.TEXTS(t)` | readcheck | `[{id, text, x0, y0, x1, y1}]`: every on-screen text visible at `t`, with its box in pixels. Report an element's **full** text from its first visible frame (a typewriter that reports only the typed letters fails the check) |
 
-The viewport is 1920×1080 at device scale 1, or `--size WxH`. `--q 'k=v&…'` reaches the page as `location.search`. A page error, or an HTTP error on a script, module or the page, stops the tool (exit 1). Other missing files (fetch, images, fonts) print `optional file missing: <URL>` and the tool carries on. The tools wait up to 180 s for `window.READY`.
+The viewport is 1920×1080 at device scale 1, or `--size WxH`; the page reads its frame from `innerWidth` × `innerHeight` (a demo that hardcodes 1920×1080 is cropped, not re-laid out, at other sizes). `--q 'k=v&…'` reaches the page as `location.search`. A page error, or an HTTP error on a script, module or the page, stops the tool (exit 1). Other missing files (fetch, images, fonts) print `optional file missing: <URL>` and the tool carries on. The tools wait up to 180 s for `window.READY`.
 
 ## Render
 
@@ -39,7 +39,7 @@ The viewport is 1920×1080 at device scale 1, or `--size WxH`. `--q 'k=v&…'` r
 | `.venv/bin/python core/render/srt.py cues.json out.srt` | subtitles from `[{t0, t1, text}]` |
 | `sh core/render/mux.sh video.mp4 mix.wav out.mp4 [fps=24] [grain=2]` | mux and master (below) |
 
-All four page tools take `--size WxH` (default `1920x1080`, even numbers) and `--q 'k=v'`.
+All four page tools take `--size WxH` (default `1920x1080`, even numbers) and `--q 'k=v'`. Pass the same size to all of them for one film, e.g. `--size 1080x1920` for vertical; `readcheck` checks the boxes against that frame.
 
 **readcheck** asks the page for `window.TEXTS(t)` at every step. Each text must stay fully in frame, unchanged, for at least CJK characters ÷ 4.5 + other non-space characters ÷ 15 + 1.5 s, and never less than `--min`. A new `text` under the same `id` starts a new piece. Subtitles are checked by their `.srt`, not here.
 

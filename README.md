@@ -81,6 +81,13 @@ Loop: TREATMENT → `setup.sh demo <slug>` → content layer only → still → 
   - **OpenRouter fallback**: `openrouter/deepseek/deepseek-v4.1-flash`
   - **OpenCode free tier**: `opencode/deepseek-v4.1-flash-free` (may run out of quota — switch to one of the above)
 
+### Vertical 9:16
+
+- Render tools take `--size 1080x1920` (`still.mjs`, `events.mjs`, `readcheck.mjs`, `video.mjs`); pages lay out from `innerWidth` × `innerHeight`.
+- Native portrait layouts (their own composition, not a crop): **Caption News** (1080×1560 footage band, two-line caption card under it) and **Swiss Motion** (page on top, poster below, wrapped statements). Each style lists its frames in `style.json` `aspects`; other styles are designed for 16:9.
+- Controller plans: `"aspect": "9:16"` (default `"16:9"`). Pictogram Motion is 16:9 only and validation says so.
+- NLE handoff: `handoff --size 1080x1920 --fps 30`, or leave them out and the size and fps are read from the master with ffprobe.
+
 ---
 
 ## 🎬 Feature presentation · my samples

@@ -81,6 +81,13 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
   - **OpenRouter 回退**：`openrouter/deepseek/deepseek-v4.1-flash`
   - **OpenCode 免费档**：`opencode/deepseek-v4.1-flash-free`（额度不够就换上面两条）
 
+### 竖屏 9:16
+
+- 渲染工具都接受 `--size 1080x1920`（`still.mjs`、`events.mjs`、`readcheck.mjs`、`video.mjs`）；页面按 `innerWidth` × `innerHeight` 排版。
+- 有原生竖屏版式（单独构图，不是裁切）的风格：**字幕新闻**（顶部 1080×1560 画面带，下方两行字幕卡）和 **瑞士动态排版**（上页面、下海报，陈述句换行）。每个风格在 `style.json` 的 `aspects` 里列出支持的画幅；其余风格按 16:9 设计。
+- 控制层计划：`"aspect": "9:16"`（默认 `"16:9"`）。象形动态只支持 16:9，校验会直接说明。
+- 剪辑交接：`handoff --size 1080x1920 --fps 30`，不写则用 ffprobe 从成片读取尺寸和帧率。
+
 ---
 
 ## 🎬 特别放映 · 我的样片
