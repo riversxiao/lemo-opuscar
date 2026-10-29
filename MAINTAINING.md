@@ -40,6 +40,18 @@ Rules for library demos only (a user's film follows `DIRECTOR.md`, not these):
 2. `git status --short`, `git add -A`, commit. This includes `tools/films.json`: upload records there each film it put on the fork, and the gallery's "full quality" link for that film follows it (verify warns while the file is uncommitted). Films that are not listed stay on the upstream `films` release (the file's `default`).
 3. Push `main`, then watch CI (`gh run watch`): Pages takes every web cut from the upstream `web` release, lays the fork's own cuts over them, and fails when a card links a film that is in neither, or a "full quality" link points at a `films` release that lacks that film (for example, `tools/films.json` left out of the commit).
 
+### Turn on GitHub Pages (once, repo admin)
+
+The gallery workflow cannot switch Pages on: its token has no admin rights, and neither has a collaborator with write or pull access. Until an admin does it, https://riversxiao.github.io/wordfilm/ answers 404 and the gallery workflow stops at its first step, `python3 tools/release.py pages`, with the steps below.
+
+1. Check: `python3 tools/release.py pages` (default repo `riversxiao/wordfilm`, or name one: `python3 tools/release.py pages owner/repo`). Exit 0 and `✓ GitHub Pages is on ..., deployed by GitHub Actions` means nothing to do. `not enabled (... 404)` means Pages is off; `builds from the branch ...` means it is on but serves a branch instead of this workflow.
+2. As a repo admin, open https://github.com/riversxiao/wordfilm/settings/pages and set **Build and deployment > Source** to **GitHub Actions**. Leave the custom domain empty. Or, with an admin token: `gh api -X POST repos/riversxiao/wordfilm/pages -f build_type=workflow` (when Pages is already on from a branch: `gh api -X PUT repos/riversxiao/wordfilm/pages -f build_type=workflow`).
+3. Settings > Environments > `github-pages`: the deployment branch rule must allow `main` (the default rule GitHub creates does).
+4. Re-run the workflow: Actions > gallery > Run workflow (or `gh workflow run pages.yml --ref main`), then `gh run watch`.
+5. Verify: `python3 tools/release.py pages` exits 0, and https://riversxiao.github.io/wordfilm/ shows the gallery with playable films (`curl -sI https://riversxiao.github.io/wordfilm/ | head -1` gives `HTTP/2 200`).
+
+Without the gh CLI, `release.py pages` can only see whether the site answers (the API hides the Pages settings from anonymous callers), not how it is built.
+
 The Pages build (`build.py --site`) also writes the OPUSCAR 98 page (`opuscar98/`, from `styleboard/opuscar98.html`), `llms.txt` and `sitemap.xml`, and puts the canonical link, share-card tags and JSON-LD (this fork, with the upstream it is based on) in each page's head. They pick up the style count by themselves; the film's runtime is `FEATURE['dur']` in `build.py`.
 
 Don't push before the upload has finished, and don't commit `tools/assets.json` from a failed run.
