@@ -41,6 +41,38 @@ ok(VD.compare(a, a)["dup"], "identical keyframes → near-duplicate")
 b = {"bits": rng.random(64) > .5, "lay": (lambda x: x / np.linalg.norm(x))(rng.standard_normal(1296)), "col": rng.random(48) * 255}
 ok(not VD.compare(a, b)["dup"], "unrelated keyframes → distinct")
 
+# films root follows the project (series beside it), never a vacuous PASS with nothing compared
+import os
+_env = os.environ.pop("WORDFILM_FILMS", None)
+with tempfile.TemporaryDirectory() as td:
+    root = Path(td) / "series"; other = Path(td) / "elsewhere"
+    proj = root / "beta-v001"; (root / "erm-v001").mkdir(parents=True); proj.mkdir()
+    (root / "erm-v001" / "edl_runtime.json").write_text("{}")
+    ok(VD.series_root(proj, "finance", VD.DEFAULT_OTHERS) == root, "series root = the project's parent when it holds a series film")
+    (other / "_visual-index").mkdir(parents=True); (other / "_visual-index" / "finance.json").write_text('{"films": {}}')
+    lone = other / "lone"; (lone / "content").mkdir(parents=True); (lone / "content" / "viz.json").write_text("{}")
+    ok(VD.series_root(lone, "finance", VD.DEFAULT_OTHERS) == other, "series root = the project's parent when it holds the index")
+    os.environ["WORDFILM_FILMS"] = str(other)
+    ok(VD.series_root(proj, "finance", VD.DEFAULT_OTHERS) == other, "$WORDFILM_FILMS wins")
+    del os.environ["WORDFILM_FILMS"]
+    _kf, _ft = VD.keyframes, VD.feats
+    VD.keyframes = lambda film, out_dir=None: [{"shot": "p1", "file": "x"}, {"shot": "p2", "file": "y"}]
+    VD.feats = lambda png: a if str(png) == "x" else b
+    try:
+        rc = VD.main(["--project", str(lone)])
+        rep = json.loads((lone / "evidence" / "visual-dupe.json").read_text())
+        ok(rc == 0 and rep["status"] == "WARN" and rep["comparedFilms"] == [] and "erm-v001" in rep["missingFilms"],
+           "no comparison film → WARN with missingFilms, not PASS")
+        g = {c["name"]: c for c in Q.run_viz_gates(lone, None)}
+        ok(g["visual_duplicate"]["status"] == "WARN" and "missing" in g["visual_duplicate"]["detail"], "quality shows the WARN (non-blocking)")
+        rc = VD.main(["--project", str(lone), "--others", ""])
+        ok(rc == 0 and json.loads((lone / "evidence" / "visual-dupe.json").read_text())["status"] == "PASS",
+           "explicit --others '' (own shots only) still PASSes")
+    finally:
+        VD.keyframes, VD.feats = _kf, _ft
+if _env is not None:
+    os.environ["WORDFILM_FILMS"] = _env
+
 import apply_pictogram_edl as A
 with tempfile.TemporaryDirectory() as td:
     p = Path(td); (p / "content").mkdir()

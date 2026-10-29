@@ -1015,7 +1015,10 @@ def run_viz_gates(project: Path, media: Path | None) -> list[dict[str, Any]]:
             c = (r.get("closest") or [{}])[0]
             det = (f"{len(r.get('keyframes') or [])} keyframes vs {r.get('comparedFilms')}; {len(r.get('duplicates') or [])} near-dup; "
                    f"closest {c.get('a')}~{c.get('b')} ham={c.get('ham')} corr={c.get('corr')}")
-            out.append(check("visual_duplicate", "PASS" if r.get("status") == "PASS" else "FAIL", det, required=True))
+            st = r.get("status")
+            if st == "WARN":
+                det += f"; no series film found under {r.get('filmsRoot')} (missing {r.get('missingFilms')})"
+            out.append(check("visual_duplicate", st if st in ("PASS", "WARN") else "FAIL", det, required=True))
     return out
 
 

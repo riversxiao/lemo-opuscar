@@ -12,7 +12,9 @@ or corr ≥ CORR_HARD. Any near-duplicate → FAIL. Writes <film>/evidence/visua
 
 Index: <films>/_visual-index/<series>.json  {films:{name:{mp4, shots:[{shot,t,file,dhash}]}}}
 Usage: visual_dupe.py --project <film> [--series finance] [--others a,b,c] [--register]
-<films> = $WORDFILM_FILMS, else <repo>/films when it exists, else /workspace/films (common.films_root).
+<films> = --films, else $WORDFILM_FILMS, else the root that holds the series (the project's own parent
+directory or common.films_root(): the first with the series index or a comparison film), else the project's
+parent. No comparison film found → WARN (never a vacuous PASS); missing ones are listed in the report.
 """
 from __future__ import annotations
 
@@ -24,6 +26,8 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
+
+import os
 
 from common import films_root
 
@@ -92,15 +96,29 @@ def keyframes(film: Path, out_dir: Path | None = None) -> list[dict]:
     return rows
 
 
+def series_root(film: Path, series: str, others: list[str]) -> Path:
+    """Films root for the series index and comparison films, tied to the project being checked."""
+    env = os.environ.get("WORDFILM_FILMS", "").strip()
+    if env:
+        return Path(env).expanduser()
+    for c in dict.fromkeys((film.parent, films_root())):
+        if (c / "_visual-index" / f"{series}.json").is_file() or any(
+                (c / o / "edl_runtime.json").is_file() for o in others if o != film.name):
+            return c
+    return film.parent
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--project", required=True)
     ap.add_argument("--series", default="finance")
     ap.add_argument("--others", default=",".join(DEFAULT_OTHERS))
     ap.add_argument("--register", action="store_true", help="add this film to the series index on PASS")
+    ap.add_argument("--films", default=None, help="films root (default: see module docstring)")
     a = ap.parse_args(argv)
     film = Path(a.project).resolve()
-    FILMS = films_root()
+    FILMS = (Path(a.films).expanduser().resolve() if a.films
+             else series_root(film, a.series, [o for o in a.others.split(",") if o]))
     idx_p = FILMS / "_visual-index" / f"{a.series}.json"
     idx = json.loads(idx_p.read_text("utf-8")) if idx_p.is_file() else {"films": {}}
     mine = keyframes(film)
@@ -118,10 +136,11 @@ def main(argv=None) -> int:
                 dups.append(row)
     others = [o for o in a.others.split(",") if o and o != film.name]
     others += [o for o in idx["films"] if o not in others and o != film.name]
-    compared = []
+    compared, missing = [], []
     for o in others:
         of = FILMS / o
         if not (of / "edl_runtime.json").is_file() or not mp4_of(of):
+            missing.append(o)
             continue
         orows = keyframes(of, FILMS / "_visual-index" / "keyframes" / o)
         compared.append(o)
@@ -134,9 +153,10 @@ def main(argv=None) -> int:
                 if c["dup"]:
                     dups.append(row)
     worst = sorted(pairs, key=lambda p: (-p["corr"], p["ham"]))[:8]
-    rep = {"status": "FAIL" if dups else "PASS", "series": a.series,
+    status = "FAIL" if dups else ("WARN" if others and not compared else "PASS")
+    rep = {"status": status, "series": a.series, "filmsRoot": str(FILMS),
            "thresholds": {"hamMax": HAM_MAX, "corrMin": CORR_MIN, "corrHard": CORR_HARD},
-           "keyframes": mine, "comparedFilms": compared, "pairs": len(pairs),
+           "keyframes": mine, "comparedFilms": compared, "missingFilms": missing, "pairs": len(pairs),
            "duplicates": dups, "closest": worst,
            "note": "end card excluded (shared brand template); keyframe = 60% into each shot's scene part"}
     (film / "evidence").mkdir(exist_ok=True)
@@ -146,6 +166,9 @@ def main(argv=None) -> int:
         idx["films"][film.name] = {"mp4": str(mp4_of(film)), "shots": mine}
         idx_p.write_text(json.dumps(idx, ensure_ascii=False, indent=1) + "\n", "utf-8")
     print(f"{rep['status']} visual-dupe: {len(mine)} keyframes vs {compared} · {len(dups)} near-duplicate(s)")
+    if status == "WARN":
+        print(f"  WARN no comparison film found under {FILMS} (missing: {', '.join(missing)}); "
+              f"only the film's own shots were compared. Set --films or $WORDFILM_FILMS to the series root.")
     for d in dups[:12]:
         print(f"  DUP {d['a']} ~ {d['b']}  ham={d['ham']} corr={d['corr']}")
     for w in worst[:3]:

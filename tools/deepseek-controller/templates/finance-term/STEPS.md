@@ -39,7 +39,9 @@ TTS_PROVIDER=elevenlabs STYLE_VERSION=finance-v003 \
   beats.py cuts at the outro instead of a CSS reframe; pacing density metrics use the spoken part (D − outro).
 - **Duplicate-visual gate**: `visual_dupe.py --project P` grabs one keyframe per shot → `<film>/keyframes/*.png`,
   dHash + layout correlation vs. own shots and the series (erm, var-plain, risk-appetite, var-template-v002 +
-  `$WORDFILM_FILMS/_visual-index/finance.json`); near-duplicate → FAIL. `--register` adds a PASSed film to the index.
+  `<films>/_visual-index/finance.json`); near-duplicate → FAIL. `--register` adds a PASSed film to the index.
+  `<films>` = `--films`, else `$WORDFILM_FILMS`, else the project's own parent or the default films root, whichever
+  holds the series. No comparison film found → WARN with `missingFilms` (never a PASS with nothing compared).
   (Calibration: the old pose-card films FAIL against each other — ham 1–9, corr 0.85–0.95.)
 - **Music**: StepAudio bed from `$WORDFILM_FILMS/_music-library/finance-calm-01` (`--music-library`, raw copied into
   `<film>/music/`, no new request; usage recorded in its `meta.json`). Ducked mix → mux −14 LUFS,
