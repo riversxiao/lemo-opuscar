@@ -1,0 +1,178 @@
+{
+ "critic": [
+  {
+   "lines": [
+    {
+     "id": "L01",
+     "scores": {
+      "factual": 5,
+      "natural": 5,
+      "asr_safe": 5,
+      "function_fit": 5
+     },
+     "issues": []
+    },
+    {
+     "id": "L02",
+     "scores": {
+      "factual": 5,
+      "natural": 5,
+      "asr_safe": 5,
+      "function_fit": 5
+     },
+     "issues": []
+    },
+    {
+     "id": "L03",
+     "scores": {
+      "factual": 5,
+      "natural": 5,
+      "asr_safe": 5,
+      "function_fit": 5
+     },
+     "issues": []
+    },
+    {
+     "id": "L04",
+     "scores": {
+      "factual": 5,
+      "natural": 5,
+      "asr_safe": 5,
+      "function_fit": 5
+     },
+     "issues": []
+    },
+    {
+     "id": "L05",
+     "scores": {
+      "factual": 5,
+      "natural": 5,
+      "asr_safe": 5,
+      "function_fit": 5
+     },
+     "issues": []
+    },
+    {
+     "id": "L06",
+     "scores": {
+      "factual": 5,
+      "natural": 2,
+      "asr_safe": 5,
+      "function_fit": 5
+     },
+     "issues": [
+      {
+       "type": "awkward",
+       "severity": "high",
+       "detail": "收尾句套用「这就是…」，像金句",
+       "suggestion": "用具体结论回扣开场"
+      }
+     ]
+    }
+   ],
+   "script": {
+    "scores": {
+     "factual": 5,
+     "consistency": 5,
+     "hook": 5,
+     "flow": 5,
+     "no_jinju": 5,
+     "natural": 5
+    },
+    "issues": []
+   },
+   "summary": "mock"
+  },
+  {
+   "lines": [
+    {
+     "id": "L01",
+     "scores": {
+      "factual": 5,
+      "natural": 5,
+      "asr_safe": 5,
+      "function_fit": 5
+     },
+     "issues": []
+    },
+    {
+     "id": "L02",
+     "scores": {
+      "factual": 5,
+      "natural": 5,
+      "asr_safe": 5,
+      "function_fit": 5
+     },
+     "issues": []
+    },
+    {
+     "id": "L03",
+     "scores": {
+      "factual": 5,
+      "natural": 5,
+      "asr_safe": 5,
+      "function_fit": 5
+     },
+     "issues": []
+    },
+    {
+     "id": "L04",
+     "scores": {
+      "factual": 5,
+      "natural": 5,
+      "asr_safe": 5,
+      "function_fit": 5
+     },
+     "issues": []
+    },
+    {
+     "id": "L05",
+     "scores": {
+      "factual": 5,
+      "natural": 5,
+      "asr_safe": 5,
+      "function_fit": 5
+     },
+     "issues": []
+    },
+    {
+     "id": "L06",
+     "scores": {
+      "factual": 5,
+      "natural": 5,
+      "asr_safe": 5,
+      "function_fit": 5
+     },
+     "issues": []
+    }
+   ],
+   "script": {
+    "scores": {
+     "factual": 5,
+     "consistency": 5,
+     "hook": 5,
+     "flow": 5,
+     "no_jinju": 5,
+     "natural": 5
+    },
+    "issues": []
+   },
+   "summary": "mock"
+  }
+ ],
+ "reviser": [
+  {
+   "lines": [
+    {
+     "id": "L06",
+     "text": "凯恩斯早就讨论过：利率见底，钱就停住不动。"
+    },
+    {
+     "id": "L01",
+     "text": "未被标记的句子不许改。"
+    }
+   ],
+   "notes": "mock: rewrote L06"
+  }
+ ]
+}

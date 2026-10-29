@@ -36,8 +36,10 @@ description: Direct and produce a short film made entirely in code with DeepSeek
 1. 按 `$LIB/tools/deepseek-controller/plan.schema.json` 写出计划 JSON（只含题材/镜头/文案/数字/调色/白名单运动）。
 2. `python3 "$LIB/tools/deepseek-controller/cli.py" validate <plan.json>`
 3. `… adapt <plan.json> -o "<project>"` → 只生成 `content/`（见 `content/TOUCHABLES.md`）。
-4. TTS 后写 `voices/dur.json`，再 `… schedule --project "<project>" --require-vo`。
-5. 成片后 `… quality --project "<project>" --media <out.mp4>`；`quality.json` 非 PASS 不得标正式交付。
+4. 写完 lines.json 先跑 `… dialogue-loop --project "<project>" --max-rounds 4`（门禁 + DeepSeek flash 评审 + 定点改写自循环，见 `$LIB/DIALOGUE.md` §5.1）；不 PASS 不准 TTS，也不要让用户逐句人工 check。BEST_EFFORT 如实报告。
+5. TTS 后写 `voices/dur.json`，再 `… schedule --project "<project>" --require-vo`。
+   可选 `--provider stepaudio`（阶跃免费预览 gen-preview，`STEPFUN_API_KEY`；付费 TTS/ASR 禁用）与 `mix --bed-source stepaudio`（免费 music-preview 纯器乐床）。
+6. 成片后 `… quality --project "<project>" --media <out.mp4>`；`quality.json` 非 PASS 不得标正式交付。
 
 说明：`$LIB/tools/deepseek-controller/README.md` · 计划见 `$LIB/docs/NEXT-ROUND.md`。
 

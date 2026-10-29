@@ -1355,6 +1355,79 @@ else
   bad "caption manifest max"
 fi
 
+# ---- dialogue-loop (mocked LLM; no network, no real ledger) ----
+DLL=/tmp/dc-dialogue-loop; rm -rf "$DLL"; mkdir -p "$DLL"
+mkloop() { rm -rf "$DLL/$1"; mkdir -p "$DLL/$1"; cp -r "$DLG/content" "$DLL/$1/"; rm -rf "$DLL/$1/evidence"; }
+LEDGER_N0=$( [ -f "$DC_BUDGET_LEDGER" ] && wc -l <"$DC_BUDGET_LEDGER" || echo 0 )
+REAL_N0=$(wc -l <"$CTL/fixtures/budget-ledger.jsonl")
+mkloop p
+if "${CLI[@]}" tts --project "$DLL/p" --provider edge --out "$DLL/p/voices" >"$DLL/p-pre.out" 2>&1; then
+  bad "tts should be blocked before dialogue-loop"
+elif grep -q "dialogue-loop" "$DLL/p-pre.out" && [ ! -e "$DLL/p/voices" ]; then
+  ok "tts blocked when dialogue-check PASS but no dialogue-loop PASS"
+else
+  bad "tts loop gate: $(cat $DLL/p-pre.out)"
+fi
+if "${CLI[@]}" dialogue-loop --project "$DLL/p" --max-rounds 4 --mock "$CTL/fixtures/dialogue-loop/mock-pass-after-revise.json" >"$DLL/p.out" 2>&1 \
+  && PYTHONPATH="$CTL" python3 -c "
+import json,dialogue_loop as D
+from pathlib import Path
+P=Path('$DLL/p'); s=json.load(open(P/'evidence/dialogue-loop.json'))
+assert s['status']=='PASS' and s['chosenRound']==2 and s['rounds']==2, s
+L=json.load(open(P/'content/lines.json')); by={x['id']:x for x in L}
+assert by['L06']['text'].startswith('凯恩斯早就'), by['L06']
+assert by['L01']['text']=='央行把利率降到零，钱却还是不肯动。', 'unflagged line was changed'
+assert by['L06']['function']=='sting'
+r1=json.load(open(P/'evidence/dialogue-loop/round-1.json')); assert not r1['pass'] and 'L06' in r1['flagged'] and r1['revision']['changes']
+assert (P/'evidence/dialogue-loop/round-2.json').is_file()
+ok,why=D.gate_status(P); assert ok, why
+L[0]['text']='改过一句。'; json.dump(L,open(P/'content/lines.json','w'),ensure_ascii=False)
+ok,why=D.gate_status(P); assert not ok and 'changed' in why, why
+"; then
+  ok "dialogue-loop: critic FAIL → reviser touches only flagged L06 → PASS round 2; gate sha-locks lines"
+else
+  bad "dialogue-loop pass-after-revise: $(cat $DLL/p.out)"
+fi
+mkloop n
+"${CLI[@]}" dialogue-loop --project "$DLL/n" --max-rounds 2 --mock "$CTL/fixtures/dialogue-loop/mock-never-pass.json" >"$DLL/n.out" 2>&1 && rc=0 || rc=$?
+if [ "$rc" = 1 ] && grep -q "BEST_EFFORT" "$DLL/n.out" && PYTHONPATH="$CTL" python3 -c "
+import json,dialogue_loop as D, quality as Q
+from pathlib import Path
+P=Path('$DLL/n'); s=json.load(open(P/'evidence/dialogue-loop.json')); assert s['status']=='BEST_EFFORT' and s['rounds']==2, s
+assert not D.gate_status(P)[0]
+c=Q._dialogue_loop_check(P); assert c['status']=='FAIL' and c['required'], c
+" && ! "${CLI[@]}" tts --project "$DLL/n" --provider edge --out "$DLL/n/voices" >/dev/null 2>&1 && [ ! -e "$DLL/n/voices" ]; then
+  ok "dialogue-loop never passes → BEST_EFFORT (exit 1), quality dialogue_loop FAIL, TTS still blocked"
+else
+  bad "dialogue-loop best-effort: rc=$rc $(cat $DLL/n.out)"
+fi
+mkloop e
+cp "$DLL/e/content/lines.json" "$DLL/e-orig.json"
+"${CLI[@]}" dialogue-loop --project "$DLL/e" --mock "$CTL/fixtures/dialogue-loop/mock-provider-error.json" >"$DLL/e.out" 2>&1 && rc=0 || rc=$?
+if [ "$rc" = 3 ] && grep -q "provider failure" "$DLL/e.out" && cmp -s "$DLL/e-orig.json" "$DLL/e/content/lines.json"; then
+  ok "dialogue-loop provider error → stop (exit 3), lines untouched, no fallback"
+else
+  bad "dialogue-loop provider error: rc=$rc $(cat $DLL/e.out)"
+fi
+LEDGER_N1=$( [ -f "$DC_BUDGET_LEDGER" ] && wc -l <"$DC_BUDGET_LEDGER" || echo 0 )
+if [ "$LEDGER_N0" = "$LEDGER_N1" ] && [ "$REAL_N0" = "$(wc -l <"$CTL/fixtures/budget-ledger.jsonl")" ] && PYTHONPATH="$CTL" python3 -c "
+import dialogue_loop as D
+ev=D.evaluate_critique({'lines':[{'id':'L01','scores':{'factual':5,'natural':5,'asr_safe':5,'function_fit':5},'issues':[]}],
+  'script':{'scores':{k:5 for k in D.SCRIPT_DIMS},'issues':[{'severity':'high','lines':['L01'],'detail':'三招只列两招'}]}},['L01','L02'])
+assert not ev['pass'] and 'L01' in ev['flagged'] and any('skipped' in r for r in ev['reasons']), ev
+"; then
+  ok "dialogue-loop: mock runs write no ledger rows; thresholds catch script-level high + skipped lines"
+else
+  bad "dialogue-loop ledger/threshold"
+fi
+
+# stepaudio provider + music bed source: local mock StepFun API, fake key, no network
+if env -u STEP_API_KEY python3 "$CTL/tests/stepaudio_mock.py" >/tmp/dc_stepaudio_mock.log 2>&1; then
+  ok "stepaudio: free gen-preview only (paid /audio/speech + non-free models refused), pitch retakes, 402 stops, music bed cut/fade/RMS + cache"
+else
+  bad "stepaudio mock (see /tmp/dc_stepaudio_mock.log)"
+fi
+
 # budget ledger: tests write to \$DC_BUDGET_LEDGER, never the real fixtures ledger
 if PYTHONPATH="$CTL" python3 -c "
 import budget,os

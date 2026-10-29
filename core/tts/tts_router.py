@@ -1,7 +1,7 @@
 """Route lines.json → wavs + dur.json across TTS providers.
 
     python core/tts/tts_router.py lines.json out_dir \\
-        [--provider edge|kokoro|qwen3|omnivoice|auto] \\
+        [--provider edge|kokoro|qwen3|omnivoice|stepaudio|auto] \\
         [--fallback edge,kokoro] [--list] [--voice …]
 
 Default provider: edge (tts_zh.py / Yunxi). Offline second path: kokoro
@@ -20,20 +20,22 @@ import sys
 # Allow `python core/tts/tts_router.py` without installing a package.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from providers import edge_provider, kokoro_provider, omnivoice, qwen3  # noqa: E402
-from providers.runtime import list_statuses, probe_edge, probe_kokoro, probe_omnivoice, probe_qwen3  # noqa: E402
+from providers import edge_provider, kokoro_provider, omnivoice, qwen3, stepaudio  # noqa: E402
+from providers.runtime import list_statuses, probe_edge, probe_kokoro, probe_omnivoice, probe_qwen3, probe_stepaudio  # noqa: E402
 
 SYNTH = {
     "edge": edge_provider.synthesize,
     "kokoro": kokoro_provider.synthesize,
     "qwen3": qwen3.synthesize,
     "omnivoice": omnivoice.synthesize,
+    "stepaudio": stepaudio.synthesize,
 }
 PROBES = {
     "edge": probe_edge,
     "kokoro": probe_kokoro,
     "qwen3": probe_qwen3,
     "omnivoice": probe_omnivoice,
+    "stepaudio": probe_stepaudio,
 }
 DEFAULT_FALLBACK = ("edge", "kokoro")
 
@@ -90,7 +92,7 @@ def _run_one(provider: str, lines: list[dict], out_dir: str, voice: str | None, 
     st = PROBES[provider]()
     if st.state == "deps-missing":
         sys.exit(f"tts_router: provider {provider!r} not ready: {st.detail}")
-    if st.state == "needs-server":
+    if st.state in ("needs-server", "needs-key"):
         sys.exit(f"tts_router: provider {provider!r} not ready: {st.detail}")
     opts = {
         "voice": _default_voice(provider, voice),
@@ -168,7 +170,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument(
         "--provider",
         default=os.environ.get("LEMO_TTS_PROVIDER", "edge"),
-        help="edge|kokoro|qwen3|omnivoice|auto (default: env LEMO_TTS_PROVIDER or edge)",
+        help="edge|kokoro|qwen3|omnivoice|stepaudio|auto (default: env LEMO_TTS_PROVIDER or edge)",
     )
     ap.add_argument(
         "--fallback",

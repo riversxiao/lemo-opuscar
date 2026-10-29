@@ -11,7 +11,7 @@ python core/tts/tts_router.py --list --json
 
 # synthesize
 python core/tts/tts_router.py lines.json out_dir \
-  [--provider edge|kokoro|qwen3|omnivoice|auto] \
+  [--provider edge|kokoro|qwen3|omnivoice|stepaudio|auto] \
   [--fallback edge,kokoro] [--voice …] [--rate +0%] [--pitch +0Hz]
 ```
 
@@ -63,6 +63,20 @@ Defaults: **`edge`** (Yunxi). Env overrides: `LEMO_TTS_PROVIDER`, `LEMO_TTS_FALL
 | `kokoro` | `tts.py` + `lang: cmn` | offline | **ready** when `.venv-voice` (or `LEMO_TTS_PYTHON`) has `kokoro-onnx` and weights exist |
 | `qwen3` | `providers/http_speech.py` | optional HTTP | **needs-server** until `LEMO_TTS_QWEN3_BASE` is set |
 | `omnivoice` | same HTTP client | optional HTTP | **needs-server** until `LEMO_TTS_OMNIVOICE_BASE` is set |
+| `stepaudio` | `providers/stepaudio.py` | StepFun cloud | **needs-key** until `STEPFUN_API_KEY` is set; explicit only (not in `auto`) |
+
+### StepAudio (StepFun free preview)
+
+- Model allowlist: `stepaudio-3-gen-preview` (VO, `POST /v1/audio/generate`, voice designed by a text role
+  description) and `stepaudio-3-music-preview` (instrumental bed, used by `music_bed.py --bed-source stepaudio`).
+  Both are 限时免费 on the StepFun pricing page. Paid TTS (`/v1/audio/speech`, `stepaudio-3-tts`, `step-tts-*`) and
+  ASR are refused in code.
+- Env: `STEPFUN_API_KEY` (or `STEP_API_KEY`), `LEMO_TTS_STEPAUDIO_BASE` (default `https://api.stepfun.com/v1`),
+  `LEMO_TTS_STEPAUDIO_ROLE` (voice description), `LEMO_TTS_STEPAUDIO_SPEED`, `LEMO_TTS_STEPAUDIO_TAKES` (default 4),
+  `LEMO_TTS_STEPAUDIO_F0_TOL_ST` (default 2.0). Edge voice ids in `lines.json` are ignored.
+- Limits: ≤4 concurrent, ≥0.7 s between requests (<100 RPM); 429/5xx retried with backoff; 401/402/404 stop.
+- No voice id/seed exists in the preview, so the provider measures median F0 per line, sets the film target to the median
+  of medians, and re-takes lines >2 semitones off (keeps the closest take). `voices/stepaudio_meta.json` records it.
 
 ### Enable kokoro (offline second path)
 

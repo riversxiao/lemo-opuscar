@@ -157,8 +157,21 @@ PROBES = {
 }
 
 
+def probe_stepaudio() -> ProviderStatus:
+    """StepFun stepaudio-3-gen-preview (limited-time free). Explicit opt-in only (not in auto)."""
+    if not (os.environ.get("STEPFUN_API_KEY") or os.environ.get("STEP_API_KEY")):
+        return ProviderStatus("stepaudio", "needs-key",
+                              "set STEPFUN_API_KEY (StepFun free preview stepaudio-3-gen-preview; "
+                              "paid /audio/speech TTS is never called)", "cloud")
+    return ProviderStatus("stepaudio", "ready",
+                          "StepFun /v1/audio/generate stepaudio-3-gen-preview (限时免费 preview)", "cloud")
+
+
+PROBES["stepaudio"] = probe_stepaudio
+
+
 def list_statuses() -> list[ProviderStatus]:
-    return [PROBES[name]() for name in ("edge", "kokoro", "qwen3", "omnivoice")]
+    return [PROBES[name]() for name in ("edge", "kokoro", "qwen3", "omnivoice", "stepaudio")]
 
 
 def ready_providers(prefer: list[str] | None = None) -> list[str]:

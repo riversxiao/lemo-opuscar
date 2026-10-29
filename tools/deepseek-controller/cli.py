@@ -114,6 +114,8 @@ def cmd_mix(args: argparse.Namespace) -> int:
             bpm=args.bpm,
             seed=args.seed,
             bed_gain=args.bed_gain,
+            bed_source=args.bed_source,
+            music_caption=args.music_caption,
         )
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
@@ -165,6 +167,15 @@ def cmd_tts(args: argparse.Namespace) -> int:
             print("ERROR: TTS blocked — dialogue-check FAIL (fix lines per DIALOGUE.md, "
                   "or --skip-dialogue-gate for legacy projects)", file=sys.stderr)
             return 1
+        if rep["status"] == "PASS":
+            import dialogue_loop
+            ok, why = dialogue_loop.gate_status(
+                Path(args.project).resolve(), Path(args.lines) if args.lines else None)
+            print(("OK " if ok else "") + why)
+            if not ok:
+                print("ERROR: TTS blocked — dialogue-loop not PASS for these lines "
+                      "(run `cli.py dialogue-loop --project P`)", file=sys.stderr)
+                return 1
     from run_tts import run_tts
     try:
         meta = run_tts(
@@ -187,6 +198,19 @@ def cmd_tts(args: argparse.Namespace) -> int:
     if meta.get('wordsRel'):
         print(f"  words_rel: {meta['wordsRel']}")
     return 0
+
+
+def cmd_dialogue_loop(args: argparse.Namespace) -> int:
+    import dialogue_loop
+    argv = ["--project", args.project, "--max-rounds", str(args.max_rounds),
+            "--max-cny", str(args.max_cny), "--min-balance", str(args.min_balance), "--effort", args.effort]
+    for flag, val in (("--lines", args.lines), ("--brief", args.brief), ("--target", args.target),
+                      ("--mock", args.mock), ("--item", args.item)):
+        if val:
+            argv += [flag, str(val)]
+    if args.no_ledger:
+        argv.append("--no-ledger")
+    return dialogue_loop.main(argv)
 
 
 def cmd_dialogue_check(args: argparse.Namespace) -> int:
@@ -449,7 +473,7 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument(
         "--provider",
         default="edge",
-        help="edge|kokoro|qwen3|omnivoice|auto (default edge)",
+        help="edge|kokoro|qwen3|omnivoice|stepaudio|auto (default edge; stepaudio = StepFun free gen-preview, explicit only)",
     )
     t.add_argument(
         "--fallback",
@@ -480,6 +504,20 @@ def build_parser() -> argparse.ArgumentParser:
     dc.add_argument("--tolerance", type=float, default=0.15)
     dc.add_argument("--json", action="store_true")
     dc.set_defaults(func=cmd_dialogue_check)
+
+    dl = sub.add_parser("dialogue-loop", help="self-loop: dialogue-check + LLM critic + reviser until PASS (gates TTS)")
+    dl.add_argument("--project", required=True)
+    dl.add_argument("--lines")
+    dl.add_argument("--brief", help="default <project>/BRIEF.md")
+    dl.add_argument("--max-rounds", type=int, default=4)
+    dl.add_argument("--target", type=float, default=None)
+    dl.add_argument("--effort", default="high", choices=["low", "high", "max"])
+    dl.add_argument("--max-cny", type=float, default=2.0)
+    dl.add_argument("--min-balance", type=float, default=5.0)
+    dl.add_argument("--mock", help="tests only: canned critic/reviser replies (no network)")
+    dl.add_argument("--item", help="ledger item label")
+    dl.add_argument("--no-ledger", action="store_true")
+    dl.set_defaults(func=cmd_dialogue_loop)
 
     q = sub.add_parser("quality", help="write quality.json and gate delivery")
     q.add_argument("--project", required=True)
@@ -524,6 +562,9 @@ def build_parser() -> argparse.ArgumentParser:
     m.add_argument("--bpm", type=float, default=None)
     m.add_argument("--seed", type=int, default=20261029)
     m.add_argument("--bed-gain", type=float, default=1.0)
+    m.add_argument("--bed-source", choices=("procedural", "stepaudio"), default="procedural",
+                   help="stepaudio = StepFun stepaudio-3-music-preview instrumental (free preview; STEPFUN_API_KEY)")
+    m.add_argument("--music-caption", default=None, help="style prompt for --bed-source stepaudio")
     m.add_argument(
         "--vo-only",
         action="store_true",

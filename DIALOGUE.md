@@ -29,7 +29,8 @@ write TREATMENT.md
 → demo <slug> → copy engine（可与下步交错）
 → 写 / 改定稿台词（本文件）——过 §5 门禁
 → 写入 lines.json / audio/lines.json（及画面同句文案）
-→ tts (+ asr_check) ∥ score   ← 硬门：未定稿禁止
+→ cli.py dialogue-loop（§5.1 自循环：门禁 + LLM 评审 + 定点改写，直到 PASS）
+→ tts (+ asr_check) ∥ score   ← 硬门：dialogue-check 与 dialogue-loop 均 PASS 才放行
 → …
 ```
 
@@ -88,6 +89,46 @@ Swiss / Caption News / Whiteboard / Data Storytelling 等 **信息图 · 讲解*
 | 同句 | 每条朗读与对应画面/字幕关键字一致；无「短意译版 VO」 |
 | 功能覆盖 | 30–60 s 片至少有 `hook` +（`evidence` 或 `turn`）+ `payoff`（或等价收束）；禁止全程只有 `evidence` 罗列 |
 | 无 VO | TREATMENT 已声明则整表可空，本清单跳过 |
+
+### 5.1 自循环优化（`dialogue-loop`，默认流程，不要人工逐句 check）
+
+```bash
+python3 tools/deepseek-controller/cli.py dialogue-loop --project <film> [--brief BRIEF.md] [--max-rounds 4] [--max-cny 2]
+```
+
+每轮：
+
+1. **确定性门禁**（上表 / `dialogue_check.py`）。FAIL 的行直接进入待改列表。
+2. **LLM 评审**（DeepSeek 官方 API，`deepseek-flash`，`response_format=json_object`）。评审的依据是本文件、`plugin/skills/lemo-dialogue/SKILL.md`（台词规则）、BRIEF、FACTS、TREATMENT。
+   - **逐行打分（1–5）：** factual（事实准确）/ natural（口语顺不顺，拗口即扣）/ asr_safe（同音、易听错的数字读法）/ function_fit（是否符合 function 标签）。
+   - **整稿打分：** factual / consistency（如「三招」是否真有三招）/ hook / flow / no_jinju / natural。
+   - 评审返回结构化 JSON，问题分 high / medium / low 三级。
+3. **阈值判定**（由代码决定，不采用模型自己给的 verdict）。PASS 的条件：
+   - 每行 4 项 ≥ 3；
+   - 整稿 6 项 ≥ 4；
+   - high 问题为 0；
+   - medium 问题 ≤ 2。
+   结构由 §6 / TREATMENT 锁定：`type=structure` 的意见强制降为 low，只作提示，不扣 flow。
+4. **定点改写**：reviser 只改被标记的行，且只能改这四个字段：`text` / `say` / `cap` / `want`。
+   - `id`、`function`、条数和顺序都不能动；
+   - 整稿估时保持在目标 ±15% 内；
+   - 模型若越权，以原值覆盖。
+5. 循环，直到 PASS 或用完 `--max-rounds`。
+
+**证据：**
+- `evidence/dialogue-loop/original-lines.json`、`round-N.json`（每轮的门禁、评审 JSON、判定、改写 diff）、`summary.json`；
+- `evidence/dialogue-loop.json`：状态，以及台词 `id/function/text/say/cap/voice` 的 `linesSha256`。
+
+**结果与放行：**
+- PASS 时写回 `content/lines.json` / `audio/lines.json` / `lines.json`。
+- 没有一轮 PASS 时，状态如实标 **BEST_EFFORT**：选分数最好的一轮，退出码为 1，`tts` 仍被拒绝。
+- 调用 provider 出错时直接停（退出码 3），台词不动。模型返回坏 JSON 时，用同一模型重试 2 次。
+- `tts` 只认 PASS，且 sha 必须与当前台词一致：台词改过一个字就要重跑 loop。
+- `quality` 对带 `function` 的项目把 `dialogue_loop` 设为必过项。
+
+**花费：**
+- 按余额差（官方 `/user/balance`，读之前先等 30 s 让余额结算）记一行 `llm-api` 到 budget ledger；`--max-cny` 是硬上限。
+- `--mock` / `DC_DIALOGUE_LLM_MOCK` 用于测试，不联网，也不写 ledger。
 
 估时示例：目标 30 s、字速 4.5 字/秒 → 旁白总字数宜大致落在约 115–155 字量级再加减画面停顿（±15% 是整段 VO 估时相对目标，不是强迫填满）。
 

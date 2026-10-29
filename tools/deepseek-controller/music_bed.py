@@ -227,6 +227,64 @@ def _duck_envelope(vad: np.ndarray) -> np.ndarray:
     return duck.astype(np.float32)
 
 
+STEPAUDIO_CAPTION = ("纯器乐，冷静克制的纪录片 / 财经新闻配乐，中慢速，钢琴与弦乐铺底，轻微电子脉冲，"
+                     "温暖不煽情，无人声，无鼓点高潮，适合垫在旁白下面")
+BED_RMS_DB = -25.0  # matches the procedural soft-pulse bed level the mix was tuned on
+
+
+def fetch_stepaudio_bed(project: Path, dur: float, *, caption: str = STEPAUDIO_CAPTION,
+                        out: Path | None = None, force: bool = False) -> tuple[Path, dict]:
+    """StepFun stepaudio-3-music-preview (limited-time free) instrumental → music/stepaudio_bed.wav.
+
+    Cached: an existing file with the same caption is reused (no new request). The raw
+    model output is kept (music/stepaudio_raw.wav); the bed is cut to `dur` with fades
+    and RMS-matched to BED_RMS_DB so mix/ducking behave like the procedural bed.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "core" / "tts"))
+    from providers import stepaudio as _sa  # noqa: E402
+
+    project = Path(project).resolve()
+    out = Path(out) if out else project / "music" / "stepaudio_bed.wav"
+    meta_p = out.with_name("stepaudio_bed_meta.json")
+    raw_p = out.with_name("stepaudio_raw.wav")
+    if not force and out.is_file() and meta_p.is_file():
+        meta = json.loads(meta_p.read_text(encoding="utf-8"))
+        if meta.get("caption") == caption and abs(float(meta.get("bedDurSec", 0)) - dur) < 0.01:
+            meta["cached"] = True
+            return out, meta
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if not force and raw_p.is_file() and meta_p.is_file() and \
+            json.loads(meta_p.read_text(encoding="utf-8")).get("caption") == caption:
+        a, sr = sf.read(str(raw_p), dtype="float32", always_2d=True)
+        info = json.loads(meta_p.read_text(encoding="utf-8"))
+    else:
+        a, sr, info = _sa.music_instrumental(caption)
+        sf.write(str(raw_p), a, sr, subtype="FLOAT")
+    if sr != SR:
+        a = soxr.resample(a, sr, SR, quality="HQ")
+    n = int(round(dur * SR))
+    loops = 0
+    while len(a) < n:  # model length is 1–3 min; loop with a crossfade only if it came back short
+        xf = int(2.0 * SR)
+        ramp = np.linspace(0, 1, xf)[:, None]
+        a = np.concatenate([a[:-xf], a[-xf:] * (1 - ramp) + a[:xf] * ramp, a[xf:]])
+        loops += 1
+    a = a[:n].copy()
+    fi, fo = int(0.5 * SR), int(3.0 * SR)
+    a[:fi] *= np.linspace(0, 1, fi)[:, None]
+    a[-fo:] *= np.linspace(1, 0, fo)[:, None]
+    rms = float(np.sqrt(np.mean(a ** 2))) or 1e-9
+    gain = 10 ** (BED_RMS_DB / 20) / rms
+    a *= gain
+    sf.write(str(out), a.astype(np.float32), SR, subtype="FLOAT")
+    meta = {**info, "kind": "stepaudio-music-bed", "caption": caption, "rawWav": raw_p.name,
+            "rawDurSec": info.get("durSec"), "bedDurSec": dur, "loops": loops,
+            "rmsMatchDb": BED_RMS_DB, "gainDb": round(20 * np.log10(gain), 2),
+            "pricing": "stepaudio-3-music-preview 限时免费 (preview)", "cached": False}
+    meta_p.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return out, meta
+
+
 def mix_bed_vo(
     project: Path,
     *,
@@ -237,6 +295,8 @@ def mix_bed_vo(
     bpm: float | None = None,
     seed: int = 20261029,
     bed_gain: float = 1.0,
+    bed_source: str = "procedural",
+    music_caption: str | None = None,
 ) -> dict:
     project = Path(project).resolve()
     tl_path = project / "timeline.json"
@@ -267,6 +327,9 @@ def mix_bed_vo(
         "lockedMusicPy": "not used — Olympics/bee demo music.py stays untouched",
     }
 
+    sa_meta = None
+    if bed_source == "stepaudio" and bed_path is None:
+        bed_path, sa_meta = fetch_stepaudio_bed(project, dur, caption=music_caption or STEPAUDIO_CAPTION)
     if bed_path is not None:
         bed_path = Path(bed_path)
         if not bed_path.is_file():
@@ -279,6 +342,11 @@ def mix_bed_vo(
         meta["source"] = str(bed_path)
         meta["preset"] = "external"
         meta["label"] = f"external bed: {bed_path.name}"
+        if sa_meta is not None:
+            meta["preset"] = "stepaudio"
+            meta["label"] = "StepFun stepaudio-3-music-preview instrumental (limited-time free preview)"
+            meta["stepaudio"] = {k: sa_meta.get(k) for k in ("taskId", "model", "caption", "rewrittenCaption",
+                                                             "rawDurSec", "gainDb", "loops", "cached")}
     else:
         bed = synthesize_bed(dur, preset=preset, bpm=bpm, seed=seed)
         meta["source"] = "synthesize_bed"
@@ -331,6 +399,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--bpm", type=float, default=None, help="default: timeline.json bpm or 100")
     ap.add_argument("--seed", type=int, default=20261029)
     ap.add_argument("--bed-gain", type=float, default=1.0)
+    ap.add_argument("--bed-source", choices=("procedural", "stepaudio"), default="procedural")
+    ap.add_argument("--music-caption", default=None)
     args = ap.parse_args(argv)
     try:
         info = mix_bed_vo(
@@ -342,6 +412,8 @@ def main(argv: list[str] | None = None) -> int:
             bpm=args.bpm,
             seed=args.seed,
             bed_gain=args.bed_gain,
+            bed_source=args.bed_source,
+            music_caption=args.music_caption,
         )
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)

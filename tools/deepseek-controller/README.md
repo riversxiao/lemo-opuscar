@@ -119,6 +119,23 @@ python3 tools/deepseek-controller/cli.py quality --project /tmp/film-fuli --medi
 python3 $CTL/cli.py dialogue-check --project <film> [--target 90]   # PASS/FAIL → evidence/dialogue-check.json
 python3 $CTL/cli.py tts --project <film> --provider edge             # runs the gate first; FAIL blocks TTS
 ```
+python3 $CTL/cli.py dialogue-loop --project <film> --max-rounds 4    # self-loop: gate + DeepSeek flash critic + reviser
+```
+`dialogue-loop` (DIALOGUE.md §5.1) is part of the default flow: each round runs dialogue-check, then an LLM critic
+(DeepSeek official `deepseek-flash`, JSON mode, grounded in DIALOGUE.md + lemo-dialogue rules + BRIEF/FACTS/TREATMENT)
+scores every line (factual / natural / asr_safe / function_fit) and the script (factual / consistency / hook / flow /
+no_jinju / natural). Code thresholds decide PASS (line ≥3, script ≥4, 0 high, ≤2 medium; structure issues advisory).
+A reviser rewrites only flagged lines (text/say/cap/want; ids/functions/order locked). Evidence:
+`evidence/dialogue-loop/round-N.json` + `evidence/dialogue-loop.json` (status + linesSha256). Never-pass → BEST_EFFORT
+(exit 1, TTS still blocked); provider error → exit 3, lines untouched. `--max-cny` (default 2) caps spend; cost is one
+`llm-api` ledger row from the balance delta. Tests use `--mock` (no network, no ledger).
+
+StepAudio (StepFun, **free preview only**): `tts --provider stepaudio` (stepaudio-3-gen-preview via `/v1/audio/generate`,
+pitch-consistency retakes, `LEMO_TTS_STEPAUDIO_SPEED`) and `mix --bed-source stepaudio [--music-caption …]`
+(stepaudio-3-music-preview instrumental, cached, cut/faded/RMS-matched). Key from `STEPFUN_API_KEY`; paid `/audio/speech`
+TTS and ASR routes are refused in code.
+
+```
 Lines need `function` (hook|turn|evidence|payoff|sting), ≤35字 each, hook in the first 3 beats,
 Σ字/4.5 within ±15% of `targetDurationSec`, no 金句升华. Legacy films: `tts --skip-dialogue-gate`.
 

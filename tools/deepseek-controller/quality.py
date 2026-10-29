@@ -823,6 +823,22 @@ def _dialogue_check(project: Path) -> dict[str, Any]:
     return check("dialogue_gate", st, detail, required=True)
 
 
+def _dialogue_loop_check(project: Path) -> dict[str, Any]:
+    """Self-loop optimizer gate: required once lines carry `function`; PASS + same lines sha."""
+    import dialogue_check as _dc
+    import dialogue_loop as _dl
+
+    try:
+        rows = load_json(_dc.find_lines(project))
+    except (OSError, ValueError, FileNotFoundError):
+        return check("dialogue_loop", "NOT_APPLICABLE", "no lines.json", required=False)
+    rows = rows if isinstance(rows, list) else []
+    if not any(isinstance(r, dict) and "function" in r for r in rows):
+        return check("dialogue_loop", "NOT_APPLICABLE", "legacy lines without `function`", required=False)
+    ok, why = _dl.gate_status(project)
+    return check("dialogue_loop", "PASS" if ok else "FAIL", why, required=True)
+
+
 def gate(
     project: Path,
     *,
@@ -861,6 +877,7 @@ def gate(
 
     checks.append(_schedule_check(project, plan, require_vo=require_vo))
     checks.append(_dialogue_check(project))
+    checks.append(_dialogue_loop_check(project))
 
     media_path = media.resolve() if media else project / "out.mp4"
     if not media_path.is_file():

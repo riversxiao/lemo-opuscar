@@ -42,6 +42,7 @@ write TREATMENT.md
 → adapt timeline/content/palette only
 → 台词定稿（读 $LIB/DIALOGUE.md：字段 + 门禁 + TTS 前活人感）——未过门禁禁止 tts；可与上步交错，不拦 demo
 → 写入 lines.json（旁白与画面同句；戏剧字段见 DIALOGUE.md）
+→ cli.py dialogue-loop --project <film> --max-rounds 4（确定性门禁 + DeepSeek flash 评审 + 只改被标记行，自循环到 PASS；不需要人工逐句 check）——未 PASS 禁止 tts
 → still.mjs 关键帧 vs STYLE.md
 → tts (+ asr_check) ∥ sampler/sfx
 → video.mjs --fps 24
@@ -87,7 +88,9 @@ MVP CLI：[`tools/deepseek-controller/README.md`](tools/deepseek-controller/READ
 
 - 默认中文旁白：`python core/tts/tts_zh.py`（edge-tts 云希/晓晓）或 `python core/tts/tts_router.py … --provider edge`。
 - 第二条真路径：**kokoro**（离线；`.venv-voice` 或 `LEMO_TTS_PYTHON`）。`python core/tts/tts_router.py --list` 看 ready。
-- 控制器：`python3 tools/deepseek-controller/cli.py tts --project <film> [--provider auto|kokoro|edge]`。
+- 控制器：`python3 tools/deepseek-controller/cli.py tts --project <film> [--provider auto|kokoro|edge|stepaudio]`。`tts` 先查 `dialogue-check` PASS **且** `evidence/dialogue-loop.json` PASS（sha 锁定台词）；任一不满足即拒绝。
+- `stepaudio`：阶跃星辰 **限时免费预览** `stepaudio-3-gen-preview`（`/v1/audio/generate`，按文字描述设定音色）；只在显式 `--provider stepaudio` 时用，不进 auto。Key 只读环境变量 `STEPFUN_API_KEY`。**禁止**调付费 TTS（`/v1/audio/speech`、`stepaudio-3-tts`、`step-tts-*`）与 ASR；代码里已白名单拒绝。预览接口无固定音色 id，provider 按全片中位音高给偏离 > 2 半音的句子重录（≤4 次，取最近）。可用 `LEMO_TTS_STEPAUDIO_SPEED` 调速以塞进目标时长。
+- 配乐：`cli.py mix --project <film> --bed-source stepaudio` 调 `stepaudio-3-music-preview`（限时免费，`instrumental:true` 纯器乐），原始 1–3 min 输出存 `music/stepaudio_raw.wav`，裁到片长 + 淡入淡出 + RMS 对齐 → 走原有 ducking。有缓存，不重复请求。
 - `qwen3` / `omnivoice`：HTTP 客户端已接；仅当设置 `LEMO_TTS_QWEN3_BASE` / `LEMO_TTS_OMNIVOICE_BASE` 时为 ready（不臆造 Key）。见 [`tools/tts_router.md`](tools/tts_router.md)。
 - **「中文跳过 ASR 词对齐」只影响词级时间事件，不影响语音内容完整性检查。** 无论哪个 provider：`lines.json` 每句都要有非静音 WAV + `dur.json`；成片混音须保留这些语音；画面/字幕中文与朗读内容一致（可标点），禁止默默缩短意译。
 - 无旁白片可在质量报告里把 ASR 标为 `NOT_APPLICABLE`；有旁白片不得用「缺依赖」冒充通过。
