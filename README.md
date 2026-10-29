@@ -40,10 +40,11 @@ Use this path day-to-day. Do **not** install the upstream Claude Code plugin.
 
 ```sh
 git clone https://github.com/riversxiao/wordfilm.git
-cd lemo-opuscar
+cd wordfilm
 
 # Optional: pin a DeepSeek control-layer commit (full 40-char SHA; not bare upstream 413a6bd)
-export LEMO_OPUSCAR_PIN=f3d2e1c934be18ac4cb816ecaa5e9d27176afaae
+# (the pre-rename name LEMO_OPUSCAR_PIN still works; likewise WORDFILM_HOME / WORDFILM_REPO)
+export WORDFILM_PIN=f3d2e1c934be18ac4cb816ecaa5e9d27176afaae
 
 sh plugin/skills/lemo-deepseek/scripts/setup.sh
 sh plugin/skills/lemo-deepseek/scripts/setup.sh deps

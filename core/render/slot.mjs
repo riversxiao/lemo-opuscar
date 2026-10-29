@@ -1,6 +1,6 @@
 // Machine-wide render throttling (optional): at most RENDER_SLOTS full-film renders at a time; queues when a render is already running and free memory is below RENDER_MIN_FREE% (default 30).
 // video.mjs calls it only when RENDER_SLOTS is set; it can also wrap any command: node core/render/slot.mjs -- <command…> (3 slots when RENDER_SLOTS is unset)
-// Environment variables: RENDER_SLOTS (integer ≥1), RENDER_MIN_FREE (0–100), RENDER_SLOT_DIR (lock directory, default <tmp>/lemo-opuscar-render-slots-<uid>, shared by all clones, works with a read-only repo too).
+// Environment variables: RENDER_SLOTS (integer ≥1), RENDER_MIN_FREE (0–100), RENDER_SLOT_DIR (lock directory, default <tmp>/wordfilm-render-slots-<uid>, shared by all clones, works with a read-only repo too).
 //   RENDER_SLOT_HELD=1 means an outer process already holds a slot: acquire() passes straight through, and slot.mjs -- <cmd> just runs the command.
 //   So several video.mjs started in parallel inside one outer slot.mjs take one slot between them (to have one each, don't wrap them in an outer one).
 // One slot = one directory under the lock directory, holding pid (the owner) and beat (a heartbeat the owner touches every 15 seconds).
@@ -8,7 +8,7 @@
 // Every "check state → take over / take a slot" action happens inside a very short mutex (the .mutex directory), so at any moment a slot has only one holder.
 import fs from 'fs'; import os from 'os'; import path from 'path'; import { spawn, execFileSync } from 'child_process'; import { fileURLToPath } from 'url';
 
-const DIR = process.env.RENDER_SLOT_DIR || path.join(os.tmpdir(), `lemo-opuscar-render-slots-${process.getuid?.() ?? 'u'}`);
+const DIR = process.env.RENDER_SLOT_DIR || path.join(os.tmpdir(), `wordfilm-render-slots-${process.getuid?.() ?? 'u'}`);
 const BEAT_EVERY = 15000, STALE_AFTER = 90000, GRACE = 10000;
 const pause = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const warned = new Set();

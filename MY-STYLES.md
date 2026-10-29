@@ -94,8 +94,8 @@ When the plan is complete, show the user a short summary in their language: each
 Make the demo film's project folder now (`films/<slug>-test/` in a clone, `<slug>-test/` in the user's folder in skill mode) and work only there until §6. The draft style goes in its `style/` folder, with the files of the table above.
 
 - **`STYLE.md`**:
-  - *Change a library style*: a full copy of the base `STYLE.md` with the changes written into their sections, so it reads like any style prompt (no "see the base" gaps). Change the title to the new name and add one line under it: `Based on <base name> (<base slug>) from Lemo-Opuscar.`
-  - *From a blank page*: all 11 sections written from the plan, with §10 engine from the technique base for now (§5 points it at the style's own code). Under the title: `Made from a blank page; techniques from <base name> (<base slug>) in Lemo-Opuscar.`
+  - *Change a library style*: a full copy of the base `STYLE.md` with the changes written into their sections, so it reads like any style prompt (no "see the base" gaps). Change the title to the new name and add one line under it: `Based on <base name> (<base slug>) from WordFilm.`
+  - *From a blank page*: all 11 sections written from the plan, with §10 engine from the technique base for now (§5 points it at the style's own code). Under the title: `Made from a blank page; techniques from <base name> (<base slug>) in WordFilm.`
   - When the default size isn't 1920×1080, one more line under the title: `Default size: 1080×1440.`
   - Links: the style's own `DEMO.md` and `demo/` (they exist after §5) stay relative; links to the base become `$LIB/styles/<base slug>/…`. Keep every pitfall in §9 that still applies, and add the ones the changes bring.
 - **`CHANGES.md`** and **`style.json`** as in the table above.

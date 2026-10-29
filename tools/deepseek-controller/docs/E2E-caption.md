@@ -92,7 +92,7 @@ P=/workspace/films/liudong-controller-e2e
 cd $P && sh tools/fetch_sources.sh   # ~406 MB raw/ from Wikimedia (+ NASS PDF, Natural Earth)
 # prep.sh: mkdir -p raw/report before pdftoppm (patched in styles/caption-news/demo/tools/prep.sh)
 sh tools/prep.sh                     # assets/fr 1164 frames @ 1920×1080 (~162 MB) + img photos
-LIB=/workspace/lemo-opuscar-deepseek
+LIB=/path/to/wordfilm               # your WordFilm checkout (repo root)
 cd $LIB
 node core/render/events.mjs $P
 node core/render/still.mjs $P 1.0 5.0 18.0 35.0 56.0 --out $P/out/still --prefix k_
@@ -151,7 +151,7 @@ Locked demo score packs are bee-demo length. Prefer **`cli mix`** (placeholder b
 | `/workspace/films/liudong-caption-liquidity-v001` | sibling scaffold + `apply_caption_style_version.py --version liquidity-v001` |
 
 ```bash
-LIB=/workspace/lemo-opuscar-deepseek
+LIB=$(git rev-parse --show-toplevel)   # this WordFilm checkout (run from inside it)
 P=/workspace/films/liudong-caption-liquidity-v001
 cd "$LIB"
 python3 tools/deepseek-controller/cli.py scaffold \

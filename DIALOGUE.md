@@ -1,4 +1,4 @@
-# 台词层 · Lemo-Opuscar Dialogue
+# 台词层 · WordFilm Dialogue
 
 旁白与对白的写法与门禁。配 [`DIRECTOR.md`](DIRECTOR.md)（故事与视听）、[`TECHNIQUE.md`](TECHNIQUE.md) §4（TTS 怎么跑）、DeepSeek 覆盖层 [`AGENTS.deepseek.md`](AGENTS.deepseek.md)。
 

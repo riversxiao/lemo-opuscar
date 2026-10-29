@@ -40,10 +40,11 @@
 
 ```sh
 git clone https://github.com/riversxiao/wordfilm.git
-cd lemo-opuscar
+cd wordfilm
 
 # 可选：钉死 DeepSeek 控制层提交（完整 40 字符 SHA；勿用裸上游 413a6bd）
-export LEMO_OPUSCAR_PIN=f3d2e1c934be18ac4cb816ecaa5e9d27176afaae
+# （改名前的 LEMO_OPUSCAR_PIN 仍然有效；WORDFILM_HOME / WORDFILM_REPO 同理）
+export WORDFILM_PIN=f3d2e1c934be18ac4cb816ecaa5e9d27176afaae
 
 sh plugin/skills/lemo-deepseek/scripts/setup.sh
 sh plugin/skills/lemo-deepseek/scripts/setup.sh deps

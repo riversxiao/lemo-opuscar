@@ -69,7 +69,7 @@ All four page tools take `--size WxH` (default `1920x1080`, even numbers) and `-
 
 | Variable | Meaning |
 |---|---|
-| `LEMO_OPUSCAR_HOME` | where `setup.sh` keeps the library (default `~/lemo-opuscar`) |
+| `WORDFILM_HOME` | where `setup.sh` keeps the library (default `~/wordfilm`; an existing `~/lemo-opuscar` library is still used when `~/wordfilm` does not exist). The old name `LEMO_OPUSCAR_HOME` still works; `WORDFILM_REPO` and `WORDFILM_PIN` (old names `LEMO_OPUSCAR_REPO`, `LEMO_OPUSCAR_PIN`) choose the clone URL and a commit for the DeepSeek setup |
 | `PLAYWRIGHT_CHROME` | a Chrome / headless-shell executable instead of Playwright's |
 | `LEMO_ANGLE` | WebGL backend (default `metal` on macOS; `default` passes none) |
 | `RENDER_SLOTS` | optional; limits concurrent full renders across processes |

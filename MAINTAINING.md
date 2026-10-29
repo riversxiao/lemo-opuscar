@@ -40,7 +40,7 @@ Rules for library demos only (a user's film follows `DIRECTOR.md`, not these):
 2. `git status --short`, `git add -A`, commit.
 3. Push `main`, then watch CI (`gh run watch`): the gallery build fails when a card links a film that isn't on the `web` release.
 
-The Pages build (`build.py --site`) also writes the OPUSCAR 98 page (`opuscar98/`, from `styleboard/opuscar98.html`), `llms.txt` and `sitemap.xml`, and puts the canonical link, share-card tags and JSON-LD (upstream repo and author) in each page's head. They pick up the style count by themselves; the film's runtime is `FEATURE['dur']` in `build.py`.
+The Pages build (`build.py --site`) also writes the OPUSCAR 98 page (`opuscar98/`, from `styleboard/opuscar98.html`), `llms.txt` and `sitemap.xml`, and puts the canonical link, share-card tags and JSON-LD (this fork, with the upstream it is based on) in each page's head. They pick up the style count by themselves; the film's runtime is `FEATURE['dur']` in `build.py`.
 
 Don't push before the upload has finished, and don't commit `tools/assets.json` from a failed run.
 
@@ -54,6 +54,6 @@ The Claude plugin directory lists a self-contained build of the plugin, on the o
 
 After a release on `main` (new styles, changed guides or tools):
 
-1. `git worktree add ../lemo-opuscar-directory directory` (once; reuse it afterwards).
-2. `python3 tools/directory.py <version> --into ../lemo-opuscar-directory`, with a version above the branch's current `.claude-plugin/plugin.json` (new styles or features: 1.1.0; fixes only: 1.0.1). The directory treats each version number as a release, so the script refuses the same or a lower one; `--same-version` is only for fixing a version that was never published. It also stops when a guide changed so much that one of its edits no longer applies: update `EDITS` in the script.
-3. `claude plugin validate ../lemo-opuscar-directory`, then commit there (`Lemo-Opuscar <version>, plugin directory edition`) and push `directory`. The directory scans each push and publishes the new version.
+1. `git worktree add ../wordfilm-directory directory` (once; reuse it afterwards).
+2. `python3 tools/directory.py <version> --into ../wordfilm-directory`, with a version above the branch's current `.claude-plugin/plugin.json` (new styles or features: 1.1.0; fixes only: 1.0.1). The directory treats each version number as a release, so the script refuses the same or a lower one; `--same-version` is only for fixing a version that was never published. It also stops when a guide changed so much that one of its edits no longer applies: update `EDITS` in the script.
+3. `claude plugin validate ../wordfilm-directory`, then commit there (`WordFilm <version>, plugin directory edition`) and push `directory`. The directory scans each push and publishes the new version.

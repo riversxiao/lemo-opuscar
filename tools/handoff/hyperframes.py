@@ -190,7 +190,7 @@ def export_hyperframes(
     pkg["name"] = f"lemo-hf-{name}"[:64]
     (out / "package.json").write_text(json.dumps(pkg, indent=2) + "\n", encoding="utf-8")
     (out / "meta.json").write_text(
-        json.dumps({"id": name, "name": name, "source": "lemo-opuscar-handoff"}, indent=2)
+        json.dumps({"id": name, "name": name, "source": "wordfilm-handoff"}, indent=2)
         + "\n",
         encoding="utf-8",
     )

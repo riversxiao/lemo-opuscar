@@ -1,7 +1,7 @@
 # 18-film comparison matrix (full factorial)
 
 **Epic:** same vocab card × style × path — full factorial 3×3×2 = **18** cells.  
-**Library:** `/workspace/lemo-opuscar-deepseek`  
+**Library:** this repo (`$LIB` = the WordFilm checkout; the recorded runs used a clone under `/workspace`)  
 **Film root:** `/workspace/films/`  
 **Canonical dir:** `/workspace/films/matrix-{topic}-{style}-{path}/`  
 **Tracker:** [`../fixtures/matrix-18.json`](../fixtures/matrix-18.json) · CLI: `python3 tools/deepseek-controller/cli.py matrix`

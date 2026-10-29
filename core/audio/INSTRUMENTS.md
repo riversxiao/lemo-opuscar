@@ -1,6 +1,6 @@
 # Real-instrument toolchain: sampler (samples) + pluck (physically modelled plucked strings)
 
-For writing **original scores** for Lemo-Opuscar style films. Everything is synthesised offline with numpy/soxr at **48 kHz**, with the same conventions as `sfx.py` (`SR`, `add()`, `limit()`).
+For writing **original scores** for WordFilm style films. Everything is synthesised offline with numpy/soxr at **48 kHz**, with the same conventions as `sfx.py` (`SR`, `add()`, `limit()`).
 The goal is "sounds like a real instrument": use samples wherever possible (97 instruments, real recordings), and fill in the folk plucked strings the sample libraries lack (guqin, pipa, shamisen…) with physical modelling (11 presets).
 
 - Preview: the repo has no ready-made preview files (`core/audio/*.wav` is not in git, and not in the sample packs either). After downloading a sample pack, use the pattern in section 1 to play a small root-fifth-octave motif on each instrument and render a stretch to listen to yourself

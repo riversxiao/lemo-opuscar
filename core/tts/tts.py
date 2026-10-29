@@ -5,7 +5,7 @@ Writes out_dir/<id>.wav (24 kHz, leading/trailing silence trimmed) and out_dir/d
 Model: kokoro-v1.0.onnx / voices-v1.0.bin in this folder; download with sh tools/fetch.sh voice (about 350 MB).
 Path limit: the data folder of espeak-ng (which Kokoro uses to turn text into phonemes) must have a real path, after symlinks, shorter than
          160 bytes (a CJK character counts 3), or it is not found and the error names a path on someone else's machine (the one espeak-ng was
-         built on). A library under a short path such as ~/lemo-opuscar is fine; this script checks before it starts and explains.
+         built on). A library under a short path such as ~/wordfilm is fine; this script checks before it starts and explains.
 More natural Chinese, Japanese and other voices: core/tts/tts_zh.py (Microsoft edge-tts, online), same interface and output layout.
 """
 import sys, json, os, re
@@ -35,7 +35,7 @@ if espeak_dir and len(espeak_dir.encode('utf-8')) >= ESPEAK_LIMIT:
     sys.exit(f"tts.py: this library sits under a folder path that is too long for the offline voice engine (espeak-ng).\n"
              f"  its data folder is {len(espeak_dir.encode('utf-8'))} bytes long (a Chinese character counts as 3), the limit is {ESPEAK_LIMIT - 1}:\n"
              f"    {espeak_dir}\n"
-             f"  Move the library to a shorter path (e.g. LEMO_OPUSCAR_HOME=~/lemo-opuscar, or a shorter folder for the clone) and run\n"
+             f"  Move the library to a shorter path (e.g. WORDFILM_HOME=~/wordfilm, or a shorter folder for the clone) and run\n"
              f"  `sh plugin/skills/lemo-opuscar/scripts/setup.sh deps` there (a moved .venv does not work). No need to move anything for tts_zh.py.")
 try: from kokoro_onnx import Kokoro
 except ImportError: sys.exit('tts.py: kokoro-onnx is missing: install the voice tier: sh plugin/skills/lemo-opuscar/scripts/setup.sh deps voice')

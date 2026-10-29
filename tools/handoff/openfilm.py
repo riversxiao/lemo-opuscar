@@ -99,7 +99,7 @@ def export_openfilm(
 <title>{safe_name} · lemo → OpenFilm handoff</title>
 </head>
 <body>
-<!-- Multi-shot handoff from lemo-opuscar. Picture = trims of the finished mux
+<!-- Multi-shot handoff from WordFilm. Picture = trims of the finished mux
      (not a frame(t) port of the lemo engine). Edit / reorder in Studio, then
      export timeline for Premiere / Resolve / FCP. -->
 <section>

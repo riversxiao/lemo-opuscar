@@ -12,7 +12,7 @@
 | ID | 修复 |
 |---|---|
 | P1-1 | 返回的 `LIB` 必须含 DeepSeek 覆盖层（`AGENTS.deepseek.md`、`DEEPSEEK.md`、`plugin/skills/lemo-deepseek/…`）；缺失则非零退出 |
-| P1-2 | **所有**安装路径（首次 clone / managed 更新 / 用户自有库）在设置了 `LEMO_OPUSCAR_PIN` 时都会解析并检出；检出后核对 `HEAD` |
+| P1-2 | **所有**安装路径（首次 clone / managed 更新 / 用户自有库）在设置了 `LEMO_OPUSCAR_PIN`（现名 `WORDFILM_PIN`，旧名仍有效）时都会解析并检出；检出后核对 `HEAD` |
 | P1-3 | 显式 PIN 无法兑现时 **exit 1**（不再「warn 后继续用本地」）；短 SHA 解析失败亦失败 |
 
 回归：`plugin/skills/lemo-deepseek/scripts/setup-pin-tests.sh`。

@@ -1,4 +1,4 @@
-# Directing a Lemo-Opuscar film
+# Directing a WordFilm film
 
 The directing method behind every film in this library. Pair it with one `styles/<slug>/STYLE.md` (the style), [`DIALOGUE.md`](DIALOGUE.md) (spoken lines / VO), and [`TECHNIQUE.md`](TECHNIQUE.md) (how to build).
 
