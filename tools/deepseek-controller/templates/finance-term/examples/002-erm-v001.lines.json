@@ -1,0 +1,102 @@
+{
+  "_doc": "erm-v001: 台词教父 final lines.json (source of truth /workspace/films/dialogue-drafts/erm-v001.lines.json), 通俗金融学.",
+  "seq": "002",
+  "term": "Enterprise Risk Management (ERM)",
+  "zh": "全面风险管理",
+  "approvedBy": "金融专家 2026-10-29 (台词教父 final lines; relayed by wen hao 21:20 Asia/Shanghai; do not rewrite)",
+  "approvedAt": "2026-10-29T21:20:00+08:00",
+  "brand": {
+    "eyebrow": "ENTERPRISE RISK",
+    "titleEn": "ERM",
+    "titleZh": "全面风险管理",
+    "endTitle": "全面风险管理 ERM",
+    "endLine": "各管各的 ≠ 整家一起看",
+    "sloganEn": "ENTERPRISE RISK MANAGEMENT",
+    "sloganZh": "全面风险管理",
+    "sloganJp": "",
+    "keepCase": []
+  },
+  "glossary": {},
+  "cards": [
+    {
+      "shot": "p0",
+      "zh": "可能炸",
+      "en": "HIDDEN RISK"
+    },
+    {
+      "shot": "p1",
+      "zh": "全面风险管理",
+      "en": "ERM"
+    },
+    {
+      "shot": "p2",
+      "zh": "各算各的",
+      "en": "SEPARATE BOOKS"
+    },
+    {
+      "shot": "p3",
+      "zh": "挡雷",
+      "en": "RISK CONTROL"
+    },
+    {
+      "shot": "p4",
+      "zh": "各干各的",
+      "en": "SILOS"
+    },
+    {
+      "shot": "p5",
+      "zh": "同一张桌上",
+      "en": "ONE TABLE"
+    },
+    {
+      "shot": "p6",
+      "zh": "整家扛得住",
+      "en": "THE WHOLE FIRM"
+    }
+  ],
+  "lines": [
+    {
+      "id": "L01",
+      "role": "hook",
+      "shot": "p0",
+      "cap": "每个部门都说自己没雷，公司照样可能{炸}。"
+    },
+    {
+      "id": "L02",
+      "role": "evidence",
+      "shot": "p1",
+      "cap": "整家公司一起看风险，叫{全面风险管理}（ERM）。",
+      "say": "整家公司一起看风险，叫全面风险管理。"
+    },
+    {
+      "id": "L03",
+      "role": "evidence",
+      "shot": "p2",
+      "cap": "说白了：别{各算各的}账。"
+    },
+    {
+      "id": "L04",
+      "role": "evidence",
+      "shot": "p3",
+      "cap": "比如左手在赚钱，右手还得{挡雷}。"
+    },
+    {
+      "id": "L05",
+      "role": "turn",
+      "shot": "p4",
+      "cap": "销售猛推、风控喊停，不能{各干各的}。"
+    },
+    {
+      "id": "L06",
+      "role": "evidence",
+      "shot": "p5",
+      "cap": "要放到{同一张桌上}，一起看。"
+    },
+    {
+      "id": "L07",
+      "role": "payoff",
+      "shot": "p6",
+      "cap": "所以问的不是谁的锅，是{整家}扛不扛得住。"
+    }
+  ]
+}

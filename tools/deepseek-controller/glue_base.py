@@ -109,6 +109,9 @@ def engine_lines_from_content(content_lines: list[dict[str, Any]]) -> list[dict[
             row["asr"] = ln["asr"]
         if ln.get("shotId"):
             row["shotId"] = ln["shotId"]
+        for k in ("function", "cap", "say"):
+            if ln.get(k):
+                row[k] = ln[k]
         out.append(row)
     return out
 

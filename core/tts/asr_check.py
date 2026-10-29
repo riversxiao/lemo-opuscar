@@ -18,6 +18,8 @@ import sys, json, re, os, argparse, difflib, unicodedata
 CJK = re.compile('[㐀-鿿豈-﫿぀-ヿ가-힯]')
 CHAR_LANGS = {'zh', 'ja', 'ko'}           # these languages are compared by character, the rest by word
 _DIGITS = str.maketrans('零〇一二三四五六七八九', '00123456789')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from zh_num import fold_numbers  # noqa: E402
 
 
 _ONES = 'zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen'.split()
@@ -58,7 +60,7 @@ def norm_en(s):
 
 
 def norm_zh(s):
-    s = unicodedata.normalize('NFKC', s).lower().translate(_DIGITS)   # NFKC: full-width → half-width, compatibility forms normalised
+    s = fold_numbers(unicodedata.normalize('NFKC', s)).lower().translate(_DIGITS)   # 一百万 ≡ 100万 (zh_num.py), then NFKC: full-width → half-width, compatibility forms normalised
     return ''.join(c for c in s if unicodedata.category(c)[0] in 'LN')   # keep only letters/hanzi/digits; strip all punctuation and whitespace
 
 
@@ -72,7 +74,9 @@ def compare(want, got, lang, threshold=0.92):
     if lang in CHAR_LANGS:
         a, b = norm_zh(want), norm_zh(got)
         r = difflib.SequenceMatcher(None, a, b).ratio() if (a or b) else 1.0
-        return r >= threshold, r
+        # numbers must match exactly: one wrong digit in a long line still scores ≥0.92
+        # (一百万 vs 二百万), and in finance copy that is a different fact, not a homophone
+        return r >= threshold and re.findall(r'\d+', a) == re.findall(r'\d+', b), r
     a, b = norm_en(want), norm_en(got)
     return a == b, 1.0 if a == b else difflib.SequenceMatcher(None, a, b).ratio()
 
@@ -110,7 +114,7 @@ def main():
         if y.ndim > 1: y = y.mean(1)
         y = soxr.resample(y, sr, 16000, quality='HQ'); pad = np.zeros(int(.6 * 16000))   # same as librosa's default soxr_hq
         kw = dict(initial_prompt='以下是普通话的句子。') if lang == 'zh' else {}          # prompt in Simplified Chinese so the transcription doesn't come out in Traditional
-        segs, _ = m.transcribe(np.concatenate([pad, y, pad]).astype(np.float32), beam_size=5, language=lang, word_timestamps=True, **kw)
+        segs, _ = m.transcribe(np.concatenate([pad, y, pad]).astype(np.float32), beam_size=5, language=lang, word_timestamps=True, temperature=0.0, **kw)   # deterministic: the default temperature fallback samples, so the same wav could PASS one run and come back empty the next
         tail = (len(y) + len(pad)) / 16000 - .5   # Whisper sometimes repeats the line inside the trailing pad: drop such no-speech segments
         segs = [s for s in segs if not (s.no_speech_prob > .5 and s.start > tail)]; got = ' '.join(s.text.strip() for s in segs)
         words[L['id']] = [(w.word.strip(), round(w.start - .6, 3), round(w.end - .6, 3)) for s in segs for w in s.words]

@@ -1,9 +1,14 @@
 """Validate a DeepSeek content plan against schema + style manifest."""
 from __future__ import annotations
 
+import re
+
 import argparse
 import sys
 from typing import Any
+
+BRAND_KEYS = ("eyebrow", "eyebrowTop", "endTitle", "endLine", "titleEn", "titleZh",
+              "sloganEn", "sloganZh", "sloganJp", "credit")
 
 from common import (
     ASPECT_SIZES,
@@ -39,6 +44,10 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
         "shots",
         "voice",
         "credits",
+        "content_type",
+        "pacing",
+        "brand",
+        "glossary",
     }
     for k in plan:
         if k not in allowed_top:
@@ -64,6 +73,11 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
     dur = plan.get("targetDurationSec")
     if not isinstance(dur, (int, float)) or not (15 <= float(dur) <= 90):
         _err(errors, "$.targetDurationSec: number in 15..90")
+
+    if "content_type" in plan and plan["content_type"] not in ("market", "concept", "personal", "english"):
+        _err(errors, "$.content_type: market|concept|personal|english")
+    if "pacing" in plan and plan["pacing"] not in ("fast", "standard", "calm"):
+        _err(errors, "$.pacing: fast|standard|calm")
 
     if "schemaVersion" in plan and plan["schemaVersion"] != 1:
         _err(errors, "$.schemaVersion: must be 1 when present")
@@ -111,6 +125,7 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
                 "role",
                 "text",
                 "onScreenText",
+                "onScreenTextEn",
                 "data",
                 "motionPreset",
                 "pose",
@@ -130,9 +145,16 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
         text = sh.get("text")
         if not isinstance(text, str) or not text.strip() or len(text) > 200:
             _err(errors, f"{p}.text: required string 1..200")
+        for _k in ("text", "onScreenText", "onScreenTextEn"):
+            if re.search(r"屏幕上|画面上|字幕上", str(sh.get(_k) or "")):
+                _err(errors, f"{p}.{_k}: stage direction (屏幕上…) — screen text shows content only")
         ost = sh.get("onScreenText")
         if ost is not None and (not isinstance(ost, str) or len(ost) > 120):
             _err(errors, f"{p}.onScreenText: string max 120")
+        ose = sh.get("onScreenTextEn")
+        if ose is not None and (not isinstance(ose, str) or len(ose) > 40
+                                or not re.fullmatch(r"[A-Za-z0-9 .·%&/,'+\-]*", ose)):
+            _err(errors, f"{p}.onScreenTextEn: Latin title max 40")
         mp = sh.get("motionPreset")
         if not isinstance(mp, str) or not mp or len(mp) > 40:
             _err(errors, f"{p}.motionPreset: required string")
@@ -166,7 +188,7 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
                 if k not in ("provider", "voiceId", "lines"):
                     _err(errors, f"$.voice.{k}: unknown key")
             prov = voice.get("provider", "none")
-            if prov not in ("none", "edge", "kokoro", "qwen3", "omnivoice"):
+            if prov not in ("none", "edge", "kokoro", "qwen3", "omnivoice", "stepaudio", "elevenlabs"):
                 _err(errors, "$.voice.provider: invalid")
             if "voiceId" in voice and (
                 not isinstance(voice["voiceId"], str) or len(voice["voiceId"]) > 64
@@ -185,7 +207,7 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
                         _err(errors, f"{lp}: object")
                         continue
                     for k in ln:
-                        if k not in ("id", "text", "shotId"):
+                        if k not in ("id", "text", "shotId", "role", "cap", "say"):
                             _err(errors, f"{lp}.{k}: unknown")
                     lid = ln.get("id")
                     if not isinstance(lid, str) or not ID_RE.match(lid):
@@ -197,6 +219,12 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
                     lt = ln.get("text")
                     if not isinstance(lt, str) or not lt.strip() or len(lt) > 200:
                         _err(errors, f"{lp}.text: required 1..200")
+                    if "role" in ln and ln["role"] not in ("hook", "turn", "evidence", "payoff", "sting"):
+                        _err(errors, f"{lp}.role: hook|turn|evidence|payoff|sting")
+                    if "cap" in ln and (not isinstance(ln["cap"], str) or len(ln["cap"]) > 200):
+                        _err(errors, f"{lp}.cap: string max 200")
+                    if "say" in ln and (not isinstance(ln["say"], str) or not ln["say"].strip() or len(ln["say"]) > 200):
+                        _err(errors, f"{lp}.say: string 1..200 (TTS-only pronunciation of text)")
                     sid = ln.get("shotId")
                     if sid is not None:
                         if not isinstance(sid, str) or not ID_RE.match(sid):
@@ -214,6 +242,27 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
                     _err(errors, f"$.credits.{k}: unknown")
                 elif not isinstance(v, str) or len(v) > 80:
                     _err(errors, f"$.credits.{k}: string")
+
+    if "brand" in plan:
+        br = plan["brand"]
+        if not isinstance(br, dict):
+            _err(errors, "$.brand: object")
+        else:
+            for k, v in br.items():
+                if k == "keepCase":
+                    if not isinstance(v, list) or len(v) > 20 or not all(isinstance(x, str) and 0 < len(x) <= 16 for x in v):
+                        _err(errors, "$.brand.keepCase: array (≤20) of strings 1..16")
+                elif k not in BRAND_KEYS:
+                    _err(errors, f"$.brand.{k}: unknown (one of {', '.join(BRAND_KEYS)}, keepCase)")
+                elif not isinstance(v, str) or len(v) > 48:
+                    _err(errors, f"$.brand.{k}: string max 48")
+
+    if "glossary" in plan:
+        gl = plan["glossary"]
+        if not isinstance(gl, dict) or len(gl) > 20 or not all(
+            isinstance(k, str) and 0 < len(k) <= 16 and isinstance(v, str) and 0 < len(v) <= 24 for k, v in gl.items()
+        ):
+            _err(errors, "$.glossary: object (≤20) term(1..16) → gloss(1..24), shown once in captions at first use")
 
     # Manifest cross-checks
     if strict_manifest and style in STYLES and not any(

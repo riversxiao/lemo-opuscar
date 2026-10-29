@@ -26,6 +26,7 @@ export WORK   # python snippets in quoted heredocs read it from the environment
 trap 'rm -rf "$WORK"' EXIT
 # Never let tests append to the real fixtures/budget-ledger.jsonl (handoff etc. log $0 rows).
 export WORDFILM_BUDGET_LEDGER="$WORK/budget-ledger.jsonl"
+export DC_QUOTA_LEDGER="$WORK/quota-ledger.jsonl"   # TokenHarbor quota estimate: never the real one
 unset DC_BUDGET_LEDGER
 SWISS_PROJ="$WORK/out-swiss-motion"
 cp -a "$FIX/out-swiss-motion" "$SWISS_PROJ"
@@ -679,8 +680,9 @@ caps = [{"id": c, "zh": "复利", "en": "compound", "k": "cap", "role": "hook" i
 (p / "content" / "timeline_content.json").write_text(json.dumps({"caps": caps}, ensure_ascii=False))
 (p / "content" / "lines.json").write_text(json.dumps(
     [{"id": f"L0{i}", "shotId": c, "text": "复利"} for i, c in enumerate(ids, 1)], ensure_ascii=False))
-# six 5.00s shots + one 2.25s shot = 32.25s against the 30s lock (the M14 numbers)
-durs = {f"L0{i}": (4.0 if i < 7 else 1.25) for i in range(1, 8)}
+# six 5.00s shots + one 2.25s shot = 32.25s against the 30s lock (the M14 numbers);
+# standard pacing adds 0.40s per shot, snapped up to the 0.25s grid
+durs = {f"L0{i}": (4.5 if i < 7 else 1.75) for i in range(1, 8)}
 (p / "voices" / "dur.json").write_text(json.dumps(durs))
 (p / "content" / "plan.json").write_text(json.dumps({"style": "caption-news", "targetDurationSec": 30}))
 (p / "timeline.json").write_text(json.dumps({"dur": 30, "vo": {}, "caps": []}))
@@ -778,7 +780,8 @@ for cell in m14 m16; do
 import json, sys
 t = json.load(open(sys.argv[1], encoding="utf-8"))
 assert t["ok"] and t["lockedDurationSec"] == 30 and t["lockOverrunSec"] == 0, t
-assert t["contentDurationSec"] <= 29.5 and t["scheduledDurationSec"] == 30.0, t
+# ceiling-only duration (pacing P0): no hold-last-beat pad; only the end-card outro follows
+assert t["contentDurationSec"] <= 29.5 and t["scheduledDurationSec"] <= 30.0 and t["padSec"] == 0, t
 assert len(t["shots"]) == 6 and all(s["voIds"] for s in t["shots"][:5]), t["shots"]
 print(t["contentDurationSec"])
 PY
@@ -1507,21 +1510,25 @@ mk_case nofn "del L[1]['function']"
 mk_case long "L[1]['text']='利率已经低到几乎为零了，可是家家户户还是宁愿把现金攥在手里，既不去花也不去投资更不去借钱。'"
 mk_case latehook "L[0]['function']='evidence'; L[4]['function']='hook'"
 mk_case short "L[:]=L[:3]+[dict(L[4])]"
+mk_case toolong "L[:]=L+[dict(x, id=x['id']+'b') for x in L[1:-1]]+[L[-1]]"
 mk_case jinju "L[5]['text']='让我们一起记住这个流动性陷阱。'"
 mk_case nopayoff "L[4]['function']='evidence'"
 mk_case advice "L[5]['text']='别急着抄底，先看懂流动性陷阱。'"
 dlg_ok=1
-for c in nofn long latehook short jinju nopayoff; do
+for c in nofn long latehook toolong jinju nopayoff; do
   if "${CLI[@]}" dialogue-check --project "$DT/$c" >"$DT/$c.out" 2>&1; then dlg_ok=0; echo "  case $c unexpectedly PASS"; fi
 done
 grep -q "function=None" "$DT/nofn.out" || dlg_ok=0
 grep -q "> 35字" "$DT/long.out" || dlg_ok=0
 grep -q "first 3 VO beats" "$DT/latehook.out" || dlg_ok=0
-grep -q "outside ±15%" "$DT/short.out" || dlg_ok=0
+grep -q "over ceiling" "$DT/toolong.out" || dlg_ok=0
+# target is a ceiling: a short script is NOT padded / failed for being short
+"${CLI[@]}" dialogue-check --project "$DT/short" >"$DT/short.out" 2>&1 || dlg_ok=0
+grep -q "over ceiling\|outside" "$DT/short.out" && dlg_ok=0
 grep -q "金句升华" "$DT/jinju.out" || dlg_ok=0
 grep -q "coverage" "$DT/nopayoff.out" || dlg_ok=0
 if [ "$dlg_ok" = 1 ]; then
-  ok "dialogue-check FAILs: missing function / >35字 / late hook / ±15% / 金句 / coverage"
+  ok "dialogue-check FAILs: missing function / >35字 / late hook / over ceiling (+15%) / 金句 / coverage; short script PASSes (ceiling only)"
 else
   bad "dialogue-check fail cases: $(cat $DT/*.out)"
 fi
@@ -1642,15 +1649,15 @@ else
   bad "dialogue-loop pass-after-revise: $(cat $DLL/p.out)"
 fi
 mkloop n
-"${CLI[@]}" dialogue-loop --project "$DLL/n" --max-rounds 2 --mock "$CTL/fixtures/dialogue-loop/mock-never-pass.json" >"$DLL/n.out" 2>&1 && rc=0 || rc=$?
-if [ "$rc" = 1 ] && grep -q "BEST_EFFORT" "$DLL/n.out" && PYTHONPATH="$CTL" python3 -c "
+"${CLI[@]}" dialogue-loop --project "$DLL/n" --mock "$CTL/fixtures/dialogue-loop/mock-never-pass.json" >"$DLL/n.out" 2>&1 && rc=0 || rc=$?
+if [ "$rc" = 1 ] && grep -q "NEEDS_HUMAN" "$DLL/n.out" && PYTHONPATH="$CTL" python3 -c "
 import json,dialogue_loop as D, quality as Q
 from pathlib import Path
-P=Path('$DLL/n'); s=json.load(open(P/'evidence/dialogue-loop.json')); assert s['status']=='BEST_EFFORT' and s['rounds']==2, s
+P=Path('$DLL/n'); s=json.load(open(P/'evidence/dialogue-loop.json')); assert s['status']=='NEEDS_HUMAN' and s['rounds']==2 and s['maxRounds']==2 and s['needsHuman'], s
 assert not D.gate_status(P)[0]
 c=Q._dialogue_loop_check(P); assert c['status']=='FAIL' and c['required'], c
 " && ! "${CLI[@]}" tts --project "$DLL/n" --provider edge --out "$DLL/n/voices" >/dev/null 2>&1 && [ ! -e "$DLL/n/voices" ]; then
-  ok "dialogue-loop never passes → BEST_EFFORT (exit 1), quality dialogue_loop FAIL, TTS still blocked"
+  ok "dialogue-loop never passes → NEEDS_HUMAN after default 2 rounds (exit 1), quality dialogue_loop FAIL, TTS still blocked"
 else
   bad "dialogue-loop best-effort: rc=$rc $(cat $DLL/n.out)"
 fi
@@ -1693,6 +1700,14 @@ if env -u ELEVEN_API_KEY -u ELEVENLABS_API_KEY python3 "$CTL/tests/elevenlabs_di
   ok "elevenlabs-dialogue: needs-key; chunk ≤2000/≤10 voices; mock writes dialogue.wav+manifest; v4→v3 fallback; listed in --list"
 else
   bad "elevenlabs-dialogue mock (see $WORK/dc_elevenlabs_dialogue_mock.log)"
+fi
+
+# elevenlabs-dialogue guest voice by content type (Tex host; market/concept/personal/english), mock API
+if env -u ELEVEN_API_KEY -u ELEVENLABS_API_KEY -u ELEVENLABS_VOICE_HOST -u ELEVENLABS_VOICE_GUEST -u LEMO_TTS_ELEVENLABS_CONTENT_TYPE \
+    python3 "$CTL/tests/elevenlabs_content_type_mock.py" >$WORK/dc_elevenlabs_content_type_mock.log 2>&1; then
+  ok "elevenlabs-dialogue: content_type → guest (market→Linda, concept→Ladaisy, personal→Shusita, english→Joan; default Linda; VOICE_GUEST overrides; router/run_tts/plan.json)"
+else
+  bad "elevenlabs content-type mock (see $WORK/dc_elevenlabs_content_type_mock.log)"
 fi
 
 # visual-check: synthetic film with known defects (OCR/ffmpeg local), semantic layer mocked, quality gate, speaker metric
@@ -1748,6 +1763,37 @@ assert quality._spk_python() == '$WORK/spk-new', quality._spk_python()
   ok "env names: WORDFILM_TTS_* / WORDFILM_SPK_PYTHON / WORDFILM_OPENCODE_DB win, LEMO_* still honoured, empty = unset"
 else
   bad "env names: $(tail -5 "$WORK/env-names.log")"
+fi
+
+# free-first LLM chain (TokenHarbor → OpenRouter :free; no OpenCode; no paid without --allow-paid)
+if env -u DEEPSEEK_API_KEY python3 "$CTL/tests/llm_free_mock.py" >$WORK/dc_llm_free_mock.log 2>&1; then
+  ok "llm_free: TokenHarbor→nemotron:free→flint:free; 429 retry same; quota advances; no paid without --allow-paid; ledger logs model"
+else
+  bad "llm_free mock (see $WORK/dc_llm_free_mock.log)"
+fi
+
+# pacing P0: profile by content_type, ceiling-only duration, no pad, pause trim, speed, report-only gate
+if env -u STEP_API_KEY -u LEMO_PACING python3 "$CTL/tests/pacing_mock.py" >$WORK/dc_pacing_mock.log 2>&1; then
+  ok "pacing: market→fast / others→standard + overrides; ceiling-only dialogue; no pad + 1.5s outro; pause trim keeps beat; edge rate + stepaudio speed; pad FAIL; pacing gate report-only"
+else
+  bad "pacing mock (see $WORK/dc_pacing_mock.log)"
+fi
+
+# pacing P1: TP limiter, end-card outro, sub-beats + {keyword} frames, rework ≤2 rounds, rhythm, token steps, ElevenLabs speed
+if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY python3 "$CTL/tests/finance_mock.py" >$WORK/dc_finance_mock.log 2>&1; then
+  ok "finance mock: 2-round NEEDS_HUMAN cap, compact critic/reviser context, quota-aware routing ($(tail -1 $WORK/dc_finance_mock.log))"
+else
+  bad "finance mock (see $WORK/dc_finance_mock.log)"
+fi
+if env -u STEP_API_KEY -u LEMO_PACING -u ELEVENLABS_API_KEY python3 "$CTL/tests/p1_mock.py" >$WORK/dc_p1_mock.log 2>&1; then
+  ok "pacing P1: TP≤−1 limiter; end-card outro; sub-beats ≤ maxShot + keyword frames; rework ≤2 rounds (WARN untouched); rhythm dim; per-step tokens; elevenlabs speed"
+else
+  bad "pacing P1 mock (see $WORK/dc_p1_mock.log)"
+fi
+if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY -u STEP_API_KEY -u ELEVENLABS_API_KEY -u DEEPSEEK_API_KEY python3 "$CTL/tests/term_template_mock.py" >$WORK/dc_term_mock.log 2>&1; then
+  ok "finance-term template: check-only approval gate, role/cap/say, zh number folding + number gate, spoken units, beatsAuthored, vo_srt, probe_fps, StepAudio reuse/2nd pass, batch_terms ($(tail -1 $WORK/dc_term_mock.log))"
+else
+  bad "finance-term template mock (see $WORK/dc_term_mock.log)"
 fi
 
 # budget ledger: tests write to \$WORDFILM_BUDGET_LEDGER, never the real fixtures ledger

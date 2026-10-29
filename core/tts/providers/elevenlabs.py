@@ -16,6 +16,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -83,7 +84,20 @@ def _decode_audio(raw: bytes, content_type: str | None) -> np.ndarray:
     return _decode_pcm24(raw)
 
 
-def _post_tts(text: str, *, voice: str, model: str, timeout: float = 120.0) -> tuple[bytes, str | None]:
+SPEED_MIN, SPEED_MAX = 0.7, 1.2   # ElevenLabs docs: recommended speed range (1.0 = normal)
+
+
+def voice_settings(model: str, speed: float | None = None) -> dict[str, Any]:
+    """voice_settings body. `speed` is clamped to 0.7–1.2 and omitted on Eleven v4 models
+    (docs: v4 ignores speed/style; pace with punctuation instead)."""
+    vs: dict[str, Any] = {"stability": 0.5, "similarity_boost": 0.75}
+    if speed and abs(float(speed) - 1.0) > 1e-6 and not str(model).startswith("eleven_v4"):
+        vs["speed"] = round(min(SPEED_MAX, max(SPEED_MIN, float(speed))), 3)
+    return vs
+
+
+def _post_tts(text: str, *, voice: str, model: str, timeout: float = 120.0,
+              speed: float | None = None) -> tuple[bytes, str | None]:
     key = api_key()
     if not key:
         raise ElevenLabsError("ELEVENLABS_API_KEY not set")
@@ -91,7 +105,7 @@ def _post_tts(text: str, *, voice: str, model: str, timeout: float = 120.0) -> t
     body = {
         "text": text,
         "model_id": model,
-        "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+        "voice_settings": voice_settings(model, speed),
     }
     data = json.dumps(body, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
@@ -123,16 +137,21 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
         )
     voice = voice_id(opts.get("voice"))
     model = str(opts.get("model") or model_id())
+    speed = opts.get("speed")
+    if speed is None and os.environ.get("LEMO_TTS_ELEVENLABS_SPEED"):
+        speed = float(os.environ["LEMO_TTS_ELEVENLABS_SPEED"])
     os.makedirs(out_dir, exist_ok=True)
     dur: dict[str, float] = {}
+    spoken: dict[str, str] = {}
     for L in lines:
         lid = L["id"]
-        text = str(L.get("say") or L.get("text") or "")
+        text = spoken_text(L)
         if not text.strip():
             sys.exit(f"tts_router: elevenlabs line {lid!r} has empty text")
+        spoken[lid] = text
         line_voice = voice_id(L.get("voice") or voice)
         try:
-            raw, ctype = _post_tts(text, voice=line_voice, model=L.get("model") or model)
+            raw, ctype = _post_tts(text, voice=line_voice, model=L.get("model") or model, speed=speed)
             a = http_speech._trim(_decode_audio(raw, ctype), SR)
         except ElevenLabsError as e:
             sys.exit(f"tts_router: elevenlabs failed on {lid}: {e}")
@@ -142,4 +161,25 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
         print(lid, dur[lid], text)
     with open(os.path.join(out_dir, "dur.json"), "w", encoding="utf-8") as f:
         json.dump(dur, f, indent=1, ensure_ascii=False)
+    with open(os.path.join(out_dir, "spoken.json"), "w", encoding="utf-8") as f:
+        json.dump({"voice": voice, "model": model, "chars": sum(len(t) for t in spoken.values()), "lines": spoken}, f, indent=1, ensure_ascii=False)
     return dur
+
+
+def spoken_text(L: dict[str, Any]) -> str:
+    """say (or text); in Chinese lines Arabic numbers are spelled in Chinese words
+    (97.5% → 百分之九十七点五) — ElevenLabs voices otherwise read them in English.
+    LEMO_TTS_ELEVENLABS_ZH_NUMBERS=0 turns this off."""
+    text = str(L.get("say") or L.get("text") or "")
+    if os.environ.get("LEMO_TTS_ELEVENLABS_ZH_NUMBERS", "1") != "0" and re.search(r"[\u4e00-\u9fff]", text):
+        try:
+            import zh_num  # noqa: PLC0415  (core/tts on sys.path via tts_router)
+        except ImportError:
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            import zh_num  # noqa: PLC0415
+        text = zh_num.spell_numbers(text)
+        # say spells acronyms for StepAudio (V-A-R, E-S); eleven_v4 reads the hyphens as Chinese
+        # syllables (E-S → "意义 S" in ASR) but plain capitals letter by letter (ES → ES).
+        if os.environ.get("LEMO_TTS_ELEVENLABS_JOIN_LETTERS", "1") != "0":
+            text = re.sub(r"(?<![A-Za-z])[A-Z](?:-[A-Z])+(?![A-Za-z])", lambda m: m.group(0).replace("-", ""), text)
+    return text

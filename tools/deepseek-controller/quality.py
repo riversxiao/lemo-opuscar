@@ -15,9 +15,25 @@ from typing import Any
 from common import ROOT, dump_json, load_json, project_size, size_arg
 
 
-STATUSES = ("PASS", "FAIL", "NOT_CHECKED", "NOT_APPLICABLE")
+from pacing_profile import OUTRO_MAX_SEC
+
+STATUSES = ("PASS", "FAIL", "NOT_CHECKED", "NOT_APPLICABLE", "WARN")  # WARN never blocks
 
 _DIGITS = str.maketrans("零〇一二三四五六七八九", "00123456789")
+
+
+def _fold_numbers(s: str) -> str:
+    import importlib.util  # noqa: PLC0415
+
+    global _ZHNUM
+    if _ZHNUM is None:
+        spec = importlib.util.spec_from_file_location("zh_num", Path(__file__).resolve().parents[2] / "core/tts/zh_num.py")
+        _ZHNUM = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_ZHNUM)
+    return _ZHNUM.fold_numbers(s)
+
+
+_ZHNUM = None
 
 
 def check(
@@ -38,7 +54,11 @@ def _repo_root() -> Path:
 
 
 def _norm_zh(s: str) -> str:
-    s = unicodedata.normalize("NFKC", s).lower()
+    # NFKC + traditional finance forms Whisper sometimes emits (萬/單); collapse spaces so
+    # "100 万元" still folds like "100万元" (一百万 ≡ 100万).
+    s = unicodedata.normalize("NFKC", s).replace("萬", "万").replace("億", "亿").replace("單", "单")
+    s = re.sub(r"\s+", "", s)
+    s = _fold_numbers(s).lower()
     # Whisper writes spoken 百分之六 / 零点五 as 6% / 0.5 — same words, different notation.
     s = re.sub(r"(\d+(?:\.\d+)?)%", r"百分之\1", s)
     s = re.sub(r"(\d)\.(\d)", r"\1点\2", s)
@@ -154,6 +174,8 @@ def _homophone_tolerant_match(
     b = _homophone_tokenize(got, classes)
     if not (a or b):
         return (True, a, b, 1.0)
+    if re.findall(r"\d+", _norm_zh(want)) != re.findall(r"\d+", _norm_zh(got)):
+        return (False, a, b, 0.0)  # a different number is never a homophone
     sm = difflib.SequenceMatcher
     ratio = sm(None, a, b).ratio()
     if a == b or ratio >= min_ratio:
@@ -585,6 +607,62 @@ def _parse_asr_diffs(detail: str) -> list[tuple[str, str, str]]:
     return out
 
 
+def run_acronym_case(project: Path) -> dict[str, Any]:
+    """Mixed-case acronyms must reach the screen as written: VaR, never VAR (= vector
+    autoregression). Scans every drawable string (edl_runtime + brand_strings) and the srt, and
+    flags a scenes.js that still uppercases titles outside the acronym-safe upKeep()."""
+    from common import acronym_case_violations, mixed_acronyms_in  # noqa: PLC0415
+
+    plan = None
+    for rel in ("content/plan.json", "plan.json"):
+        if (project / rel).is_file():
+            try:
+                plan = json.loads((project / rel).read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                plan = None
+            break
+    if not isinstance(plan, dict):
+        return check("acronym_case", "NOT_APPLICABLE", "no plan.json", required=False)
+    texts = []
+    for sh in plan.get("shots") or []:
+        if isinstance(sh, dict):
+            texts += [str(sh.get(k) or "") for k in ("text", "onScreenText", "onScreenTextEn")]
+    for ln in (plan.get("voice") or {}).get("lines") or []:
+        if isinstance(ln, dict):
+            texts += [str(ln.get("text") or ""), str(ln.get("cap") or "")]
+    texts.append(str((plan.get("credits") or {}).get("title") or ""))
+    acr = mixed_acronyms_in(texts) | set(((plan.get("brand") or {}).get("keepCase")) or [])
+    if not acr:
+        return check("acronym_case", "PASS", "no mixed-case acronyms in the plan", required=False)
+    shown: list[str] = []
+    for rel in ("edl_runtime.json", "brand_strings.json"):
+        p = project / rel
+        if not p.is_file():
+            continue
+        try:
+            d = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if rel == "edl_runtime.json":
+            for sh in d.get("shots") or []:
+                shown += [str(sh.get(k)) for k in ("zh", "en", "jp", "title", "sub", "family", "tag", "cname") if sh.get(k)]
+        else:
+            shown += [str(v) for k, v in d.items() if isinstance(v, str) and k not in ("note", "topic")]
+            shown += [str(r.get("to") or "") for r in d.get("replace") or [] if isinstance(r, dict)]
+    for srt in project.glob("*.srt"):
+        shown += srt.read_text(encoding="utf-8", errors="replace").splitlines()
+    bad = acronym_case_violations(shown, acr)
+    scenes = project / "scenes.js"
+    if scenes.is_file():
+        src = scenes.read_text(encoding="utf-8", errors="replace")
+        raw_up = [ln.strip()[:80] for ln in src.splitlines() if ".toUpperCase()" in ln and "upKeep" not in ln]
+        if raw_up:
+            bad.append(f"scenes.js uppercases outside upKeep(): {raw_up[0]!r} (use style version finance-v002+)")
+    if bad:
+        return check("acronym_case", "FAIL", f"{len(bad)} uppercase-transformed acronym(s) {sorted(acr)}: " + "; ".join(bad[:4]))
+    return check("acronym_case", "PASS", f"{sorted(acr)} shown as written in {len(shown)} display strings + srt")
+
+
 def run_asr(
     project: Path,
     has_vo: bool,
@@ -759,9 +837,19 @@ def _schedule_check(
     detail = f"{tl.get('scheduledDurationSec')}s <= {tl.get('targetDurationSec')}s"
     if need_vo:
         detail += " (require-vo OK)"
-    if tl.get("padSec"):
+    pad = float(tl.get("padSec") or 0.0)
+    if pad > OUTRO_MAX_SEC + 1e-6:
+        # Duration follows content: padding the film up to the target is dead air.
+        return check(
+            "schedule_fits_target",
+            "FAIL",
+            f"padded {pad}s {tl.get('padMode') or 'hold-last-beat'} > {OUTRO_MAX_SEC}s outro allowance "
+            f"(contentDurationSec={tl.get('contentDurationSec')}, target {tl.get('targetDurationSec')}s is a ceiling) "
+            "— re-run `schedule` without --pad-under-target",
+        )
+    if pad:
         detail += (
-            f"; padded {tl.get('padSec')}s {tl.get('padMode') or 'hold-last-beat'}"
+            f"; padded {pad}s {tl.get('padMode') or 'hold-last-beat'} (≤{OUTRO_MAX_SEC}s allowance)"
             f" (contentDurationSec={tl.get('contentDurationSec')})"
         )
     elif tl.get("underTargetBeforePad"):
@@ -887,6 +975,50 @@ def run_visual_check_gate(project: Path, media: Path | None, delivery: bool) -> 
     kinds = sorted({i.get("kind") for i in hi})
     return check("visual_check", "FAIL", f"severity=high: {fs}, {len(hi)} high ({', '.join(kinds)}){tail}", required=req)
 
+def _tp_max(project: Path) -> float:
+    """True-peak ceiling: env LEMO_TP_MAX_DBTP, else −2 dBTP for finance-v003 (per-line visual)
+    series films (content/viz.json present), else the legacy −1 dBTP."""
+    import os
+    v = os.environ.get("LEMO_TP_MAX_DBTP")
+    if v:
+        return float(v)
+    return -2.0 if (Path(project) / "content" / "viz.json").is_file() else -1.0
+
+
+def run_viz_gates(project: Path, media: Path | None) -> list[dict[str, Any]]:
+    """finance-v003 gates (required once content/viz.json exists):
+    visual_content  — evidence/visual-content.json from viz_pick.py (金融专家 content lint)
+    visual_duplicate — evidence/visual-dupe.json from visual_dupe.py (series near-duplicate keyframes)"""
+    project = Path(project)
+    if not (project / "content" / "viz.json").is_file():
+        return [check("visual_content", "NOT_APPLICABLE", "no content/viz.json (pre-v003 film)", required=False),
+                check("visual_duplicate", "NOT_APPLICABLE", "no content/viz.json (pre-v003 film)", required=False)]
+    out = []
+    p = project / "evidence" / "visual-content.json"
+    if not p.is_file():
+        out.append(check("visual_content", "NOT_CHECKED", "run viz_pick.py --lines L --project P", required=True))
+    else:
+        r = load_json(p)
+        iss = r.get("issues") or []
+        sc = r.get("scenes") or {}
+        det = f"{len(set(sc.values()))} distinct scenes / {len(sc)} lines; " + ("; ".join(f"{i.get('line')}: {i.get('rule')}" for i in iss[:4]) or "lint clean")
+        out.append(check("visual_content", "PASS" if r.get("status") == "PASS" else "FAIL", det, required=True))
+    p = project / "evidence" / "visual-dupe.json"
+    if not p.is_file():
+        out.append(check("visual_duplicate", "NOT_CHECKED", "run visual_dupe.py --project P", required=True))
+    else:
+        r = load_json(p)
+        stale = media is not None and Path(media).is_file() and Path(media).stat().st_mtime > p.stat().st_mtime + 1
+        if stale:
+            out.append(check("visual_duplicate", "NOT_CHECKED", "media changed after visual_dupe — re-run it", required=True))
+        else:
+            c = (r.get("closest") or [{}])[0]
+            det = (f"{len(r.get('keyframes') or [])} keyframes vs {r.get('comparedFilms')}; {len(r.get('duplicates') or [])} near-dup; "
+                   f"closest {c.get('a')}~{c.get('b')} ham={c.get('ham')} corr={c.get('corr')}")
+            out.append(check("visual_duplicate", "PASS" if r.get("status") == "PASS" else "FAIL", det, required=True))
+    return out
+
+
 def run_speaker_check(project: Path, has_vo: bool) -> dict[str, Any]:
     """ONE-narrator gate for multi-line VO: speaker-embedding cosine (Resemblyzer, local, free).
 
@@ -936,6 +1068,25 @@ def run_speaker_check(project: Path, has_vo: bool) -> dict[str, Any]:
     return check("speaker_consistency", d["status"], detail, required=True)
 
 
+def run_pacing_gate(project: Path, media: Path | None, *, enforce: bool = False,
+                    skip_visual: bool = False) -> dict[str, Any]:
+    """Pacing gate (pacing_check.py). P0 report-only → WARN (never blocks);
+    enforce=True (P1) → FAIL-level misses block (required)."""
+    if not (project / "timeline.parsed.json").is_file():
+        return check("pacing", "NOT_APPLICABLE", "no timeline.parsed.json", required=False)
+    try:
+        import pacing_check
+        rep = pacing_check.run(project, media, visual=not skip_visual)
+    except Exception as e:  # report-only gate must never crash quality
+        return check("pacing", "NOT_CHECKED", f"pacing_check failed: {e}", required=enforce)
+    detail = pacing_check.summary(rep) + " → evidence/pacing-check.json"
+    if rep["status"] == "PASS":
+        return check("pacing", "PASS", detail, required=enforce)
+    if enforce and rep["status"] == "FAIL":
+        return check("pacing", "FAIL", detail, required=True)
+    return check("pacing", "WARN", ("report-only: " if not enforce else "") + detail, required=False)
+
+
 def gate(
     project: Path,
     *,
@@ -945,6 +1096,7 @@ def gate(
     require_vo: bool = False,
     asr_mode: str | None = None,
     delivery: bool = False,
+    pacing_enforce: bool = False,
 ) -> dict[str, Any]:
     project = Path(project).resolve()
     checks: list[dict[str, Any]] = []
@@ -1051,9 +1203,10 @@ def gate(
                 detail += " (want −14±1)"
             if tp is not None:
                 detail += f", TP={tp} dBTP"
-                if tp > -1.0 + 1e-6:
+                tpmax = _tp_max(project)
+                if tp > tpmax + 1e-6:
                     st = "FAIL"
-                    detail += " (want ≤ −1 dBTP)"
+                    detail += f" (want ≤ {tpmax:g} dBTP)"
             checks.append(check("loudness_ebur128", st, detail))
         else:
             checks.append(
@@ -1126,7 +1279,12 @@ def gate(
         checks.append(run_asr(project, has_vo, asr_mode=asr_mode))
         checks.append(run_speaker_check(project, has_vo))
 
+    checks.append(run_acronym_case(project))
     checks.append(run_visual_check_gate(project, media, delivery))
+    checks.extend(run_viz_gates(project, media))
+    if delivery or pacing_enforce:
+        checks.append(run_pacing_gate(project, media_path if media_path.is_file() else None,
+                                      enforce=pacing_enforce, skip_visual=skip_heavy))
 
     for name in force_fail:
         checks.append(check(name, "FAIL", "forced by fixture / --force-fail"))
@@ -1156,7 +1314,7 @@ def gate(
         "blocking": [{"name": b["name"], "status": b["status"]} for b in blocking],
         "standards": {
             "loudness_lufs": {"target": -14.0, "tol": 1.0},
-            "true_peak_dbtp_max": -1.0,
+            "true_peak_dbtp_max": _tp_max(project),
             "media_duration": (
                 "engine DUR ±1s when content/engine.lock.json protects film.js or main.js "
                 "(style_locked_duration from film.js/main.js/edl_runtime|edl.js); else plan targetDurationSec +2.5s"
@@ -1203,6 +1361,11 @@ def main(argv: list[str] | None = None) -> int:
         "use zh-homophone-tolerant unless --asr-mode is set explicitly. "
         "English plans stay strict. Does not silently weaken strict ASR.",
     )
+    ap.add_argument(
+        "--pacing-enforce",
+        action="store_true",
+        help="pacing gate FAIL blocks delivery (P1). Default with --delivery: report-only WARN",
+    )
     ap.add_argument("-o", "--output", help="quality.json path")
     args = ap.parse_args(argv)
 
@@ -1216,6 +1379,7 @@ def main(argv: list[str] | None = None) -> int:
         require_vo=args.require_vo,
         asr_mode=args.asr_mode,  # None | strict | zh-homophone-tolerant | auto
         delivery=args.delivery,
+        pacing_enforce=args.pacing_enforce,
     )
     if args.allow_unchecked:
         report["blocking"] = [

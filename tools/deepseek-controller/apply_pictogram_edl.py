@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from common import dump_json, load_json
+from common import acronym_case_violations, dump_json, load_json, mixed_acronyms_in, upper_keep
 
 # Fixture / adapt may emit aliases not present in poses/*. Remap to real POSES keys.
 POSE_ALIASES: dict[str, str] = {
@@ -71,16 +71,21 @@ PAL_ALIASES: dict[str, str] = {
 }
 
 
+_KEEP_CASE: set[str] = set()  # plan.brand.keepCase for the film being compiled (e.g. Beta, VaR)
+
+
 def _en_title(zh: str, fallback: str = "") -> str:
     zh = (zh or "").strip()
+    k = _KEEP_CASE
     if zh in EN_GLOSS:
         return EN_GLOSS[zh]
     # already Latin
+    # upper_keep: VaR stays VaR (VAR reads as vector autoregression)
     if zh and re.fullmatch(r"[A-Za-z0-9 .·\-&/,']+", zh):
-        return zh.upper()
+        return upper_keep(zh, k)
     if fallback and re.fullmatch(r"[A-Za-z0-9 .·\-&/,']+", fallback):
-        return fallback.upper()
-    return (fallback or zh or "ITEM").upper()[:24]
+        return upper_keep(fallback, k)
+    return upper_keep(fallback or zh or "ITEM", k)[:24]
 
 
 def _pal(raw: Any) -> str:
@@ -228,6 +233,12 @@ def build_brand_strings(
     zh = title if any("\u4e00" <= c <= "\u9fff" for c in title) else topic
     if topic in EN_GLOSS:
         en = EN_GLOSS[topic]
+    # keepCase words (plan.brand.keepCase + mixed-case acronyms) survive the title upper-casing:
+    # 贝塔系数 Beta must not become 贝塔系数 BETA (acronym_case gate)
+    _keep = set(((plan.get("brand") or {}) if isinstance(plan.get("brand"), dict) else {}).get("keepCase") or []) | _plan_acronyms(plan)
+    for _w in sorted(_keep, key=len, reverse=True):
+        if _w.upper() != _w:
+            en = re.sub(r"(?<![A-Za-z])" + re.escape(_w.upper()) + r"(?![A-Za-z])", _w, en)
     card_n = sum(1 for s in compiled if s.get("kind") == "card")
     chap_n = sum(1 for s in compiled if s.get("kind") == "chapter")
     ticks = max(card_n, 1)
@@ -279,7 +290,7 @@ def build_brand_strings(
         if to and to != frm:
             replace.append({"from": frm, "to": str(to)})
 
-    return {
+    out = {
         "note": (
             "Runtime rewrite of Olympics literals inside eval(scenes.js) by "
             "core/render/page.mjs when demo scenes.js is locked. "
@@ -303,6 +314,72 @@ def build_brand_strings(
         "chapterCount": chap_n,
         "replace": replace,
     }
+    # Per-term overrides (plan.brand): eyebrow label, end card title/line, titles, slogans.
+    # finance-v002 scenes.js reads eyebrow/eyebrowTop/endTitle/endLine; older versions ignore them.
+    brand = plan.get("brand") if isinstance(plan.get("brand"), dict) else {}
+    for k in BRAND_KEYS:
+        if isinstance(brand.get(k), str):
+            out[k] = brand[k]
+    out["keepCase"] = sorted(set(brand.get("keepCase") or []) | _plan_acronyms(plan))
+    return out
+
+
+BRAND_KEYS = ("eyebrow", "eyebrowTop", "endTitle", "endLine", "titleEn", "titleZh",
+              "sloganEn", "sloganZh", "sloganJp", "credit")
+
+
+def _plan_texts(plan: dict[str, Any]) -> list[str]:
+    t: list[str] = []
+    for sh in plan.get("shots") or []:
+        if isinstance(sh, dict):
+            t += [str(sh.get(k) or "") for k in ("text", "onScreenText", "onScreenTextEn")]
+    for ln in ((plan.get("voice") or {}).get("lines") or []):
+        if isinstance(ln, dict):
+            t += [str(ln.get("text") or ""), str(ln.get("cap") or "")]
+    t += [str((plan.get("credits") or {}).get("title") or "")]
+    return t
+
+
+def _plan_acronyms(plan: dict[str, Any]) -> set[str]:
+    return mixed_acronyms_in(_plan_texts(plan))
+
+
+def display_strings(runtime: dict[str, Any], brand: dict[str, Any]) -> list[str]:
+    """Every string the renderer can draw (EDL shot fields + brand strings + replacement targets)."""
+    t: list[str] = []
+    for s in runtime.get("shots") or []:
+        t += [str(s.get(k)) for k in ("zh", "en", "jp", "title", "sub", "family", "tag", "cname") if s.get(k)]
+    t += [str(brand.get(k)) for k in BRAND_KEYS if brand.get(k)]
+    t += [str(r.get("to") or "") for r in brand.get("replace") or []]
+    return t
+
+
+def case_guard(runtime: dict[str, Any], brand: dict[str, Any]) -> list[str]:
+    return acronym_case_violations(display_strings(runtime, brand), set(brand.get("keepCase") or []))
+
+
+def _merge_viz(project: Path, compiled: list[dict[str, Any]], sched_shots: list[dict[str, Any]]) -> None:
+    """finance-v003: attach content/viz.json scenes by shot id (viz_pick.py) and vizDur
+    (= shot dur minus the schedule's outroSec on the last shot, which becomes the end card)."""
+    vp = project / "content" / "viz.json"
+    if not vp.is_file():
+        return
+    try:
+        viz = load_json(vp)
+    except (OSError, ValueError):
+        return
+    raw = (viz or {}).get("shots") or []
+    if isinstance(raw, dict):
+        by_shot = {str(k): v for k, v in raw.items()}
+    else:
+        by_shot = {str(v.get("shot")): v for v in raw if isinstance(v, dict)}
+    outro = {str(s.get("id")): float(s.get("outroSec") or 0.0) for s in sched_shots if isinstance(s, dict)}
+    for s in compiled:
+        v = by_shot.get(str(s.get("id")))
+        if not v:
+            continue
+        s["viz"] = v
+        s["vizDur"] = round(max(0.5, float(s.get("dur") or 0.0) - outro.get(str(s.get("id")), 0.0)), 4)
 
 
 def apply_pictogram_edl(
@@ -338,7 +415,14 @@ def apply_pictogram_edl(
     bar = beat * 4
 
     sched_shots = list((parsed or {}).get("shots") or [])
+    global _KEEP_CASE
+    try:
+        _pl = load_json(project / "content" / "plan.json")
+        _KEEP_CASE = set(((_pl.get("brand") or {}).get("keepCase") or [])) | _plan_acronyms(_pl)
+    except (OSError, ValueError, AttributeError):
+        _KEEP_CASE = set()
     compiled = _compile_shots(shots_in, beat=beat, schedule_shots=sched_shots)
+    _merge_viz(project, compiled, sched_shots)
 
     if parsed and parsed.get("scheduledDurationSec"):
         dur = float(parsed["scheduledDurationSec"])
@@ -362,8 +446,14 @@ def apply_pictogram_edl(
     # Also refresh root edl_content sidecar (times from schedule when available)
     enriched = dict(content)
     enriched["shots"] = []
+    # Keep the AUTHORED beat minimum separately: `beats` below is the scheduled length, and
+    # schedule.py reads this file back — without beatsAuthored every re-schedule ratcheted
+    # shots up to the previous (longer) take's length (stale gaps after a shorter re-take).
+    authored = {str(r.get("id")): r.get("beatsAuthored", r.get("beats")) for r in shots_in if isinstance(r, dict)}
     for s in compiled:
         row = {k: s[k] for k in s if k not in ("b0", "i")}
+        if authored.get(str(s.get("id"))) is not None:
+            row["beatsAuthored"] = authored[str(s.get("id"))]
         enriched["shots"].append(row)
     dump_json(project / "edl_content.json", enriched)
     dump_json(project / "content" / "edl_content.json", enriched)
@@ -419,6 +509,7 @@ def apply_pictogram_edl(
                 plan = None
             break
     brand = build_brand_strings(plan if isinstance(plan, dict) else None, compiled)
+    brand["caseViolations"] = case_guard(runtime, brand)
     brand_path = project / "brand_strings.json"
     dump_json(brand_path, brand)
 
@@ -431,6 +522,7 @@ def apply_pictogram_edl(
         "voCount": len(vo),
         "beat": beat,
         "bpm": bpm_v,
+        "caseViolations": brand["caseViolations"],
     }
 
 
@@ -447,6 +539,8 @@ def main(argv: list[str] | None = None) -> int:
         f"OK edl_runtime shots={info['shotCount']} dur={info['dur']}s "
         f"vo={info['voCount']} → {info['runtimePath']}"
     )
+    for v in info["caseViolations"]:
+        print(f"WARN acronym case: {v} (quality acronym_case FAILs)", file=sys.stderr)
     return 0
 
 

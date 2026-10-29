@@ -224,6 +224,85 @@
         "林立律"
       ],
       "note": "líng lì lǜ vs lín lì lǜ (ing/in); M19 L09 small heard 林立律, whisper-medium cross-check heard 零利率"
+    },
+    {
+      "id": "zhixin-shuiping",
+      "members": [
+        "置信水平",
+        "致信水平",
+        "致信水庭",
+        "制信水平"
+      ]
+    },
+    {
+      "id": "ta-pronoun",
+      "members": [
+        "它",
+        "他"
+      ],
+      "short": [
+        "它",
+        "他"
+      ]
+    },
+    {
+      "members": [
+        "置信度",
+        "致信度",
+        "至性度",
+        "制信度",
+        "致性度"
+      ]
+    },
+    {
+      "members": [
+        "赶赌",
+        "敢赌",
+        "感赌"
+      ]
+    },
+    {
+      "members": [
+        "睡不睡得着",
+        "睡不睡的着"
+      ]
+    },
+    {
+      "members": [
+        "赚钱",
+        "转前",
+        "赚前",
+        "转钱"
+      ],
+      "short": []
+    },
+    {
+      "members": [
+        "挡雷",
+        "挡垒",
+        "当雷",
+        "挡累"
+      ],
+      "short": []
+    },
+    {
+      "members": [
+        "贝塔",
+        "β",
+        "Beta",
+        "beta",
+        "BETA"
+      ],
+      "short": []
+    },
+    {
+      "members": [
+        "晃得",
+        "黄的",
+        "晃的",
+        "黄得"
+      ],
+      "short": []
     }
   ]
 }

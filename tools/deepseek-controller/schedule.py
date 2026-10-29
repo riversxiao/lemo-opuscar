@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from common import dump_json, load_json, load_manifest
+import pacing_profile as pp
 
 
 def _cjk_count(s: str) -> int:
@@ -102,16 +103,23 @@ def schedule(
     exit_: float = 0.25,
     settle: float = 0.35,
     require_all_vo: bool = False,
-    pad_under_target: bool = True,
+    pad_under_target: bool = False,
     line_gap: float = 0.2,
+    pacing: dict[str, Any] | None = None,
+    outro_sec: float = 0.0,
     locked_duration: float | None = None,
     locked_label: str = "locked engine",
 ) -> tuple[dict[str, Any], list[str]]:
     """Return (timeline, errors). Over-target → error (no silent K-scale).
 
-    When content end < targetDurationSec and pad_under_target, extend the last
-    shot (hold-last-beat) so scheduledDurationSec reaches the target. Original
-    shortfall stays visible via contentDurationSec / padSec / underTargetBeforePad.
+    Duration follows content: the target is a ceiling. By default nothing pads the
+    film up to the target; an optional outro/brand card (≤ OUTRO_MAX_SEC) may extend
+    the last shot. Legacy pad_under_target=True still extends the last shot
+    (hold-last-beat) to the target; shortfall stays visible via contentDurationSec /
+    padSec / underTargetBeforePad (quality FAILs padding > OUTRO_MAX_SEC).
+
+    `pacing` (pacing_profile.profile()) overrides enter/exit/settle/line_gap and adds
+    beatPauseSec after lines marked "beat": true.
 
     locked_duration: picture length the engine cannot change (Caption News
     main.js DUR). Copy whose content end passes it is a hard error even when
@@ -119,6 +127,14 @@ def schedule(
     the lock and the tail captions/VO would be cut.
     """
     errors: list[str] = []
+    beat_pause = 0.0
+    if pacing:
+        enter = float(pacing["enterSec"])
+        exit_ = float(pacing["exitSec"])
+        settle = float(pacing["settleSec"])
+        line_gap = float(pacing["lineGapSec"])
+        beat_pause = float(pacing.get("beatPauseSec") or 0.0)
+    outro_sec = max(0.0, min(float(outro_sec or 0.0), pp.OUTRO_MAX_SEC))
     # Map shotId → vo lines
     by_shot: dict[str, list[dict[str, Any]]] = {}
     for ln in lines:
@@ -136,6 +152,7 @@ def schedule(
         sid = sh["id"]
         text = sh.get("onScreenText") or sh.get("text") or ""
         vo_list = by_shot.get(sid, [])
+        prev_beat = False
         vo_dur = 0.0
         vo_ids = []
         vo_offsets: list[float] = []  # start offset of each line within the shot VO run
@@ -143,6 +160,8 @@ def schedule(
             lid = ln["id"]
             if vo_ids:
                 vo_dur += line_gap  # multi-line shot: lines play back to back, never stacked
+                if beat_pause and prev_beat:
+                    vo_dur += beat_pause  # deliberate rhythm beat after the previous line
             if lid in durs:
                 vo_offsets.append(round(vo_dur, 4))
                 vo_dur += durs[lid]
@@ -151,11 +170,15 @@ def schedule(
                 pass  # already recorded
             else:
                 # estimate from text if no wav yet (planning mode)
-                est = read_time_sec(ln.get("text") or "", pad=0.2)
+                est = read_time_sec(ln.get("text") or "", pad=0.2,
+                                    cjk_cps=float((pacing or {}).get("cps") or 4.5))
                 vo_offsets.append(round(vo_dur, 4))
                 vo_dur += est
                 vo_ids.append(lid)
                 errors.append(f"WARN: estimated VO for '{lid}' (no measured duration)")
+            prev_beat = bool(ln.get("beat"))
+        if beat_pause and vo_list and bool(vo_list[-1].get("beat")):
+            vo_dur += beat_pause  # beat on the shot's last line holds before the cut
 
         read = read_time_sec(text)
         need = max(vo_dur, read) + enter + exit_ + settle
@@ -188,6 +211,15 @@ def schedule(
     pad_sec = 0.0
     pad_mode = "none"
     under_before_pad = False
+    applied_outro = 0.0
+    if outro_sec and parsed_shots and not pad_under_target:
+        applied_outro = round(min(outro_sec, max(0.0, target_duration - total)), 4)
+        if applied_outro > 0:
+            last = parsed_shots[-1]
+            last["t1"] = round(last["t1"] + applied_outro, 4)
+            last["dur"] = round(last["t1"] - last["t0"], 4)
+            last["outroSec"] = applied_outro
+            total = float(last["t1"])
 
     # Pad under-target by holding the last beat (extend last shot to target).
     # Over-target still hard-fails — never silent K-scale shrink.
@@ -237,6 +269,12 @@ def schedule(
         "contentDurationSec": content_duration,
         "padSec": pad_sec,
         "padMode": pad_mode,
+        "outroSec": applied_outro,
+        "durationPolicy": "ceiling" if not pad_under_target else "pad-to-target(legacy)",
+        "pacing": (pacing or {}).get("name"),
+        "pacingSource": (pacing or {}).get("source"),
+        "shotOverheadSec": round(enter + exit_ + settle, 4),
+        "lineGapSec": line_gap,
         "underTargetBeforePad": under_before_pad,
         "beatGridSec": beat_grid,
         "fitsTarget": total <= target_duration + 1e-6,
@@ -278,7 +316,7 @@ def _load_shots_from_project(project: Path) -> list[dict[str, Any]]:
                     "onScreenText": s.get("zh"),
                     "motionPreset": s.get("motionPreset"),
                     "role": s.get("role"),
-                    "beats": s.get("beats"),
+                    "beats": s.get("beatsAuthored", s.get("beats")),  # authored minimum, not last schedule
                     "pose": s.get("pose"),
                 }
                 for s in data["shots"]
@@ -312,8 +350,19 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--no-pad",
         action="store_true",
-        help="do not extend last shot when content < target (diagnostic; default pads hold-last-beat)",
+        help="(default now) never pad to target — kept for old scripts",
     )
+    ap.add_argument(
+        "--pad-under-target",
+        action="store_true",
+        help="LEGACY: hold-last-beat pad up to target (quality FAILs padding > 1.5s)",
+    )
+    ap.add_argument("--pacing", help="fast|standard|calm (default plan.json pacing / content_type → profile)")
+    ap.add_argument("--outro", type=float, default=None,
+                    help=f"outro/brand card seconds after the last line (≤{pp.OUTRO_MAX_SEC}; default plan.json outroSec, "
+                         "else profile endCardSec when the last shot is an end/brand card, else 0)")
+    ap.add_argument("--no-beats", action="store_true",
+                    help="do not write beats_runtime.json (P1 sub-beats / keyword emphasis)")
     ap.add_argument("-o", "--output", help="timeline.parsed.json path")
     args = ap.parse_args(argv)
 
@@ -356,6 +405,13 @@ def main(argv: list[str] | None = None) -> int:
 
         locked = locked_engine_dur(project)
 
+    plan_d = pp.load_plan(project)
+    try:
+        prof = pp.profile(project, args.pacing, plan_d)
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 1
+    outro = args.outro if args.outro is not None else pp.default_outro(plan_d, prof)
     timeline, errors = schedule(
         lines=lines,
         shots=shots,
@@ -363,7 +419,9 @@ def main(argv: list[str] | None = None) -> int:
         beat_grid=float(grid),
         durs=durs,
         require_all_vo=args.require_vo,
-        pad_under_target=not args.no_pad,
+        pad_under_target=bool(args.pad_under_target) and not args.no_pad,
+        pacing=prof,
+        outro_sec=outro,
         locked_duration=locked,
         locked_label="locked caption-news",
     )
@@ -386,7 +444,22 @@ def main(argv: list[str] | None = None) -> int:
             f" (padded {timeline['padSec']}s {timeline.get('padMode')}; "
             f"content {timeline.get('contentDurationSec')}s)"
         )
-    print(f"OK scheduled {timeline['scheduledDurationSec']}s{pad_note} → {out}")
+    print(f"OK scheduled {timeline['scheduledDurationSec']}s{pad_note} pacing={prof['name']} "
+          f"({prof['source']}) overhead={timeline['shotOverheadSec']}s/shot → {out}")
+
+    # P1 visual sub-beats + {keyword} emphasis (all styles, page.mjs bridge). Opt out: --no-beats.
+    if not args.no_beats and Path(out).resolve() == (project / "timeline.parsed.json").resolve():
+        try:
+            import beats as beats_mod
+
+            old_rt = beats_mod._load(project / "beats_runtime.json", {}) or {}
+            rt = beats_mod.build(project, prof["name"], drift=old_rt.get("drift"))
+            beats_mod.write(project, rt)
+            st = rt["stats"]
+            print(f"OK beats {st['reframes']} reframes, {st['emphasis']} keyword frames; "
+                  f"beat max {st['beatMaxSec']}s (edit shot max {st['editShotMaxSec']}s) → beats_runtime.json")
+        except (SystemExit, Exception) as e:  # never block scheduling on the visual layer
+            print(f"WARN: beats_runtime not written: {e}", file=sys.stderr)
 
     # Caption News: push cues into touchable timeline.json (main.js SHOTS/DUR stay locked).
     if style == "caption-news" and (project / "timeline.json").is_file():

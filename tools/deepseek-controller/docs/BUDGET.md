@@ -4,6 +4,16 @@
 **Timezone:** Asia/Shanghai (UTC+8).  
 **Rule:** no secrets; mark unknowns as `unknown` / placeholders. Do **not** silently route free-tier failures to paid models (see 额度总管 / OpenCode pin).
 
+
+## Free-first LLM (dialogue-loop) — 2026-10-29
+
+`dialogue-loop` uses `llm_free.FreeFirstClient` by default:
+
+1. TokenHarbor `deepseek-v4.1-flash:free` (`TOKENHARBOR_API_KEY`)
+2. OpenRouter `nvidia/nemotron-3.5-lightning:free`, then `recursive/flint-v1.0:free`
+
+OpenCode free models are **not** in the chain (quota exhausted). Paid DeepSeek official / paid OpenRouter are **never** used unless `--allow-paid`. Per-call `provider/model` is written into the ledger `meta.callLog`. `cny` is 0 for free providers.
+
 ## Machine ledger (preferred)
 
 Append-only JSONL:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -86,6 +87,14 @@ def cmd_schedule(args: argparse.Namespace) -> int:
         argv.append("--require-vo")
     if getattr(args, "no_pad", False):
         argv.append("--no-pad")
+    if getattr(args, "pad_under_target", False):
+        argv.append("--pad-under-target")
+    if getattr(args, "pacing", None):
+        argv += ["--pacing", args.pacing]
+    if getattr(args, "no_beats", False):
+        argv.append("--no-beats")
+    if getattr(args, "outro", None) is not None:
+        argv += ["--outro", str(args.outro)]
     if args.output:
         argv += ["-o", args.output]
     return schedule_main(argv)
@@ -119,6 +128,7 @@ def cmd_mix(args: argparse.Namespace) -> int:
             bed_gain=args.bed_gain,
             bed_source=args.bed_source,
             music_caption=args.music_caption,
+            music_library=Path(args.music_library) if args.music_library else None,
         )
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
@@ -191,11 +201,18 @@ def cmd_tts(args: argparse.Namespace) -> int:
             rate=args.rate,
             pitch=args.pitch,
             post_words=not args.no_post_words,
+            content_type=getattr(args, "content_type", None),
+            pacing=getattr(args, "pacing", None),
+            speed=getattr(args, "speed", None),
+            trim_pauses=not getattr(args, "no_trim", False),
         )
     except (FileNotFoundError, SystemExit) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
-    print(f"OK tts provider={meta['provider']} → {meta['voices']}")
+    print(f"OK tts provider={meta['provider']} pacing={meta.get('pacing')} ({meta.get('pacingSource')}) "
+          f"rate={meta.get('rate')} speed={meta.get('speed')} → {meta['voices']}")
+    if meta.get("pauseTrim"):
+        print(f"  pause_trim removed {meta['pauseTrim']['removedSec']}s (max pause {meta['pauseTrim']['maxPauseSec']}s)")
     for lid, sec in (meta.get('dur') or {}).items():
         print(f"  {lid}: {sec}s")
     if meta.get('wordsRel'):
@@ -213,12 +230,24 @@ def cmd_dialogue_loop(args: argparse.Namespace) -> int:
             argv += [flag, str(val)]
     if args.no_ledger:
         argv.append("--no-ledger")
+    if getattr(args, "allow_paid", False):
+        argv.append("--allow-paid")
+    if getattr(args, "full_context", False):
+        argv.append("--full-context")
+    if getattr(args, "check_only", False):
+        argv.append("--check-only")
+    if getattr(args, "approved_by", None):
+        argv += ["--approved-by", args.approved_by]
     return dialogue_loop.main(argv)
 
 
 def cmd_dialogue_check(args: argparse.Namespace) -> int:
     import dialogue_check
-    argv = ["--project", args.project, "--rate", str(args.rate), "--tolerance", str(args.tolerance)]
+    argv = ["--project", args.project, "--tolerance", str(args.tolerance)]
+    if args.rate:
+        argv += ["--rate", str(args.rate)]
+    if getattr(args, "pacing", None):
+        argv += ["--pacing", args.pacing]
     if args.lines:
         argv += ["--lines", args.lines]
     if args.target:
@@ -226,6 +255,28 @@ def cmd_dialogue_check(args: argparse.Namespace) -> int:
     if args.json:
         argv.append("--json")
     return dialogue_check.main(argv)
+
+
+def cmd_beats(args: argparse.Namespace) -> int:
+    import beats
+    argv = ["--project", args.project]
+    if args.pacing:
+        argv += ["--pacing", args.pacing]
+    if args.dry_run:
+        argv.append("--dry-run")
+    return beats.main(argv)
+
+
+def cmd_pacing_rework(args: argparse.Namespace) -> int:
+    import pacing_rework
+    argv = ["--project", args.project, "--media", args.media, "--max-rounds", str(args.max_rounds)]
+    if args.mix:
+        argv += ["--mix", args.mix]
+    if args.pacing:
+        argv += ["--pacing", args.pacing]
+    if args.dry_run:
+        argv.append("--dry-run")
+    return pacing_rework.main(argv)
 
 
 def cmd_quality(args: argparse.Namespace) -> int:
@@ -244,6 +295,8 @@ def cmd_quality(args: argparse.Namespace) -> int:
         argv.append("--delivery")
     if getattr(args, "asr_mode", None):
         argv += ["--asr-mode", args.asr_mode]
+    if getattr(args, "pacing_enforce", False):
+        argv.append("--pacing-enforce")
     if args.output:
         argv += ["-o", args.output]
     return quality_main(argv)
@@ -493,8 +546,13 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--no-pad",
         action="store_true",
-        help="do not hold-last-beat pad when content < target",
+        help="(default) no hold-last-beat pad; kept for old scripts",
     )
+    s.add_argument("--pad-under-target", action="store_true",
+                   help="LEGACY hold-last-beat pad to target (quality FAILs padding > 1.5s)")
+    s.add_argument("--pacing", help="fast|standard|calm (default plan.json pacing / content_type)")
+    s.add_argument("--no-beats", action="store_true", help="skip beats_runtime.json (P1 sub-beats)")
+    s.add_argument("--outro", type=float, default=None, help="outro/brand card seconds (≤1.5)")
     s.add_argument("-o", "--output")
     s.set_defaults(func=cmd_schedule)
 
@@ -517,8 +575,18 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--lines", help="override lines.json path")
     t.add_argument("--out", help="voices dir (default: <project>/voices)")
     t.add_argument("--voice", default=None)
-    t.add_argument("--rate", default="+0%")
+    t.add_argument("--rate", default=None, help="edge rate (default: pacing profile edgeRate, standard +10%%)")
+    t.add_argument("--speed", type=float, default=None,
+                   help="stepaudio speed (default: env LEMO_TTS_STEPAUDIO_SPEED, else pacing profile)")
+    t.add_argument("--pacing", default=None, help="fast|standard|calm (default plan.json pacing / content_type)")
+    t.add_argument("--no-trim", action="store_true", help="skip pause_trim after synthesis")
     t.add_argument("--pitch", default="+0Hz")
+    t.add_argument(
+        "--content-type",
+        default=None,
+        help="elevenlabs-dialogue guest by content: market|concept|personal|english "
+             "(default: plan.json content_type, else market→Linda; ELEVENLABS_VOICE_GUEST overrides)",
+    )
     t.add_argument("--no-post-words", action="store_true", help="skip zh words_rel refresh")
     t.add_argument("--list", dest="list_providers", action="store_true", help="show provider readiness")
     t.add_argument("--json", action="store_true", help="with --list, JSON output")
@@ -534,7 +602,8 @@ def build_parser() -> argparse.ArgumentParser:
     dc.add_argument("--project", required=True)
     dc.add_argument("--lines")
     dc.add_argument("--target", type=float, default=None, help="seconds (default content/plan.json)")
-    dc.add_argument("--rate", type=float, default=4.5, help="字/秒 estimate (default 4.5)")
+    dc.add_argument("--rate", type=float, default=None, help="字/秒 estimate (default: pacing profile, standard 5.3)")
+    dc.add_argument("--pacing", default=None, help="fast|standard|calm (default plan.json pacing / content_type)")
     dc.add_argument("--tolerance", type=float, default=0.15)
     dc.add_argument("--json", action="store_true")
     dc.set_defaults(func=cmd_dialogue_check)
@@ -543,7 +612,13 @@ def build_parser() -> argparse.ArgumentParser:
     dl.add_argument("--project", required=True)
     dl.add_argument("--lines")
     dl.add_argument("--brief", help="default <project>/BRIEF.md")
-    dl.add_argument("--max-rounds", type=int, default=4)
+    dl.add_argument("--max-rounds", type=int, default=int(os.environ.get("DC_DIALOGUE_MAX_ROUNDS", "2")),
+                    help="critic/revise rounds (default 2); not PASS after that → NEEDS_HUMAN, no more LLM calls")
+    dl.add_argument("--full-context", action="store_true",
+                    help="old full grounding (DIALOGUE.md + SKILL + BRIEF/FACTS/TREATMENT); default is compact")
+    dl.add_argument("--check-only", action="store_true",
+                    help="approved/locked wording: 1 critic pass, no reviser, no write-back → PASS or FLAGGED (report)")
+    dl.add_argument("--approved-by", help="with --check-only: human approver of the locked wording (recorded in evidence)")
     dl.add_argument("--target", type=float, default=None)
     dl.add_argument("--effort", default="high", choices=["low", "high", "max"])
     dl.add_argument("--max-cny", type=float, default=2.0)
@@ -551,7 +626,24 @@ def build_parser() -> argparse.ArgumentParser:
     dl.add_argument("--mock", help="tests only: canned critic/reviser replies (no network)")
     dl.add_argument("--item", help="ledger item label")
     dl.add_argument("--no-ledger", action="store_true")
+    dl.add_argument("--allow-paid", action="store_true",
+                    help="after all free models fail, use paid DeepSeek official (OFF by default)")
     dl.set_defaults(func=cmd_dialogue_loop)
+
+    be = sub.add_parser("beats", help="visual sub-beats + {keyword} emphasis → beats_runtime.json (all styles)")
+    be.add_argument("--project", required=True)
+    be.add_argument("--pacing", default=None)
+    be.add_argument("--dry-run", action="store_true")
+    be.set_defaults(func=cmd_beats)
+
+    pr = sub.add_parser("pacing-rework", help="pacing gate visual FAIL → re-render, max 2 rounds (WARN untouched)")
+    pr.add_argument("--project", required=True)
+    pr.add_argument("--media", required=True)
+    pr.add_argument("--mix", default=None, help="default <project>/out/mix.wav")
+    pr.add_argument("--pacing", default=None)
+    pr.add_argument("--max-rounds", type=int, default=2)
+    pr.add_argument("--dry-run", action="store_true")
+    pr.set_defaults(func=cmd_pacing_rework)
 
     q = sub.add_parser("quality", help="write quality.json and gate delivery")
     q.add_argument("--project", required=True)
@@ -577,6 +669,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="recommended delivery path: --require-vo + zh plan → zh-homophone-tolerant "
         "(English stays strict unless --asr-mode set)",
     )
+    q.add_argument("--pacing-enforce", action="store_true",
+                   help="pacing gate FAIL blocks delivery (P1); default report-only WARN under --delivery")
     q.add_argument("-o", "--output")
     q.set_defaults(func=cmd_quality)
 
@@ -607,6 +701,7 @@ def build_parser() -> argparse.ArgumentParser:
     m.add_argument("--bed-source", choices=("procedural", "stepaudio"), default="procedural",
                    help="stepaudio = StepFun stepaudio-3-music-preview instrumental (free preview; STEPFUN_API_KEY)")
     m.add_argument("--music-caption", default=None, help="style prompt for --bed-source stepaudio")
+    m.add_argument("--music-library", default=None, help="persistent StepAudio bed dir (raw.wav + meta.json); reused, no request")
     m.add_argument(
         "--vo-only",
         action="store_true",

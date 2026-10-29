@@ -158,6 +158,15 @@ def probe_duration(path: Path) -> float:
     return float(probe_video(path)["duration"])
 
 
+def probe_fps(path: Path, default: int = 24) -> int:
+    """Integer timebase of the master's frame rate (30 for a 30fps render), via
+    probe_video; `default` when ffprobe is missing or the rate is unreadable.
+    Handoff writers use resolve_frame (keeps 29.97 as NTSC); this is the
+    integer shorthand upstream callers expect."""
+    pv = probe_video(path)
+    return fps_timebase(float(pv["fps"]))[0] if pv["fpsProbed"] else default
+
+
 def resolve_frame(
     mp4: Path,
     *,

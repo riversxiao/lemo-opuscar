@@ -1,0 +1,111 @@
+{
+  "_doc": "beta-v001: 台词教父 final lines + per-line visual (copied from /workspace/films/dialogue-drafts/beta-v001.lines.json; drafts file is read-only), 通俗金融学.",
+  "seq": "004",
+  "term": "Beta",
+  "zh": "贝塔",
+  "approvedBy": "金融专家 2026-10-29 (台词教父 final lines; batch approval waived by wen hao 21:46 Asia/Shanghai; do not rewrite)",
+  "approvedAt": "2026-10-29T21:46:00+08:00",
+  "brand": {
+    "eyebrow": "MARKET RISK",
+    "titleEn": "Beta",
+    "titleZh": "贝塔",
+    "endTitle": "贝塔 Beta",
+    "endLine": "晃得猛 ≠ 赚得多",
+    "sloganEn": "Beta",
+    "sloganZh": "贝塔",
+    "sloganJp": "",
+    "keepCase": [
+      "Beta"
+    ]
+  },
+  "glossary": {},
+  "cards": [
+    {
+      "shot": "p0",
+      "zh": "跌一大截",
+      "en": "DROPS HARDER"
+    },
+    {
+      "shot": "p1",
+      "zh": "贝塔",
+      "en": "Beta"
+    },
+    {
+      "shot": "p2",
+      "zh": "动几份",
+      "en": "HOW MANY TIMES"
+    },
+    {
+      "shot": "p3",
+      "zh": "大于一",
+      "en": "ABOVE ONE"
+    },
+    {
+      "shot": "p4",
+      "zh": "小于一",
+      "en": "BELOW ONE"
+    },
+    {
+      "shot": "p5",
+      "zh": "跌起来",
+      "en": "DOWN TOO"
+    },
+    {
+      "shot": "p6",
+      "zh": "坐得住吗",
+      "en": "CAN YOU SIT TIGHT"
+    }
+  ],
+  "lines": [
+    {
+      "id": "L01",
+      "role": "hook",
+      "shot": "p0",
+      "cap": "大盘跌一点，它跌{一大截}？",
+      "visual": "两条线一起波动：细线是大盘，小幅下沉；粗线是个股，同一时刻猛地下坠一大截"
+    },
+    {
+      "id": "L02",
+      "role": "evidence",
+      "shot": "p1",
+      "cap": "看它跟大盘晃多猛，叫{贝塔}（Beta）。",
+      "visual": "两条线并排起伏，个股线的振幅明显大，中间标出“贝塔”两个字",
+      "say": "看它跟大盘晃多猛，叫贝塔。"
+    },
+    {
+      "id": "L03",
+      "role": "evidence",
+      "shot": "p2",
+      "cap": "说白了：大盘动一份，它通常跟着动{几份}。",
+      "visual": "大盘线往上走一格，个股线跟着走两格，用格子刻度对齐"
+    },
+    {
+      "id": "L04",
+      "role": "evidence",
+      "shot": "p3",
+      "cap": "贝塔{大于一}，过去看，比大盘晃得猛。",
+      "visual": "贝塔>1：个股线振幅比大盘大，像大浪压过小浪"
+    },
+    {
+      "id": "L05",
+      "role": "evidence",
+      "shot": "p4",
+      "cap": "{小于一}，就晃得轻一些。",
+      "visual": "贝塔<1：个股线振幅比大盘小，像小船在平缓水面"
+    },
+    {
+      "id": "L06",
+      "role": "turn",
+      "shot": "p5",
+      "cap": "可晃得猛，不等于赚得多，{跌起来}也跌得多。",
+      "visual": "涨的时候粗线冲得高，跌的时候也砸得深，上下两段对称高亮"
+    },
+    {
+      "id": "L07",
+      "role": "payoff",
+      "shot": "p6",
+      "cap": "所以先看贝塔，问自己：这么晃，我{坐得住}吗？",
+      "visual": "一个人坐在过山车座椅上，过山车轨道就是那条粗线，镜头停在下坡前"
+    }
+  ]
+}

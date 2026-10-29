@@ -1,24 +1,28 @@
 {
   "targetDurationSec": 32.0,
-  "scheduledDurationSec": 32.0,
-  "contentDurationSec": 17.25,
-  "padSec": 14.75,
-  "padMode": "hold-last-beat",
-  "underTargetBeforePad": true,
+  "scheduledDurationSec": 14.75,
+  "contentDurationSec": 13.75,
+  "padSec": 0.0,
+  "padMode": "none",
+  "outroSec": 1.0,
+  "durationPolicy": "ceiling",
+  "pacing": "standard",
+  "pacingSource": "default",
+  "shotOverheadSec": 0.4,
+  "lineGapSec": 0.25,
+  "underTargetBeforePad": false,
   "beatGridSec": 0.25,
   "fitsTarget": true,
   "requireVo": true,
   "ok": true,
   "errors": [],
-  "warnings": [
-    "WARN: padded 14.75s (hold-last-beat) — content was 17.25s under target 32.00s"
-  ],
+  "warnings": [],
   "shots": [
     {
       "id": "s1",
       "t0": 0.0,
-      "t1": 2.75,
-      "dur": 2.75,
+      "t1": 2.25,
+      "dur": 2.25,
       "voIds": [
         "l1"
       ],
@@ -33,9 +37,9 @@
     },
     {
       "id": "s2",
-      "t0": 2.75,
-      "t1": 5.75,
-      "dur": 3.0,
+      "t0": 2.25,
+      "t1": 4.75,
+      "dur": 2.5,
       "voIds": [
         "l2"
       ],
@@ -50,9 +54,9 @@
     },
     {
       "id": "s3",
-      "t0": 5.75,
-      "t1": 9.0,
-      "dur": 3.25,
+      "t0": 4.75,
+      "t1": 7.25,
+      "dur": 2.5,
       "voIds": [
         "l3"
       ],
@@ -67,9 +71,9 @@
     },
     {
       "id": "s4",
-      "t0": 9.0,
-      "t1": 12.0,
-      "dur": 3.0,
+      "t0": 7.25,
+      "t1": 9.75,
+      "dur": 2.5,
       "voIds": [
         "l4"
       ],
@@ -84,9 +88,9 @@
     },
     {
       "id": "s5",
-      "t0": 12.0,
-      "t1": 15.25,
-      "dur": 3.25,
+      "t0": 9.75,
+      "t1": 12.5,
+      "dur": 2.75,
       "voIds": [
         "l5"
       ],
@@ -101,9 +105,9 @@
     },
     {
       "id": "s6",
-      "t0": 15.25,
-      "t1": 32.0,
-      "dur": 16.75,
+      "t0": 12.5,
+      "t1": 14.75,
+      "dur": 2.25,
       "voIds": [],
       "voOffsets": [],
       "voDur": 0.0,
@@ -111,8 +115,7 @@
       "text": "复利",
       "motionPreset": "pull-out",
       "role": "end",
-      "padSec": 14.75,
-      "padMode": "hold-last-beat"
+      "outroSec": 1.0
     }
   ],
   "cues": [
@@ -120,31 +123,31 @@
       "type": "voice",
       "id": "l1",
       "shotId": "s1",
-      "t": 0.35
+      "t": 0.15
     },
     {
       "type": "voice",
       "id": "l2",
       "shotId": "s2",
-      "t": 3.1
+      "t": 2.4
     },
     {
       "type": "voice",
       "id": "l3",
       "shotId": "s3",
-      "t": 6.1
+      "t": 4.9
     },
     {
       "type": "voice",
       "id": "l4",
       "shotId": "s4",
-      "t": 9.35
+      "t": 7.4
     },
     {
       "type": "voice",
       "id": "l5",
       "shotId": "s5",
-      "t": 12.35
+      "t": 9.9
     }
   ]
 }

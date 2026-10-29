@@ -30,7 +30,9 @@
     "edge",
     "kokoro",
     "qwen3",
-    "omnivoice"
+    "omnivoice",
+    "stepaudio",
+    "elevenlabs"
   ],
   "shotRoles": [
     "hook",

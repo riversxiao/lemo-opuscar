@@ -19,9 +19,10 @@ FORBIDDEN_KEY_RE = re.compile(
     r"\.mjs$|\.jsx?$|\.ts$|\.py$|\.wasm$)",
     re.I,
 )
+# JS keywords are lowercase: match them case-sensitively so finance terms like "VaR" / "VAR" pass.
+FORBIDDEN_KEYWORD_RE = re.compile(r"^\s*(import|export|function|const|let|var|class)\b")
 FORBIDDEN_VALUE_RE = re.compile(
-    r"(^\s*(import|export|function|const|let|var|class)\b|"
-    r"\brequire\s*\(|\beval\s*\(|new\s+Function\b|"
+    r"(\brequire\s*\(|\beval\s*\(|new\s+Function\b|"
     r"gl\.(?:compile|shader)|#include\s|<script|"
     r"(?:^|[\"'])(?:\.\./|\./)?(?:styles|core|node_modules)/|"
     r"/etc/|/usr/|\.ssh/)",
@@ -61,6 +62,35 @@ def film_path(raw: str | Path) -> Path:
     if s == LEGACY_FILMS_ROOT or s.startswith(LEGACY_FILMS_ROOT + "/"):
         return films_root() / s[len(LEGACY_FILMS_ROOT):].lstrip("/")
     return Path(s)
+# Mixed-case acronyms (VaR, CoVaR, mVaR, iTraxx) change meaning when uppercased: VAR is a
+# different model (vector autoregression). Any word with a capital after its first letter is kept.
+_MIXED_RE = re.compile(r"^(?=.*[a-z])(?:[a-z]+[A-Z]|[A-Z][A-Za-z]*[a-z][A-Za-z]*[A-Z]|[A-Z][a-z]+[A-Z])[A-Za-z0-9]*$")
+
+
+def is_mixed_acronym(word: str) -> bool:
+    return bool(_MIXED_RE.match(word or ""))
+
+
+def upper_keep(s: str, keep: "list[str] | tuple[str, ...] | set[str]" = ()) -> str:
+    """str.upper() that leaves mixed-case acronyms (and any word in `keep`) as written."""
+    keep_set = {k for k in keep if k}
+    return re.sub(r"[A-Za-z][A-Za-z0-9]*", lambda m: m.group(0) if (m.group(0) in keep_set or is_mixed_acronym(m.group(0))) else m.group(0).upper(), s or "")
+
+
+def acronym_case_violations(texts: "list[str]", acronyms: "set[str]") -> list[str]:
+    """Strings that show an acronym uppercased (VAR for VaR). Words written in upper case on
+    purpose elsewhere (e.g. a separate real acronym VAR) can't be told apart — so a plan that
+    uses VaR must not show VAR anywhere."""
+    out = []
+    for t in texts:
+        for a in acronyms:
+            if a.upper() != a and re.search(r"(?<![A-Za-z])" + re.escape(a.upper()) + r"(?![A-Za-z])", t or ""):
+                out.append(f"{a}→{a.upper()}: {t[:60]!r}")
+    return out
+
+
+def mixed_acronyms_in(texts: "list[str]") -> set[str]:
+    return {w for t in texts for w in re.findall(r"[A-Za-z][A-Za-z0-9]*", t or "") if is_mixed_acronym(w)}
 
 
 def load_json(path: Path) -> Any:
@@ -136,7 +166,7 @@ def walk_forbidden(obj: Any, path: str = "$") -> list[str]:
         for i, v in enumerate(obj):
             errs.extend(walk_forbidden(v, f"{path}[{i}]"))
     elif isinstance(obj, str):
-        if FORBIDDEN_VALUE_RE.search(obj):
+        if FORBIDDEN_VALUE_RE.search(obj) or FORBIDDEN_KEYWORD_RE.search(obj):
             errs.append(f"{path}: forbidden string value (looks like code/path)")
         # bare absolute unix paths outside allowlisted short ids
         if obj.startswith("/") and len(obj) > 1 and not HEX.match(obj):

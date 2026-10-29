@@ -155,6 +155,98 @@ export async function openDemo(dir, { w = 1920, h = 1080, q = '', warnings = fal
     console.error('[texts_runtime] bridge failed:', (e && e.message) ? e.message.split('\n')[0] : e);
     process.exit(1);
   }
+  // Beats bridge (pacing P1, every style): touchable beats_runtime.json (tools/deepseek-controller/beats.py)
+  // wraps window.render(t) with a deterministic CSS reframe on <body> (sub-beats of long shots, rework
+  // drift windows) and a keyword emphasis pulse (1.5 % pull-back thump + accent border on an overlay outside <body>).
+  // window.TEXTS boxes are mapped through the same transform and the scale is limited so every text box
+  // that is on screen during a beat stays fully in frame. No new on-screen text. No-op without the JSON.
+  try {
+    const beatsApplied = await page.evaluate(async ([W, H]) => {
+      const r = await fetch('beats_runtime.json', { cache: 'no-store' });
+      if (!r.ok) return { ok: false, reason: 'missing' };
+      const rt = await r.json();
+      const beats = (rt && Array.isArray(rt.beats)) ? rt.beats : [];
+      const emph = (rt && Array.isArray(rt.emphasis)) ? rt.emphasis : [];
+      const drift = (rt && Array.isArray(rt.drift)) ? rt.drift : [];
+      if (!beats.length && !emph.length && !drift.length) return { ok: false, reason: 'empty' };
+      if (typeof window.render !== 'function') return { ok: false, reason: 'no-render' };
+      const M = 4, SX = 0.05 * W + 4, SY = 0.05 * H + 4, cx = W / 2, cy = H / 2, PUNCH = Number.isFinite(+rt.punch) ? +rt.punch : -0.015, BORDER = +rt.border || 6;
+      const origTexts = typeof window.TEXTS === 'function' ? window.TEXTS : null;
+      const texts = t => { try { return origTexts ? (origTexts(t) || []) : []; } catch (_) { return []; } };
+      const unionOf = (t0, t1) => {
+        let u = null;
+        for (let t = t0; t <= t1 + 1e-6; t += 0.2) for (const b of texts(Math.min(t, t1))) {
+          if (![b.x0, b.y0, b.x1, b.y1].every(Number.isFinite)) continue;
+          u = u ? [Math.min(u[0], b.x0), Math.min(u[1], b.y0), Math.max(u[2], b.x1), Math.max(u[3], b.y1)] : [b.x0, b.y0, b.x1, b.y1];
+        }
+        return u;
+      };
+      for (const b of beats) b._u = unionOf(+b.t0, +b.t1);
+      const beatAt = t => { for (const b of beats) if (t >= b.t0 && t < b.t1) return b; return beats.length && t >= beats[beats.length - 1].t1 ? beats[beats.length - 1] : null; };
+      const fit = (S, ox, oy, u) => {   // clamp offsets: keep the frame covered and the text union inside
+        const cvx = Math.abs(S - 1) * cx, cvy = Math.abs(S - 1) * cy;   // push-in: stay covered; pull-back: bg fills
+        let lo = -cvx, hi = cvx, loy = -cvy, hiy = cvy;
+        if (u) {   // title-safe: text never moves into the 5 % margin (or further out than it already was)
+          const L = Math.min(u[0], SX) - 2, R = Math.max(u[2], W - SX) + 2, T = Math.min(u[1], SY) - 2, B = Math.max(u[3], H - SY) + 2;
+          lo = Math.max(lo, Math.max(M, L) - cx - (u[0] - cx) * S); hi = Math.min(hi, Math.min(W - M, R) - cx - (u[2] - cx) * S);
+          loy = Math.max(loy, Math.max(M, T) - cy - (u[1] - cy) * S); hiy = Math.min(hiy, Math.min(H - M, B) - cy - (u[3] - cy) * S);
+        }
+        if (lo > hi + 1e-6 || loy > hiy + 1e-6) return null;
+        return [S, Math.min(hi, Math.max(lo, ox)), Math.min(hiy, Math.max(loy, oy))];
+      };
+      const xf = t => {
+        const b = beatAt(t);
+        let S = b ? (+b.scale || 1) : 1, ox = b ? (+b.ox || 0) : 0, oy = b ? (+b.oy || 0) : 0;
+        const dr = (b && +b.drift) || 0;
+        if (dr && b.t1 > b.t0) S *= 1 + dr * (t - b.t0) / (b.t1 - b.t0);
+        for (const w of drift) if (t >= w.t0 && t < w.t1) { const a = Number.isFinite(+w.amount) ? +w.amount : -0.015; S *= 1 + a * (t - w.t0) / Math.max(0.1, w.t1 - w.t0); ox += (+w.dx || 0) * (t - w.t0) / Math.max(0.1, w.t1 - w.t0); }
+        let pulse = 0;
+        for (const e of emph) {
+          const d = +e.dur || 0.4, rise = Math.min(0.06, d / 3), k = t - e.t;
+          if (k < 0 || k > d) continue;
+          pulse = Math.max(pulse, k < rise ? k / rise : 1 - (k - rise) / (d - rise));
+        }
+        S *= 1 + PUNCH * pulse;
+        const u = b ? b._u : null;
+        let f = null;
+        if (S < 1) f = fit(S, ox, oy, u) || [S, 0, 0];
+        else for (let s = S; s >= 1 - 1e-9 && !(f = fit(s, ox, oy, u)); s -= 0.003);
+        return { f: f || [1, 0, 0], pulse };
+      };
+      const body = document.body, br = body.getBoundingClientRect();
+      const bgOf = el => { const c = el && getComputedStyle(el).backgroundColor; return c && !/rgba\(0, 0, 0, 0\)|transparent/.test(c) ? c : null; };
+      const fill = rt.background || bgOf(body) || bgOf(document.documentElement) || bgOf(body.firstElementChild) || '#000';
+      document.documentElement.style.background = fill;   // revealed edge on a pull-back
+      body.style.transformOrigin = `${cx - br.left}px ${cy - br.top}px`;
+      const ov = document.createElement('div');
+      ov.id = '__beats_overlay';
+      ov.style.cssText = `position:fixed;left:0;top:0;width:${W}px;height:${H}px;box-sizing:border-box;` +
+        `border:${BORDER}px solid ${rt.accent || '#FFC21A'};opacity:0;pointer-events:none;z-index:2147483647`;
+      document.documentElement.appendChild(ov);
+      const orig = window.render;
+      window.render = function (t, ...rest) {
+        const out = orig.call(this, t, ...rest);
+        const { f: [S, ox, oy], pulse } = xf(+t);
+        body.style.transform = (S === 1 && !ox && !oy) ? '' : `translate(${ox.toFixed(2)}px,${oy.toFixed(2)}px) scale(${S.toFixed(5)})`;
+        ov.style.opacity = pulse > 0 ? (0.9 * pulse).toFixed(3) : '0';
+        return out;
+      };
+      if (origTexts) window.TEXTS = t => {
+        const { f: [S, ox, oy] } = xf(+t);
+        return texts(t).map(b => ({ ...b,
+          x0: cx + (b.x0 - cx) * S + ox, x1: cx + (b.x1 - cx) * S + ox,
+          y0: cy + (b.y0 - cy) * S + oy, y1: cy + (b.y1 - cy) * S + oy }));
+      };
+      window.__BEATS_RUNTIME = rt; window.__BEATS_XF = xf; window.__BEATS_RUNTIME_APPLIED = true;
+      return { ok: true, beats: beats.filter(b => b.kind === 'reframe').length, emph: emph.length, drift: drift.length };
+    }, [w, h]);
+    if (beatsApplied && beatsApplied.ok) {
+      console.error(`[beats_runtime] reframes=${beatsApplied.beats} emphasis=${beatsApplied.emph} drift=${beatsApplied.drift} (render/TEXTS wrapped; style files untouched)`);
+    }
+  } catch (e) {
+    console.error('[beats_runtime] bridge failed:', (e && e.message) ? e.message.split('\n')[0] : e);
+    process.exit(1);
+  }
   return { browser, page };
 }
 export function closeServer() { if (srv) srv.server.close(); }

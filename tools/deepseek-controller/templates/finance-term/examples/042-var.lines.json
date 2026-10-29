@@ -1,0 +1,91 @@
+{
+  "_doc": "Worked example: FRM core100 #42 (var-template-v001). Lines are the 金融专家-approved FINAL wording.",
+  "seq": "042",
+  "term": "Value at Risk (VaR)",
+  "zh": "风险价值",
+  "approvedBy": "金融专家 (FRM finance expert; relayed by wen hao 2026-10-29 19:27 Asia/Shanghai: FINAL fact-checked lines, do not rewrite)",
+  "approvedAt": "2026-10-29T19:27:00+08:00",
+  "cards": [
+    {
+      "shot": "p0",
+      "zh": "风险价值",
+      "en": "VALUE AT RISK"
+    },
+    {
+      "shot": "p1",
+      "zh": "VaR",
+      "en": "VAR"
+    },
+    {
+      "shot": "p2",
+      "zh": "置信水平",
+      "en": "CONFIDENCE LEVEL"
+    },
+    {
+      "shot": "p3",
+      "zh": "99% · 单日",
+      "en": "99% · 1 DAY"
+    },
+    {
+      "shot": "p4",
+      "zh": "剩下1%",
+      "en": "THE OTHER 1%"
+    },
+    {
+      "shot": "p5",
+      "zh": "超过之后",
+      "en": "BEYOND VAR"
+    },
+    {
+      "shot": "p6",
+      "zh": "ES",
+      "en": "EXPECTED SHORTFALL"
+    }
+  ],
+  "lines": [
+    {
+      "id": "L01",
+      "role": "hook",
+      "shot": "p0",
+      "cap": "一百万。不是最多亏这么多。"
+    },
+    {
+      "id": "L02",
+      "role": "evidence",
+      "shot": "p1",
+      "cap": "这个指标叫 VaR，中文是{风险价值}。",
+      "say": "这个指标叫 V-A-R，中文是风险价值。"
+    },
+    {
+      "id": "L03",
+      "role": "evidence",
+      "shot": "p2",
+      "cap": "它估的是：在一定{置信水平}下，一段时间内的损失门槛。"
+    },
+    {
+      "id": "L04",
+      "role": "evidence",
+      "shot": "p3",
+      "cap": "比如单日、{99%置信度}的 VaR 是一百万元。",
+      "say": "比如单日、99%置信度的 V-A-R 是一百万元。"
+    },
+    {
+      "id": "L05",
+      "role": "turn",
+      "shot": "p4",
+      "cap": "是99%的日子，亏不过它。剩下1%，可能亏更多。"
+    },
+    {
+      "id": "L06",
+      "role": "evidence",
+      "shot": "p5",
+      "cap": "可它没说，{超过之后}还会亏多少。"
+    },
+    {
+      "id": "L07",
+      "role": "payoff",
+      "shot": "p6",
+      "cap": "所以银行监管改看尾巴：97.5%的{ES}，最差那 2.5% 的日子平均亏多少。"
+    }
+  ]
+}
