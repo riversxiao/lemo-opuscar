@@ -15,6 +15,13 @@ TERM_DIR=$(cd "$1" && pwd); P=${2:-${TERM_DIR}-v001}
 REPO=$(cd "$(dirname "$0")/../../../.." && pwd); CTL="$REPO/tools/deepseek-controller"
 NAME=$(basename "$P"); SRC="$TERM_DIR/src"
 STYLE_VERSION=${STYLE_VERSION:-finance-v002}
+# Series default (wen hao): narration speed 1.0 — never the standard +10% / brisk StepAudio prompts.
+PACING=${PACING:-calm}
+FINANCE_TTS_SPEED=${FINANCE_TTS_SPEED:-1.0}
+export LEMO_TTS_STEPAUDIO_SPEED="$FINANCE_TTS_SPEED"
+export LEMO_TTS_STEPAUDIO_ROLE="${LEMO_TTS_STEPAUDIO_ROLE:-三十五岁左右的普通话男声，中低音，通俗金融学口播，语速正常、吐字清楚，关键词加重，句尾不拖音，像跟朋友把一件事讲明白；整片始终是同一个人同一个音色}"
+export LEMO_TTS_STEPAUDIO_TONE="${LEMO_TTS_STEPAUDIO_TONE:-（把一件事讲清楚）}"
+export LEMO_TTS_STEPAUDIO_INSTRUCTION="${LEMO_TTS_STEPAUDIO_INSTRUCTION:-安静录音棚，同一位男声从头到尾讲完整篇口播，语速正常、不赶，句与句之间自然换气；关键词加重；纯人声，无背景音乐，无音效}"
 APPROVED=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['approvedBy'])" "$SRC/lines.json")
 cd "$REPO"
 
@@ -34,9 +41,9 @@ build_one() {  # plan project name provider [handoffs:1|0]
     python3 "$CTL/cli.py" dialogue-loop --project "$PJ" --check-only --approved-by "$APPROVED" --item "$NM check-only" || true
   fi
   # 2) TTS: StepAudio free preview (one session take, reused if scripts unchanged) or ElevenLabs backup
-  python3 "$CTL/cli.py" tts --project "$PJ" --provider "$PROV" --fallback "" --pacing standard
+  python3 "$CTL/cli.py" tts --project "$PJ" --provider "$PROV" --fallback "" --pacing "$PACING" --speed "$FINANCE_TTS_SPEED"
   # 3) schedule (ceiling only) + P1 beats/keywords + pictogram edl_runtime
-  python3 "$CTL/cli.py" schedule --project "$PJ" --require-vo --pacing standard
+  python3 "$CTL/cli.py" schedule --project "$PJ" --require-vo --pacing "$PACING"
   node core/render/events.mjs "$PJ" >/dev/null
   python3 "$CTL/cli.py" mix --project "$PJ" --preset soft-pulse
   node core/render/video.mjs "$PJ" --fps 30 --workers 4 --out "$PJ/out/video.mp4"
@@ -44,7 +51,7 @@ build_one() {  # plan project name provider [handoffs:1|0]
   python3 "$CTL/vo_srt.py" --project "$PJ" --out "${OUT%.mp4}.srt"
   # 4) gates — one film at a time (parallel whisper runs gave hallucinated ASR)
   python3 "$CTL/cli.py" visual-check --project "$PJ" --media "$OUT" --no-semantic
-  python3 "$CTL/pacing_check.py" --project "$PJ" --media "$OUT" --pacing standard || echo "pacing FAIL → STEPS.md §Rework"
+  python3 "$CTL/pacing_check.py" --project "$PJ" --media "$OUT" --pacing "$PACING" || echo "pacing FAIL → STEPS.md §Rework"
   python3 "$CTL/cli.py" quality --project "$PJ" --media "$OUT" --delivery --asr-mode auto
   # 5) handoffs: OpenFilm + HyperFrames + Premiere xmeml (timebase probed from the master)
   if [ "$HO" = 1 ]; then

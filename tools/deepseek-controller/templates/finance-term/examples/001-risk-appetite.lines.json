@@ -1,0 +1,101 @@
+{
+  "_doc": "FRM core100 #01 Risk Appetite 风险偏好. 金融专家-approved FINAL (wen hao 2026-10-29): 通俗金融学, one contrast 愿意≠扛得住; L04 拿去投资 not 炒; speak 风险偏好 not English spelling; no 风险容忍度.",
+  "seq": "001",
+  "term": "Risk Appetite",
+  "zh": "风险偏好",
+  "approvedBy": "金融专家 (FRM; wording authoritative). Relayed by wen hao 2026-10-29 20:45 Asia/Shanghai: FINAL lines, 通俗金融学 Douyin-plain, one memorable point, speed 1.0, L04 拿去投资 not 炒; do not rewrite",
+  "approvedAt": "2026-10-29T20:45:00+08:00",
+  "brand": {
+    "eyebrow": "RISK PREFERENCE",
+    "titleEn": "Risk Appetite",
+    "titleZh": "风险偏好",
+    "endTitle": "风险偏好",
+    "endLine": "愿意 ≠ 扛得住",
+    "sloganEn": "RISK APPETITE",
+    "sloganZh": "风险偏好",
+    "sloganJp": "",
+    "keepCase": []
+  },
+  "glossary": {},
+  "cards": [
+    {
+      "shot": "p0",
+      "zh": "不等于",
+      "en": "NOT THE SAME"
+    },
+    {
+      "shot": "p1",
+      "zh": "风险偏好",
+      "en": "RISK APPETITE"
+    },
+    {
+      "shot": "p2",
+      "zh": "愿意",
+      "en": "WILLING"
+    },
+    {
+      "shot": "p3",
+      "zh": "拿去投资",
+      "en": "TO INVEST"
+    },
+    {
+      "shot": "p4",
+      "zh": "扛得住",
+      "en": "CAN BEAR"
+    },
+    {
+      "shot": "p5",
+      "zh": "承受能力",
+      "en": "CAPACITY"
+    },
+    {
+      "shot": "p6",
+      "zh": "睡得着吗",
+      "en": "SLEEP AT NIGHT"
+    }
+  ],
+  "lines": [
+    {
+      "id": "L01",
+      "role": "hook",
+      "shot": "p0",
+      "cap": "敢赌多大，不等于扛得住。"
+    },
+    {
+      "id": "L02",
+      "role": "evidence",
+      "shot": "p1",
+      "cap": "敢赌多大，叫{风险偏好}。"
+    },
+    {
+      "id": "L03",
+      "role": "evidence",
+      "shot": "p2",
+      "cap": "一句话：你{愿意}冒多大险。"
+    },
+    {
+      "id": "L04",
+      "role": "evidence",
+      "shot": "p3",
+      "cap": "比如你愿意把多少钱拿去投资。"
+    },
+    {
+      "id": "L05",
+      "role": "turn",
+      "shot": "p4",
+      "cap": "可愿意，不等于{扛得住}。"
+    },
+    {
+      "id": "L06",
+      "role": "evidence",
+      "shot": "p5",
+      "cap": "扛得住多少，叫风险承受能力。"
+    },
+    {
+      "id": "L07",
+      "role": "payoff",
+      "shot": "p6",
+      "cap": "所以做决定：先问愿意，再问亏了{睡不睡得着}。"
+    }
+  ]
+}

@@ -31,7 +31,7 @@ from pathlib import Path
 CTL = Path(__file__).resolve().parent
 TPL = CTL / "templates" / "finance-term"
 SHOT_MAX = 40
-LINE_MAX = 26  # pacing standard single-line advice (WARN only)
+LINE_MAX = 32  # calm profile single-line advice (WARN only); finance-term default pacing=calm / speed 1.0
 sys.path.insert(0, str(CTL))
 from common import upper_keep  # noqa: E402
 

@@ -4,7 +4,7 @@
   "style": "pictogram-motion",
   "language": "zh",
   "content_type": "concept",
-  "pacing": "standard",
+  "pacing": "calm",
   "targetDurationSec": 40,
   "palette": {"page": "#0B0B0B", "ink": "#F5F0E8", "signal": "#E30613", "accent": "#C9A227"},
   "shots": [

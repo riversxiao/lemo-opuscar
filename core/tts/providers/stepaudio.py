@@ -251,12 +251,14 @@ def synthesize_session(lines: list[dict[str, Any]], out_dir: str, *, role: str, 
     import hashlib  # noqa: PLC0415
 
     texts = [str(L.get("say") or L.get("text") or "") for L in lines]
-    if sum(len(t) for t in texts) + len(DEFAULT_TONE) > 1000:
+    tone = (os.environ.get("LEMO_TTS_STEPAUDIO_TONE") or DEFAULT_TONE)
+    if sum(len(t) for t in texts) + len(tone) > 1000:
         raise StepFunError("script > 1000 chars: session mode needs one request; split the film or use per-line")
+    instruction = (os.environ.get("LEMO_TTS_STEPAUDIO_INSTRUCTION") or SESSION_INSTRUCTION).strip()
     body = {"model": GEN_MODEL, "task": "text_to_audio",
             "roles": [{"name": "旁白", "description": role[:480]}],
-            "scripts": [{"speaker": "旁白", "text": (DEFAULT_TONE if i == 0 else "") + t} for i, t in enumerate(texts)],
-            "instruction": SESSION_INSTRUCTION, "response_format": "wav", "sample_rate": SR}
+            "scripts": [{"speaker": "旁白", "text": (tone if i == 0 else "") + t} for i, t in enumerate(texts)],
+            "instruction": instruction[:500], "response_format": "wav", "sample_rate": SR}
     if speed and abs(speed - 1.0) > 1e-3:
         body["speed"] = round(float(speed), 3)
     # reuse an identical earlier take (same scripts/role/speed/model) instead of paying a
@@ -313,7 +315,8 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
             json.dump(dur, f, indent=1, ensure_ascii=False)
         with open(os.path.join(out_dir, "stepaudio_meta.json"), "w", encoding="utf-8") as f:
             json.dump({"model": GEN_MODEL, "route": "/v1/audio/generate", "role": role, "speed": speed,
-                       "instruction": SESSION_INSTRUCTION, "pricing": "限时免费 (preview)", **info}, f,
+                       "instruction": (os.environ.get("LEMO_TTS_STEPAUDIO_INSTRUCTION") or SESSION_INSTRUCTION).strip(),
+                       "pricing": "限时免费 (preview)", **info}, f,
                       ensure_ascii=False, indent=1)
         return dur
     role = os.environ.get("LEMO_TTS_STEPAUDIO_ROLE") or DEFAULT_ROLE

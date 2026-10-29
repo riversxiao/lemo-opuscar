@@ -11,6 +11,15 @@ Source list: `/workspace/finance/frm_core100.csv` (box only; 100 rows,
 
 Per-term eyebrow + end card via `plan.brand` / `lines.json` `brand` (also CSV columns `eyebrow`,`endTitle`,`endLine`). Acronym-safe uppercase (`upper_keep` / scenes `upKeep`); quality `acronym_case` FAILs VaR→VAR. `plan.glossary` adds （gloss） at first SRT use.
 
+
+## 通俗金融学 defaults (wen hao)
+
+- **Narration speed 1.0** hardcoded in `build_term.sh` (`FINANCE_TTS_SPEED=1.0`, pacing `calm`). Never `fast` profile, never standard +10% / brisk StepAudio role.
+- **One memorable contrast** per film (e.g. 愿意 ≠ 扛得住). Do not stack definitions.
+- **Term + Chinese once** on screen (English label optional once); speak the Chinese term — do not letter-spell English in `say` unless the approved line requires it.
+- Douyin-plain: no institutions, returns, or stock tips unless the expert line already has them.
+- ElevenLabs backup off by default; only enable with `EL_BACKUP=1` when the user asks (and not with a rejected voice).
+
 ## ElevenLabs backup (optional)
 
 `EL_BACKUP=1` (or `batch_terms.py build --el-backup`) builds `<film>/backup-el/` and muxes `<name>-el.mp4` with Skylar (`uDnTdfbGbx3cHHFnY83O`) + `eleven_v4`. Provider spells Chinese numbers and joins letter spellings (E-S→ES) for ASR. Off by default (uses Creator character quota). Tex failed zh number ASR; Skylar+v4 passed.
@@ -63,6 +72,7 @@ States: `awaiting-expert-lines` → `approved` → `planned` → `delivered` (qu
 |---|---|
 | asr_check: acronym/number misheard | add `say` (pronunciation only) → new check-only → tts |
 | asr_check: a slurred word in the take | `LEMO_TTS_STEPAUDIO_REUSE=0` re-take (free) |
+| asr_check: session take keeps mishearing a phrase (e.g. 多少钱→多大险) | `LEMO_TTS_STEPAUDIO_MODE=line` re-take (still speed 1.0); speaker gate must PASS |
 | pacing interLineGapMax | shots are VO-driven (`beats` 4 minimum); never raise `beats` |
 | pacing shot/frozen | `cli.py pacing-rework --project P --media M` |
 | anything in wording | stop: report to the 金融专家, never rewrite |
