@@ -132,6 +132,8 @@ def card(s):
     play = (f'<button class="play" type="button" data-src="{esc(s["video"])}" data-poster="{esc(s.get("poster", ""))}" '
             f'aria-label="Play {esc(film)}"><i></i><span>{mmss(s["dur"])}</span></button>') if vid else ''
     uses = ''.join(f'<li>{esc(u)}</li>' for u in s.get('uses', []))
+    # built outside the f-string below: Python < 3.12 rejects backslashes inside f-string expressions
+    uses_ul = f'<ul class=uses aria-label="Best for">{uses}</ul>' if uses else ''
     links = []
     if vid: links.append(f'<a class="watch" href="{esc(s.get("full") or s["video"])}" data-play>Watch the film</a>')
     if s.get('stylemd'): links.append(f'<a href="{esc(s["stylemd"])}" target="_blank" rel="noopener">STYLE.md</a>')
@@ -141,7 +143,7 @@ def card(s):
             f'    <h3>{esc(s["en"])}</h3><p class="cn">{esc(s["cn"])}</p>\n'
             f'    <p class="for">for <em>{esc(film)}</em></p>\n'
             f'    <p class="line">{esc(s.get("line", ""))}</p><p class="line-cn">{esc(s.get("line_cn", ""))}</p>\n'
-            f'    {f"<ul class=uses aria-label=\"Best for\">{uses}</ul>" if uses else ""}\n'
+            f'    {uses_ul}\n'
             f'    <nav class="links">{"".join(links)}</nav>\n'
             f'  </div>\n</article>')
 
