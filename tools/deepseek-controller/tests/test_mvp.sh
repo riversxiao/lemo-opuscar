@@ -1990,6 +1990,58 @@ else
   bad "release.py record_film_host"
 fi
 
+# release.py pages: GitHub Pages on/off and build type, through a fake gh (no network), and pages.yml
+# runs it before the build so a fork without Pages fails first with what an admin has to switch on.
+FGH="$WORK/fake-gh"; rm -rf "$FGH"; mkdir -p "$FGH"
+cat >"$FGH/gh" <<'SH'
+#!/bin/sh
+# fake gh: `gh api repos/<repo>/pages` answers by $FAKE_PAGES (workflow|legacy|404|403)
+[ "$1" = api ] || { echo "fake gh: unexpected $*" >&2; exit 2; }
+case "$FAKE_PAGES" in
+  workflow) echo '{"html_url":"https://example.github.io/x/","build_type":"workflow","source":{"branch":"main","path":"/"}}' ;;
+  legacy) echo '{"html_url":"https://example.github.io/x/","build_type":"legacy","source":{"branch":"gh-pages","path":"/"}}' ;;
+  404) echo '{"message":"Not Found"}'; echo 'gh: Not Found (HTTP 404)' >&2; exit 1 ;;
+  403) echo '{"message":"Resource not accessible by integration"}'; echo 'gh: Resource not accessible by integration (HTTP 403)' >&2; exit 1 ;;
+esac
+SH
+chmod +x "$FGH/gh"
+pg() { PATH="$FGH:$PATH" FAKE_PAGES="$1" python3 "$ROOT/tools/release.py" pages ${2:-} >"$FGH/$1.out" 2>&1; }
+pages_ok=1
+pg workflow && grep -q '✓ GitHub Pages is on for riversxiao/wordfilm, deployed by GitHub Actions' "$FGH/workflow.out" || { pages_ok=0; echo "  workflow: $(cat "$FGH/workflow.out")"; }
+! pg legacy && grep -q 'builds from the branch gh-pages:/' "$FGH/legacy.out" && grep -q 'Source to "GitHub Actions"' "$FGH/legacy.out" || { pages_ok=0; echo "  legacy: $(cat "$FGH/legacy.out")"; }
+! pg 404 && grep -q 'GitHub Pages is not enabled for riversxiao/wordfilm' "$FGH/404.out" \
+  && grep -q 'https://github.com/riversxiao/wordfilm/settings/pages' "$FGH/404.out" \
+  && grep -q 'gh api -X POST repos/riversxiao/wordfilm/pages -f build_type=workflow' "$FGH/404.out" \
+  && grep -q 'https://riversxiao.github.io/wordfilm/' "$FGH/404.out" || { pages_ok=0; echo "  404: $(cat "$FGH/404.out")"; }
+! pg 403 Some/Repo && grep -q 'cannot tell whether GitHub Pages is on for Some/Repo (403' "$FGH/403.out" \
+  && grep -q 'https://some.github.io/Repo/' "$FGH/403.out" || { pages_ok=0; echo "  403: $(cat "$FGH/403.out")"; }
+GITHUB_ACTIONS=true pg 404 owner/site || true; grep -q '^::error title=GitHub Pages::GitHub Pages is not enabled for owner/site' "$FGH/404.out" || { pages_ok=0; echo "  ci: $(cat "$FGH/404.out")"; }
+if [ "$pages_ok" = 1 ]; then
+  ok "release.py pages: on (workflow) exit 0; branch-built, off (404), unreadable (403) exit 1 with the admin steps; ::error in CI"
+else
+  bad "release.py pages (fake gh)"
+fi
+if have_py yaml; then
+  if python3 - "$ROOT/.github/workflows/pages.yml" <<'PY' >$WORK/dc-pages-yml.out 2>&1
+import sys, yaml
+w = yaml.safe_load(open(sys.argv[1], encoding="utf-8"))
+steps = w["jobs"]["build"]["steps"]
+runs = [s.get("run", "") for s in steps]
+i = next(i for i, r in enumerate(runs) if "tools/release.py pages" in r)
+j = next(i for i, r in enumerate(runs) if "styleboard/build.py" in r)
+assert i < j, (i, j)
+assert '"$GITHUB_REPOSITORY"' in runs[i] and steps[i]["env"]["GH_TOKEN"] == "${{ github.token }}", steps[i]
+assert w["permissions"]["pages"] == "write" and "deploy" in w["jobs"]
+PY
+  then
+    ok "pages.yml parses; the Pages check runs before the build with the workflow token"
+  else
+    bad "pages.yml: $(cat $WORK/dc-pages-yml.out)"
+  fi
+else
+  skip "pages.yml parse" "PyYAML not installed"
+fi
+
 # release.py plan(): each local film is compared against the repo tools/films.json names for it, so
 # films the upstream already hosts are not copied to the fork (scratch root, fake releases, no gh calls)
 RP="$WORK/release-plan"; rm -rf "$RP"; mkdir -p "$RP/tools" "$RP/.release/web"

@@ -25,6 +25,13 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
+      # Pages has to be switched on once by a repo admin (Settings > Pages > Build and deployment > Source: GitHub Actions);
+      # this workflow's token cannot do it. Without it deploy-pages only fails at the very end ("Get Pages site failed"),
+      # so stop here with what to change (MAINTAINING.md, Publish). Same check locally: python3 tools/release.py pages
+      - name: check that GitHub Pages is on and deployed by this workflow
+        run: python3 tools/release.py pages "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
       - run: python3 styleboard/build.py --site _site
       # 720p cuts live on the "web" release; Pages serves them as video/mp4 (Safari won't play Release downloads)
       # per file: every cut from the upstream's "web" release (the default repo in tools/films.json, lemomo-ai/lemo-opuscar),

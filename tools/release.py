@@ -9,6 +9,9 @@
   python3 tools/release.py pack      build the asset packs in .release/ and write tools/assets.json (their size and sha256)
   python3 tools/release.py upload    upload what the releases lack: packs whose sha256 differs, films and web cuts whose size differs
   python3 tools/release.py verify    list what upload would do; exit 1 if anything is missing or different. Changes nothing
+  python3 tools/release.py pages [owner/repo]
+                                is GitHub Pages on for the repo (default REPO) and deployed by GitHub Actions (pages.yml)?
+                                exit 0 only then; otherwise says what a repo admin has to switch on. pages.yml runs it first
 
 Needs the GitHub CLI (`gh auth login`) for upload and verify. Usually run through tools/publish.sh.
 
@@ -417,5 +420,66 @@ def verify():
     print('  ✓ the releases hold every pack in tools/assets.json and every film and web cut on this machine')
 
 
+PAGES_FIX = ('a repo admin opens https://github.com/{repo}/settings/pages and sets Build and deployment > Source to'
+             ' "GitHub Actions" (or runs: gh api -X POST repos/{repo}/pages -f build_type=workflow), then re-runs the'
+             ' gallery workflow; the site is then https://{owner}.github.io/{name}/')
+
+
+def pages_status(repo):
+    """(state, info) of the repo's GitHub Pages site: state is 'workflow' (deployed by pages.yml), 'legacy' (built from a
+    branch, so pages.yml's deploy is ignored), 'disabled' (404: Pages is off), 'served' (no gh: the site answers, build
+    type unknown) or 'unknown' (403, network, no gh and no site...)."""
+    if shutil.which('gh'):
+        r = subprocess.run(['gh', 'api', f'repos/{repo}/pages'], cwd=ROOT, capture_output=True, text=True)
+        out, err = r.stdout.strip(), (r.stderr or '').strip()
+        if r.returncode == 0:
+            try: info = json.loads(out)
+            except ValueError: return 'unknown', {'error': f'gh api returned no JSON: {out[:200]}'}
+            return ('workflow' if info.get('build_type') == 'workflow' else 'legacy'), info
+        code = re.search(r'HTTP (\d{3})', err + out)
+        code = int(code.group(1)) if code else None
+    else:
+        # no gh: the REST endpoint answers 404 to anonymous callers even when Pages is on, so only the site itself can be
+        # probed. That tells served or not, never how it is built.
+        import urllib.error, urllib.request
+        owner, _, name = repo.partition('/')
+        url = f'https://{owner.lower()}.github.io/{name}/'
+        try:
+            urllib.request.urlopen(urllib.request.Request(url, method='HEAD'), timeout=15)
+            return 'served', {'html_url': url}
+        except urllib.error.HTTPError as e:
+            return 'unknown', {'http': e.code, 'error': f'no gh CLI, and {url} answers HTTP {e.code}'}
+        except OSError as e:
+            return 'unknown', {'error': f'no gh CLI, and {url} could not be fetched: {e}'}
+    if code == 404: return 'disabled', {'http': 404}
+    return 'unknown', {'http': code, 'error': err[:300]}
+
+
+def pages():
+    """python3 tools/release.py pages [owner/repo]: is GitHub Pages on, and deployed by pages.yml? exit 0 only then."""
+    repo = next((a for a in sys.argv[2:] if not a.startswith('--')), None) or REPO
+    owner, _, name = repo.partition('/')
+    fix = PAGES_FIX.format(repo=repo, owner=owner.lower(), name=name)
+    def fail(msg):
+        if os.environ.get('GITHUB_ACTIONS'): print('::error title=GitHub Pages::' + msg.removeprefix('✗ '))
+        sys.exit(msg)
+    state, info = pages_status(repo)
+    if state == 'workflow':
+        print(f'  ✓ GitHub Pages is on for {repo}, deployed by GitHub Actions (pages.yml): {info.get("html_url") or "?"}')
+        return
+    if state == 'served':
+        print(f'  ✓ {info["html_url"]} is served (no gh CLI, so whether pages.yml deploys it is not checked; gh auth login'
+              ' and re-run to see the build type)')
+        return
+    if state == 'legacy':
+        src = info.get('source') or {}
+        fail(f'✗ GitHub Pages on {repo} builds from the branch {src.get("branch")}:{src.get("path")} (build_type '
+             f'{info.get("build_type")}), so the gallery pages.yml deploys are not served: {fix}')
+    if state == 'disabled':
+        fail(f'✗ GitHub Pages is not enabled for {repo} (GET repos/{repo}/pages: 404): {fix}')
+    fail(f'✗ cannot tell whether GitHub Pages is on for {repo} ({info.get("http") or "no answer"}: '
+         f'{info.get("error") or "?"}). Check https://github.com/{repo}/settings/pages; to enable it: {fix}')
+
+
 if __name__ == '__main__':
-    {'check': check, 'pack': pack, 'upload': upload, 'verify': verify}[sys.argv[1] if len(sys.argv) > 1 else 'check']()
+    {'check': check, 'pack': pack, 'upload': upload, 'verify': verify, 'pages': pages}[sys.argv[1] if len(sys.argv) > 1 else 'check']()
