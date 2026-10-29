@@ -124,7 +124,8 @@ def schedule(
     locked_duration: picture length the engine cannot change (Caption News
     main.js DUR). Copy whose content end passes it is a hard error even when
     the target (plan or --target) would allow it, because the render stops at
-    the lock and the tail captions/VO would be cut.
+    the lock and the tail captions/VO would be cut. The outro is clamped to the
+    time left before the lock (WARN when clamped).
     """
     errors: list[str] = []
     beat_pause = 0.0
@@ -213,7 +214,17 @@ def schedule(
     under_before_pad = False
     applied_outro = 0.0
     if outro_sec and parsed_shots and not pad_under_target:
-        applied_outro = round(min(outro_sec, max(0.0, target_duration - total)), 4)
+        room = target_duration - total
+        if locked_duration is not None and locked_duration > 0 and locked_duration - total < room:
+            # the render stops at the lock: an outro past it would be dropped silently
+            room = locked_duration - total
+            if outro_sec > max(0.0, room) + 1e-6:
+                errors.append(
+                    f"WARN: outro clamped {outro_sec:.2f}s -> {max(0.0, room):.2f}s: content "
+                    f"{content_duration:.2f}s + outro would pass the {locked_label} timeline "
+                    f"({locked_duration:.2f}s); trim copy to keep the full end-card hold"
+                )
+        applied_outro = round(min(outro_sec, max(0.0, room)), 4)
         if applied_outro > 0:
             last = parsed_shots[-1]
             last["t1"] = round(last["t1"] + applied_outro, 4)
@@ -258,6 +269,11 @@ def schedule(
                 f"content {content_duration:.2f}s > locked {locked_duration:.2f}s; "
                 f"{shots_past(parsed_shots, locked_duration)}. Trim captions/VO and "
                 f"re-run schedule before rendering (the render stops at the lock)"
+            )
+        elif total > locked_duration + 1e-6:
+            errors.append(
+                f"WARN: scheduled {total:.2f}s runs past the {locked_label} timeline "
+                f"({locked_duration:.2f}s); the render stops at the lock"
             )
 
     warns = [e for e in errors if e.startswith("WARN:")]
