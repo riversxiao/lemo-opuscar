@@ -241,3 +241,43 @@ def test_probe_portrait_mp4_drives_exports(tmp_path, capsys):
     for f in (tmp_path / "of" / "film.html", tmp_path / "hf" / "index.html"):
         txt = f.read_text()
         assert "1080" in txt and "width=1920" not in txt and "1920px; height: 1080px" not in txt
+
+
+# --- EDL vs xmeml frame agreement -----------------------------------------
+
+
+def _edl_frames(edl: str, tb: int) -> list[tuple[int, int]]:
+    out = []
+    for line in edl.splitlines():
+        parts = line.split()
+        if len(parts) >= 8 and parts[1] == "MASTER":
+            def f(tc: str) -> int:
+                hh, mm, ss, ff = (int(x) for x in tc.split(":"))
+                return ((hh * 60 + mm) * 60 + ss) * tb + ff
+            out.append((f(parts[6]), f(parts[7])))
+    return out
+
+
+@pytest.mark.parametrize("fps,tb", [(30000 / 1001, 30), (24000 / 1001, 24), (25.0, 25), (24.0, 24)])
+def test_edl_frames_match_xmeml(tmp_path, fps, tb):
+    """Long timeline (shot at 10 min): EDL record frames equal the xmeml clip frames."""
+    import re
+
+    shots = [
+        {"id": "a", "t0": 0.0, "t1": 60.0, "text": "a"},
+        {"id": "b", "t0": 60.0, "t1": 600.0, "text": "b"},
+        {"id": "c", "t0": 600.0, "t1": 601.5, "text": "c"},
+    ]
+    master = tmp_path / "m.mp4"
+    master.write_bytes(b"")
+    write_xmeml(tmp_path / "p.xml", name="t", master=master, shots=shots, duration_sec=601.5, fps=fps)
+    common.write_cmx3600_edl(tmp_path / "t.edl", title="t", shots=shots, fps=fps)
+    xml = (tmp_path / "p.xml").read_text()
+    clips = re.findall(r'<clipitem id="clip-\d+">.*?<start>(\d+)</start>\s*<end>(\d+)</end>', xml, re.S)
+    xml_frames = [(int(a), int(b)) for a, b in clips]
+    edl_frames = _edl_frames((tmp_path / "t.edl").read_text(), tb)
+    assert xml_frames and edl_frames == xml_frames
+    # 600 s at 29.97 is 17982 frames (labelled 00:09:59:12 non-drop), not 18000
+    if tb == 30:
+        assert edl_frames[1][1] == 17982
+        assert "00:09:59:12" in (tmp_path / "t.edl").read_text()

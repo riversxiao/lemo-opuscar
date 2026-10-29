@@ -339,14 +339,19 @@ def write_cmx3600_edl(
 ) -> None:
     """Minimal CMX3600-style EDL (picture events only; reel MASTER).
 
-    Timecode uses the integer timebase (29.97 -> 30, non-drop).
+    Frames are counted at the real rate (round(sec * 29.97)), the same count
+    write_xmeml uses, and labelled as non-drop timecode on the integer
+    timebase (29.97 -> 30). So for NTSC masters the EDL and premiere.xml from
+    one export name the same frames; the timecode runs 0.1% behind the wall
+    clock, as non-drop NTSC timecode always does.
     """
-    fps = fps_timebase(float(fps))[0]
+    real = float(fps)
+    tb = fps_timebase(real)[0]
 
     def tc(sec: float) -> str:
-        total = max(0, int(round(sec * fps)))
-        ff = total % fps
-        total //= fps
+        total = max(0, int(round(float(sec) * real)))
+        ff = total % tb
+        total //= tb
         ss = total % 60
         total //= 60
         mm = total % 60
