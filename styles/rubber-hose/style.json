@@ -14,5 +14,6 @@
   "Kids"
  ],
  "frame_sec": 30.0,
- "dur": 50.0
+ "dur": 50.0,
+ "portrait": "reframe"
 }

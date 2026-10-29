@@ -123,6 +123,13 @@ def style_format(slugs, bad):
             asp = meta.get('aspects')   # optional: the frame shapes the demo has its own layout for (default ["16:9"])
             if asp is not None and not (isinstance(asp, list) and asp and all(isinstance(a, str) and ASPECT.fullmatch(a) for a in asp)):
                 probs.append('style.json aspects must be a non-empty list like ["16:9", "9:16"]')
+            # portrait: "native" = the demo has its own 9:16 layout, "reframe" = core/render/reframe.mjs letterboxes the 16:9 frame
+            por, has916 = meta.get('portrait'), '9:16' in (asp or [])
+            if por not in ('native', 'reframe'): probs.append('style.json portrait must be "native" or "reframe"')
+            elif (por == 'native') != has916: probs.append('style.json portrait "native" goes with "9:16" in aspects, "reframe" without it')
+            fill = meta.get('portraitFill')
+            if fill is not None and not (fill == 'blur' or (isinstance(fill, str) and re.fullmatch(r'#[0-9a-fA-F]{6}', fill))):
+                probs.append('style.json portraitFill must be "blur" or a colour like "#101010"')
         except FileNotFoundError: pass
         except ValueError as e: probs.append(f'style.json is not valid JSON ({e})')
         if os.path.isfile(os.path.join(d, 'STYLE.md')):

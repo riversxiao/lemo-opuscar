@@ -17,5 +17,6 @@
  "dur": 0,
  "aspects": [
   "16:9"
- ]
+ ],
+ "portrait": "reframe"
 }

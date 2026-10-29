@@ -49,6 +49,8 @@ def load_styles(refresh_dur):
         if j['slug'] != slug: bad.append(f'styles/{slug}/style.json: slug is "{j["slug"]}", folder is "{slug}"')
         if (j['category_cn'], j['category_en']) not in CATEGORIES:
             bad.append(f'styles/{slug}/style.json: unknown category "{j["category_en"]} / {j["category_cn"]}" (see CATEGORIES in styleboard/build.py)')
+        if j.get('portrait', 'reframe') not in ('native', 'reframe'):   # how 9:16 renders: own layout, or core/render/reframe.mjs
+            bad.append(f'styles/{slug}/style.json: portrait is "{j["portrait"]}", use "native" or "reframe"')
         mp4 = os.path.join(ROOT, 'styles', slug, slug + '.mp4')
         if refresh_dur and os.path.exists(mp4):
             d = film_seconds(mp4)
