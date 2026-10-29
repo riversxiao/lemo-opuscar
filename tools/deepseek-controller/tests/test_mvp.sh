@@ -22,6 +22,7 @@ skip() { echo "SKIP: $1 ($2)"; skipped=$((skipped+1)); }
 
 # Everything the harness writes goes to a scratch dir, never into tracked fixtures.
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/dc-mvp.XXXXXX")"
+export WORK   # python snippets in quoted heredocs read it from the environment
 trap 'rm -rf "$WORK"' EXIT
 # Never let tests append to the real fixtures/budget-ledger.jsonl (handoff etc. log $0 rows).
 export WORDFILM_BUDGET_LEDGER="$WORK/budget-ledger.jsonl"
@@ -66,7 +67,7 @@ fi
 FIX_STATUS_BEFORE="$(git -C "$ROOT" status --porcelain -- tools/deepseek-controller/fixtures 2>/dev/null || true)"
 
 # 1) invalid plan rejected
-if "${CLI[@]}" validate "$FIX/plan-invalid.json" >/tmp/dc-val.out 2>/tmp/dc-val.err; then
+if "${CLI[@]}" validate "$FIX/plan-invalid.json" >$WORK/dc-val.out 2>$WORK/dc-val.err; then
   bad "invalid plan should exit non-zero"
 else
   ok "invalid plan rejected"
@@ -82,17 +83,17 @@ for p in plan-swiss-motion.json plan-pictogram-motion.json plan-caption-news.jso
 done
 
 # 3) adapt writes content
-rm -rf /tmp/dc-adapt-swiss
-if "${CLI[@]}" adapt "$FIX/plan-swiss-motion.json" -o /tmp/dc-adapt-swiss >/dev/null \
-  && test -f /tmp/dc-adapt-swiss/content/shots.json \
-  && test -f /tmp/dc-adapt-swiss/content/lines.json; then
+rm -rf $WORK/dc-adapt-swiss
+if "${CLI[@]}" adapt "$FIX/plan-swiss-motion.json" -o $WORK/dc-adapt-swiss >/dev/null \
+  && test -f $WORK/dc-adapt-swiss/content/shots.json \
+  && test -f $WORK/dc-adapt-swiss/content/lines.json; then
   ok "adapt swiss writes content-only files"
 else
   bad "adapt swiss"
 fi
 
 # ensure adapt did not create engine cores
-if test ! -e /tmp/dc-adapt-swiss/ease.js && test ! -e /tmp/dc-adapt-swiss/film.js; then
+if test ! -e $WORK/dc-adapt-swiss/ease.js && test ! -e $WORK/dc-adapt-swiss/film.js; then
   ok "adapt does not copy engine cores"
 else
   bad "adapt leaked engine files"
@@ -100,42 +101,42 @@ fi
 
 # 4) schedule fails when VO too long
 cp -a "$FIX/schedule-too-long" "$WORK/schedule-too-long"
-if "${CLI[@]}" schedule --project "$WORK/schedule-too-long" --require-vo >/tmp/dc-sch.out 2>/tmp/dc-sch.err; then
+if "${CLI[@]}" schedule --project "$WORK/schedule-too-long" --require-vo >$WORK/dc-sch.out 2>$WORK/dc-sch.err; then
   bad "schedule should fail when VO too long"
 else
-  if grep -q "exceeds target" /tmp/dc-sch.err; then
+  if grep -q "exceeds target" $WORK/dc-sch.err; then
     ok "schedule fails when VO too long"
   else
-    bad "schedule failed but missing exceeds-target message: $(cat /tmp/dc-sch.err)"
+    bad "schedule failed but missing exceeds-target message: $(cat $WORK/dc-sch.err)"
   fi
 fi
 
 # 5) schedule OK with short durs
-if "${CLI[@]}" schedule --project "$SWISS_PROJ" --require-vo >/tmp/dc-sch2.out 2>/tmp/dc-sch2.err; then
+if "${CLI[@]}" schedule --project "$SWISS_PROJ" --require-vo >$WORK/dc-sch2.out 2>$WORK/dc-sch2.err; then
   ok "schedule OK with measured short VO"
 else
-  bad "schedule short VO: $(cat /tmp/dc-sch2.err)"
+  bad "schedule short VO: $(cat $WORK/dc-sch2.err)"
 fi
 
 # 6) quality fails on forced FAIL
 if "${CLI[@]}" quality --project "$SWISS_PROJ" --skip-heavy --allow-unchecked \
   --force-fail fixture_forced_fail -o "$WORK/quality-fail/quality.json" \
-  >/tmp/dc-q.out 2>/tmp/dc-q.err; then
+  >$WORK/dc-q.out 2>$WORK/dc-q.err; then
   bad "quality should fail with --force-fail"
 else
-  if grep -q 'overall=FAIL' /tmp/dc-q.out; then
+  if grep -q 'overall=FAIL' $WORK/dc-q.out; then
     ok "quality fails when forced FAIL"
   else
-    bad "quality force-fail output unexpected: $(cat /tmp/dc-q.out) $(cat /tmp/dc-q.err)"
+    bad "quality force-fail output unexpected: $(cat $WORK/dc-q.out) $(cat $WORK/dc-q.err)"
   fi
 fi
 
 # 7) quality can PASS content-stage with allow-unchecked (no force)
 if "${CLI[@]}" quality --project "$SWISS_PROJ" --skip-heavy --allow-unchecked \
-  -o /tmp/dc-quality-pass.json >/tmp/dc-q2.out 2>/tmp/dc-q2.err; then
+  -o $WORK/dc-quality-pass.json >$WORK/dc-q2.out 2>$WORK/dc-q2.err; then
   ok "quality PASS with --allow-unchecked at content stage"
 else
-  bad "quality allow-unchecked: $(cat /tmp/dc-q2.out) $(cat /tmp/dc-q2.err)"
+  bad "quality allow-unchecked: $(cat $WORK/dc-q2.out) $(cat $WORK/dc-q2.err)"
 fi
 
 # 8–10) Full thin glue for all three styles: files + protected hashes
@@ -152,70 +153,70 @@ assert_hash() {
 }
 
 # Swiss
-rm -rf /tmp/dc-scaffold-swiss
-if "${CLI[@]}" scaffold "$FIX/plan-swiss-motion.json" -o /tmp/dc-scaffold-swiss --lib "$ROOT" >/tmp/dc-sc.out 2>/tmp/dc-sc.err \
-  && test -f /tmp/dc-scaffold-swiss/content/shots.json \
-  && test -f /tmp/dc-scaffold-swiss/content/engine.lock.json \
-  && test -f /tmp/dc-scaffold-swiss/lines.json \
-  && test -f /tmp/dc-scaffold-swiss/palette.json \
-  && test -f /tmp/dc-scaffold-swiss/PROJECT.md \
-  && test -f /tmp/dc-scaffold-swiss/ease.js \
-  && test -f /tmp/dc-scaffold-swiss/film.js \
-  && grep -q '一块钱' /tmp/dc-scaffold-swiss/lines.json; then
+rm -rf $WORK/dc-scaffold-swiss
+if "${CLI[@]}" scaffold "$FIX/plan-swiss-motion.json" -o $WORK/dc-scaffold-swiss --lib "$ROOT" >$WORK/dc-sc.out 2>$WORK/dc-sc.err \
+  && test -f $WORK/dc-scaffold-swiss/content/shots.json \
+  && test -f $WORK/dc-scaffold-swiss/content/engine.lock.json \
+  && test -f $WORK/dc-scaffold-swiss/lines.json \
+  && test -f $WORK/dc-scaffold-swiss/palette.json \
+  && test -f $WORK/dc-scaffold-swiss/PROJECT.md \
+  && test -f $WORK/dc-scaffold-swiss/ease.js \
+  && test -f $WORK/dc-scaffold-swiss/film.js \
+  && grep -q '一块钱' $WORK/dc-scaffold-swiss/lines.json; then
   ok "scaffold swiss creates expected files"
-  assert_hash "$ROOT/styles/swiss-motion/demo/ease.js" /tmp/dc-scaffold-swiss/ease.js "swiss ease.js"
-  assert_hash "$ROOT/styles/swiss-motion/demo/film.js" /tmp/dc-scaffold-swiss/film.js "swiss film.js"
+  assert_hash "$ROOT/styles/swiss-motion/demo/ease.js" $WORK/dc-scaffold-swiss/ease.js "swiss ease.js"
+  assert_hash "$ROOT/styles/swiss-motion/demo/film.js" $WORK/dc-scaffold-swiss/film.js "swiss film.js"
 else
-  bad "scaffold swiss: $(cat /tmp/dc-sc.out) $(cat /tmp/dc-sc.err)"
+  bad "scaffold swiss: $(cat $WORK/dc-sc.out) $(cat $WORK/dc-sc.err)"
 fi
 
 # Pictogram
-rm -rf /tmp/dc-scaffold-picto
-if "${CLI[@]}" scaffold "$FIX/plan-pictogram-motion.json" -o /tmp/dc-scaffold-picto --lib "$ROOT" --force >/tmp/dc-sc2.out 2>/tmp/dc-sc2.err \
-  && test -f /tmp/dc-scaffold-picto/content/edl_content.json \
-  && test -f /tmp/dc-scaffold-picto/content/engine.lock.json \
-  && test -f /tmp/dc-scaffold-picto/edl_content.json \
-  && test -f /tmp/dc-scaffold-picto/palette.json \
-  && test -f /tmp/dc-scaffold-picto/PROJECT.md \
-  && test -f /tmp/dc-scaffold-picto/engine.js \
-  && test -f /tmp/dc-scaffold-picto/edl.js \
-  && grep -q '分散投资\|股票\|sprint' /tmp/dc-scaffold-picto/edl_content.json; then
+rm -rf $WORK/dc-scaffold-picto
+if "${CLI[@]}" scaffold "$FIX/plan-pictogram-motion.json" -o $WORK/dc-scaffold-picto --lib "$ROOT" --force >$WORK/dc-sc2.out 2>$WORK/dc-sc2.err \
+  && test -f $WORK/dc-scaffold-picto/content/edl_content.json \
+  && test -f $WORK/dc-scaffold-picto/content/engine.lock.json \
+  && test -f $WORK/dc-scaffold-picto/edl_content.json \
+  && test -f $WORK/dc-scaffold-picto/palette.json \
+  && test -f $WORK/dc-scaffold-picto/PROJECT.md \
+  && test -f $WORK/dc-scaffold-picto/engine.js \
+  && test -f $WORK/dc-scaffold-picto/edl.js \
+  && grep -q '分散投资\|股票\|sprint' $WORK/dc-scaffold-picto/edl_content.json; then
   ok "scaffold pictogram creates expected files"
-  assert_hash "$ROOT/styles/pictogram-motion/demo/engine.js" /tmp/dc-scaffold-picto/engine.js "pictogram engine.js"
-  assert_hash "$ROOT/styles/pictogram-motion/demo/edl.js" /tmp/dc-scaffold-picto/edl.js "pictogram edl.js"
-  assert_hash "$ROOT/styles/pictogram-motion/demo/scenes.js" /tmp/dc-scaffold-picto/scenes.js "pictogram scenes.js"
+  assert_hash "$ROOT/styles/pictogram-motion/demo/engine.js" $WORK/dc-scaffold-picto/engine.js "pictogram engine.js"
+  assert_hash "$ROOT/styles/pictogram-motion/demo/edl.js" $WORK/dc-scaffold-picto/edl.js "pictogram edl.js"
+  assert_hash "$ROOT/styles/pictogram-motion/demo/scenes.js" $WORK/dc-scaffold-picto/scenes.js "pictogram scenes.js"
 else
-  bad "scaffold pictogram: $(cat /tmp/dc-sc2.out) $(cat /tmp/dc-sc2.err)"
+  bad "scaffold pictogram: $(cat $WORK/dc-sc2.out) $(cat $WORK/dc-sc2.err)"
 fi
 
 # Caption
-rm -rf /tmp/dc-scaffold-caption
-if "${CLI[@]}" scaffold "$FIX/plan-caption-news.json" -o /tmp/dc-scaffold-caption --lib "$ROOT" --force >/tmp/dc-sc3.out 2>/tmp/dc-sc3.err \
-  && test -f /tmp/dc-scaffold-caption/content/timeline_content.json \
-  && test -f /tmp/dc-scaffold-caption/content/engine.lock.json \
-  && test -f /tmp/dc-scaffold-caption/timeline.json \
-  && test -f /tmp/dc-scaffold-caption/lines.json \
-  && test -f /tmp/dc-scaffold-caption/audio/lines.json \
-  && test -f /tmp/dc-scaffold-caption/palette.json \
-  && test -f /tmp/dc-scaffold-caption/FACTS.md \
-  && test -f /tmp/dc-scaffold-caption/PROJECT.md \
-  && test -f /tmp/dc-scaffold-caption/main.js \
-  && grep -q '流动性' /tmp/dc-scaffold-caption/timeline.json; then
+rm -rf $WORK/dc-scaffold-caption
+if "${CLI[@]}" scaffold "$FIX/plan-caption-news.json" -o $WORK/dc-scaffold-caption --lib "$ROOT" --force >$WORK/dc-sc3.out 2>$WORK/dc-sc3.err \
+  && test -f $WORK/dc-scaffold-caption/content/timeline_content.json \
+  && test -f $WORK/dc-scaffold-caption/content/engine.lock.json \
+  && test -f $WORK/dc-scaffold-caption/timeline.json \
+  && test -f $WORK/dc-scaffold-caption/lines.json \
+  && test -f $WORK/dc-scaffold-caption/audio/lines.json \
+  && test -f $WORK/dc-scaffold-caption/palette.json \
+  && test -f $WORK/dc-scaffold-caption/FACTS.md \
+  && test -f $WORK/dc-scaffold-caption/PROJECT.md \
+  && test -f $WORK/dc-scaffold-caption/main.js \
+  && grep -q '流动性' $WORK/dc-scaffold-caption/timeline.json; then
   ok "scaffold caption creates expected files"
-  assert_hash "$ROOT/styles/caption-news/demo/main.js" /tmp/dc-scaffold-caption/main.js "caption main.js"
-  assert_hash "$ROOT/styles/caption-news/demo/index.html" /tmp/dc-scaffold-caption/index.html "caption index.html"
+  assert_hash "$ROOT/styles/caption-news/demo/main.js" $WORK/dc-scaffold-caption/main.js "caption main.js"
+  assert_hash "$ROOT/styles/caption-news/demo/index.html" $WORK/dc-scaffold-caption/index.html "caption index.html"
 else
-  bad "scaffold caption: $(cat /tmp/dc-sc3.out) $(cat /tmp/dc-sc3.err)"
+  bad "scaffold caption: $(cat $WORK/dc-sc3.out) $(cat $WORK/dc-sc3.err)"
 fi
 
 # 11) quality schedule must FAIL when VO required but dur.json empty (fitsTarget alone insufficient)
-rm -rf /tmp/dc-q-novo
-cp -a "$FIX/out-swiss-motion" /tmp/dc-q-novo
+rm -rf $WORK/dc-q-novo
+cp -a "$FIX/out-swiss-motion" $WORK/dc-q-novo
 # empty measured durs + write a "fits" timeline that would look OK without require-vo
 python3 - <<'PY'
-import json
+import json, os
 from pathlib import Path
-p = Path("/tmp/dc-q-novo")
+p = Path(os.environ["WORK"]) / "dc-q-novo"
 (p / "voices").mkdir(exist_ok=True)
 (p / "voices" / "dur.json").write_text("{}\n", encoding="utf-8")
 # remove wavs if any
@@ -235,29 +236,29 @@ tl = {
 }
 (p / "timeline.parsed.json").write_text(json.dumps(tl, indent=2) + "\n", encoding="utf-8")
 PY
-if "${CLI[@]}" quality --project /tmp/dc-q-novo --skip-heavy --allow-unchecked \
-  -o /tmp/dc-q-novo/quality.json >/tmp/dc-q-novo.out 2>/tmp/dc-q-novo.err; then
+if "${CLI[@]}" quality --project $WORK/dc-q-novo --skip-heavy --allow-unchecked \
+  -o $WORK/dc-q-novo/quality.json >$WORK/dc-q-novo.out 2>$WORK/dc-q-novo.err; then
   bad "quality should FAIL when timeline.ok=false / missing VO"
 else
-  if grep -q 'schedule_fits_target' /tmp/dc-q-novo/quality.json \
-    && python3 -c 'import json;q=json.load(open("/tmp/dc-q-novo/quality.json"));c={x["name"]:x for x in q["checks"]};assert c["schedule_fits_target"]["status"]=="FAIL";assert q["overall"]=="FAIL"'; then
+  if grep -q 'schedule_fits_target' $WORK/dc-q-novo/quality.json \
+    && python3 -c 'import json,os;q=json.load(open(os.environ["WORK"]+"/dc-q-novo/quality.json"));c={x["name"]:x for x in q["checks"]};assert c["schedule_fits_target"]["status"]=="FAIL";assert q["overall"]=="FAIL"'; then
     ok "quality fails schedule when require-vo would fail (not fooled by fitsTarget)"
   else
-    bad "quality novo schedule check: $(cat /tmp/dc-q-novo.out) $(cat /tmp/dc-q-novo.err) $(cat /tmp/dc-q-novo/quality.json)"
+    bad "quality novo schedule check: $(cat $WORK/dc-q-novo.out) $(cat $WORK/dc-q-novo.err) $(cat $WORK/dc-q-novo/quality.json)"
   fi
 fi
 
 # 12) quality --project . resolves absolute path (no 'index.html in .')
-rm -rf /tmp/dc-q-rel
-cp -a /tmp/dc-scaffold-swiss /tmp/dc-q-rel 2>/dev/null || true
-if test ! -d /tmp/dc-q-rel; then
-  "${CLI[@]}" scaffold "$FIX/plan-swiss-motion.json" -o /tmp/dc-q-rel --lib "$ROOT" --force >/dev/null 2>&1 || true
+rm -rf $WORK/dc-q-rel
+cp -a $WORK/dc-scaffold-swiss $WORK/dc-q-rel 2>/dev/null || true
+if test ! -d $WORK/dc-q-rel; then
+  "${CLI[@]}" scaffold "$FIX/plan-swiss-motion.json" -o $WORK/dc-q-rel --lib "$ROOT" --force >/dev/null 2>&1 || true
 fi
 # ensure dur so schedule check can pass under has_vo
 python3 - <<'PY'
-import json
+import json, os
 from pathlib import Path
-p = Path("/tmp/dc-q-rel")
+p = Path(os.environ["WORK"]) / "dc-q-rel"
 plan = json.loads((p/"content"/"plan.json").read_text())
 durs = {ln["id"]: 1.0 for ln in (plan.get("voice") or {}).get("lines") or []}
 (p/"voices").mkdir(exist_ok=True)
@@ -267,42 +268,42 @@ shots = [{"id":s["id"],"t0":0,"t1":1,"dur":1,"voIds":[],"voDur":0,"readSec":0.5,
 tl={"targetDurationSec":plan["targetDurationSec"],"scheduledDurationSec":1.0,"beatGridSec":0.25,"fitsTarget":True,"requireVo":True,"ok":True,"errors":[],"warnings":[],"shots":shots,"cues":[]}
 (p/"timeline.parsed.json").write_text(json.dumps(tl)+"\n")
 PY
-pushd /tmp/dc-q-rel >/dev/null
+pushd $WORK/dc-q-rel >/dev/null
 if "${CLI[@]}" quality --project . --skip-heavy --allow-unchecked \
-  -o /tmp/dc-q-rel-abs.json >/tmp/dc-q-rel.out 2>/tmp/dc-q-rel.err; then
-  if python3 -c 'import json;q=json.load(open("/tmp/dc-q-rel-abs.json"));assert q["project"].startswith("/"), q["project"];assert "no index.html in \".\"" not in json.dumps(q)'; then
+  -o $WORK/dc-q-rel-abs.json >$WORK/dc-q-rel.out 2>$WORK/dc-q-rel.err; then
+  if python3 -c 'import json,os;q=json.load(open(os.environ["WORK"]+"/dc-q-rel-abs.json"));assert q["project"].startswith("/"), q["project"];assert "no index.html in \".\"" not in json.dumps(q)'; then
     ok "quality --project . resolves to absolute path"
   else
-    bad "quality relative path still broken: $(cat /tmp/dc-q-rel-abs.json)"
+    bad "quality relative path still broken: $(cat $WORK/dc-q-rel-abs.json)"
   fi
 else
-  if python3 -c 'import json;q=json.load(open("/tmp/dc-q-rel-abs.json"));assert q["project"].startswith("/");print(q["project"])' 2>/dev/null; then
+  if python3 -c 'import json,os;q=json.load(open(os.environ["WORK"]+"/dc-q-rel-abs.json"));assert q["project"].startswith("/");print(q["project"])' 2>/dev/null; then
     ok "quality --project . resolves to absolute path (overall may fail)"
   else
-    bad "quality --project . : $(cat /tmp/dc-q-rel.out) $(cat /tmp/dc-q-rel.err)"
+    bad "quality --project . : $(cat $WORK/dc-q-rel.out) $(cat $WORK/dc-q-rel.err)"
   fi
 fi
 popd >/dev/null
 
 # 13) scaffold swiss writes words_rel.json for zh + fetches fonts
-if test -f /tmp/dc-scaffold-swiss/voices/words_rel.json \
-  && python3 -c 'import json;d=json.load(open("/tmp/dc-scaffold-swiss/voices/words_rel.json"));assert d, d'; then
+if test -f $WORK/dc-scaffold-swiss/voices/words_rel.json \
+  && python3 -c 'import json,os;d=json.load(open(os.environ["WORK"]+"/dc-scaffold-swiss/voices/words_rel.json"));assert d, d'; then
   ok "scaffold swiss writes zh words_rel.json"
 else
   # re-scaffold if earlier run was before fix
-  rm -rf /tmp/dc-scaffold-swiss2
+  rm -rf $WORK/dc-scaffold-swiss2
   export LEMO_FONT_CACHE="${LEMO_FONT_CACHE:-$FILMS/fuli-controller-e2e/fonts}"
-  if "${CLI[@]}" scaffold "$FIX/plan-swiss-motion.json" -o /tmp/dc-scaffold-swiss2 --lib "$ROOT" --force >/tmp/dc-sc-zh.out 2>/tmp/dc-sc-zh.err \
-    && test -f /tmp/dc-scaffold-swiss2/voices/words_rel.json; then
+  if "${CLI[@]}" scaffold "$FIX/plan-swiss-motion.json" -o $WORK/dc-scaffold-swiss2 --lib "$ROOT" --force >$WORK/dc-sc-zh.out 2>$WORK/dc-sc-zh.err \
+    && test -f $WORK/dc-scaffold-swiss2/voices/words_rel.json; then
     ok "scaffold swiss writes zh words_rel.json"
   else
-    bad "scaffold zh words_rel: $(cat /tmp/dc-sc-zh.out 2>/dev/null) $(cat /tmp/dc-sc-zh.err 2>/dev/null)"
+    bad "scaffold zh words_rel: $(cat $WORK/dc-sc-zh.out 2>/dev/null) $(cat $WORK/dc-sc-zh.err 2>/dev/null)"
   fi
 fi
 
 # 14) scaffold swiss fonts present (Archivo-VF etc.)
-FONT_PROJ=/tmp/dc-scaffold-swiss2
-test -d "$FONT_PROJ" || FONT_PROJ=/tmp/dc-scaffold-swiss
+FONT_PROJ=$WORK/dc-scaffold-swiss2
+test -d "$FONT_PROJ" || FONT_PROJ=$WORK/dc-scaffold-swiss
 if [ "$FONTS_STANDIN" = 1 ]; then
   skip "scaffold swiss .ttf fonts" "no network to raw.githubusercontent.com and no font cache (LEMO_FONT_CACHE)"
 elif test -f "$FONT_PROJ/fonts/Archivo-VF.ttf" \
@@ -311,12 +312,12 @@ elif test -f "$FONT_PROJ/fonts/Archivo-VF.ttf" \
   ok "scaffold swiss fetches/copies required .ttf fonts"
 else
   export LEMO_FONT_CACHE="${LEMO_FONT_CACHE:-$FILMS/fuli-controller-e2e/fonts}"
-  rm -rf /tmp/dc-scaffold-fonts
-  if "${CLI[@]}" scaffold "$FIX/plan-swiss-motion.json" -o /tmp/dc-scaffold-fonts --lib "$ROOT" --force >/tmp/dc-sc-f.out 2>/tmp/dc-sc-f.err \
-    && test -f /tmp/dc-scaffold-fonts/fonts/Archivo-VF.ttf; then
+  rm -rf $WORK/dc-scaffold-fonts
+  if "${CLI[@]}" scaffold "$FIX/plan-swiss-motion.json" -o $WORK/dc-scaffold-fonts --lib "$ROOT" --force >$WORK/dc-sc-f.out 2>$WORK/dc-sc-f.err \
+    && test -f $WORK/dc-scaffold-fonts/fonts/Archivo-VF.ttf; then
     ok "scaffold swiss fetches/copies required .ttf fonts"
   else
-    bad "scaffold fonts: $(cat /tmp/dc-sc-f.out) $(cat /tmp/dc-sc-f.err); ls $(ls /tmp/dc-scaffold-fonts/fonts 2>/dev/null)"
+    bad "scaffold fonts: $(cat $WORK/dc-sc-f.out) $(cat $WORK/dc-sc-f.err); ls $(ls $WORK/dc-scaffold-fonts/fonts 2>/dev/null)"
   fi
 fi
 
@@ -361,13 +362,13 @@ fi
 
 # 16) style_locked_duration: media ≈ engine DUR passes even when plan target is shorter
 if python3 - <<'PY'
-import json, sys, tempfile, shutil
+import json, os, sys, tempfile, shutil
 from pathlib import Path
 sys.path.insert(0, "tools/deepseek-controller")
 import quality
 
 src = Path("tools/deepseek-controller/fixtures/out-swiss-motion")
-for cand in (Path("/tmp/dc-scaffold-swiss"), Path("/tmp/dc-scaffold-swiss2"), src):
+for cand in (Path(os.environ["WORK"]) / "dc-scaffold-swiss", Path(os.environ["WORK"]) / "dc-scaffold-swiss2", src):
     if (cand / "film.js").is_file() and (cand / "content" / "engine.lock.json").is_file():
         base = cand
         break
@@ -685,27 +686,27 @@ durs = {f"L0{i}": (4.0 if i < 7 else 1.25) for i in range(1, 8)}
 (p / "timeline.json").write_text(json.dumps({"dur": 30, "vo": {}, "caps": []}))
 PY
 cp "$CAP_OVR/timeline.json" "$WORK/caption-overrun.timeline.before"
-if "${CLI[@]}" schedule --project "$CAP_OVR" --require-vo >/tmp/dc-ovr.out 2>/tmp/dc-ovr.err; then
+if "${CLI[@]}" schedule --project "$CAP_OVR" --require-vo >$WORK/dc-ovr.out 2>$WORK/dc-ovr.err; then
   bad "schedule should fail: caption copy 32.25s > locked 30s"
-elif grep -q 'copy overruns the locked caption-news timeline by 2.25s: content 32.25s > locked 30.00s' /tmp/dc-ovr.err \
-  && grep -q 'trim shots: c7 (30.00-32.25s)' /tmp/dc-ovr.err \
+elif grep -q 'copy overruns the locked caption-news timeline by 2.25s: content 32.25s > locked 30.00s' $WORK/dc-ovr.err \
+  && grep -q 'trim shots: c7 (30.00-32.25s)' $WORK/dc-ovr.err \
   && cmp -s "$CAP_OVR/timeline.json" "$WORK/caption-overrun.timeline.before" \
   && python3 -c "
 import json;t=json.load(open('$CAP_OVR/timeline.parsed.json'))
 assert t['ok'] is False and t['lockedDurationSec']==30 and t['lockOverrunSec']==2.25, t"; then
   ok "schedule rejects 32.25s caption copy against the locked 30s caption-news DUR (names c7)"
 else
-  bad "caption overrun message: $(cat /tmp/dc-ovr.err)"
+  bad "caption overrun message: $(cat $WORK/dc-ovr.err)"
 fi
 
-if "${CLI[@]}" schedule --project "$CAP_OVR" --require-vo --target 33 >/tmp/dc-ovr2.out 2>/tmp/dc-ovr2.err; then
+if "${CLI[@]}" schedule --project "$CAP_OVR" --require-vo --target 33 >$WORK/dc-ovr2.out 2>$WORK/dc-ovr2.err; then
   bad "schedule --target 33 must still fail against the 30s caption lock"
-elif grep -q 'copy overruns the locked caption-news timeline by 2.25s' /tmp/dc-ovr2.err \
-  && ! grep -q 'exceeds target' /tmp/dc-ovr2.err \
+elif grep -q 'copy overruns the locked caption-news timeline by 2.25s' $WORK/dc-ovr2.err \
+  && ! grep -q 'exceeds target' $WORK/dc-ovr2.err \
   && cmp -s "$CAP_OVR/timeline.json" "$WORK/caption-overrun.timeline.before"; then
   ok "caption lock guard holds when the target alone would pass (--target 33)"
 else
-  bad "caption overrun with --target 33: $(cat /tmp/dc-ovr2.err)"
+  bad "caption overrun with --target 33: $(cat $WORK/dc-ovr2.err)"
 fi
 
 if PYTHONPATH="$CTL" python3 - "$CAP_OVR" <<'PY'
@@ -747,14 +748,14 @@ tc["caps"] = tc["caps"][:6]
 lines = json.loads((p / "content" / "lines.json").read_text())[:6]
 (p / "content" / "lines.json").write_text(json.dumps(lines, ensure_ascii=False))
 PY
-if "${CLI[@]}" schedule --project "$CAP_OVR" --require-vo >/tmp/dc-ovr3.out 2>/tmp/dc-ovr3.err \
-  && grep -q 'OK applied caption timeline.json' /tmp/dc-ovr3.out \
+if "${CLI[@]}" schedule --project "$CAP_OVR" --require-vo >$WORK/dc-ovr3.out 2>$WORK/dc-ovr3.err \
+  && grep -q 'OK applied caption timeline.json' $WORK/dc-ovr3.out \
   && python3 -c "
 import json;t=json.load(open('$CAP_OVR/timeline.parsed.json'))
 assert t['ok'] and t['contentDurationSec']==30.0 and t['lockOverrunSec']==0, t"; then
   ok "trimmed caption copy (30.00s) passes the lock and applies"
 else
-  bad "trimmed caption copy: $(cat /tmp/dc-ovr3.out /tmp/dc-ovr3.err)"
+  bad "trimmed caption copy: $(cat $WORK/dc-ovr3.out $WORK/dc-ovr3.err)"
 fi
 
 # 22) caption locked-main readcheck helper
@@ -1234,9 +1235,9 @@ fi
 
 # --- handoff: OpenFilm multi-shot + HyperFrames export ---
 HO_FIX="$FIX/handoff-mini"
-HO_OUT=/tmp/dc-handoff-of
-rm -rf "$HO_OUT" /tmp/dc-handoff-hf
-if PYTHONPATH="$ROOT" python3 -m tools.handoff.cli openfilm "$HO_FIX" -o "$HO_OUT" >/tmp/dc-ho.out 2>/tmp/dc-ho.err \
+HO_OUT=$WORK/dc-handoff-of
+rm -rf "$HO_OUT" $WORK/dc-handoff-hf
+if PYTHONPATH="$ROOT" python3 -m tools.handoff.cli openfilm "$HO_FIX" -o "$HO_OUT" >$WORK/dc-ho.out 2>$WORK/dc-ho.err \
   && test -f "$HO_OUT/film.html" \
   && test -f "$HO_OUT/manifest.json" \
   && test -f "$HO_OUT/timeline.edl" \
@@ -1245,7 +1246,7 @@ if PYTHONPATH="$ROOT" python3 -m tools.handoff.cli openfilm "$HO_FIX" -o "$HO_OU
   && grep -q 'id="b"' "$HO_OUT/film.html"; then
   ok "openfilm handoff writes multi-shot film.html+edl+manifest"
 else
-  bad "openfilm handoff: $(cat /tmp/dc-ho.err /tmp/dc-ho.out)"
+  bad "openfilm handoff: $(cat $WORK/dc-ho.err $WORK/dc-ho.out)"
 fi
 
 SHOTS=$(python3 -c "import json;print(json.load(open('$HO_OUT/manifest.json'))['shotCount'])")
@@ -1255,58 +1256,58 @@ else
   bad "openfilm handoff shotCount=$SHOTS"
 fi
 
-if "${CLI[@]}" handoff --project "$HO_FIX" --target openfilm -o /tmp/dc-handoff-cli >/tmp/dc-ho2.out 2>/tmp/dc-ho2.err \
-  && test -f /tmp/dc-handoff-cli/film.html; then
+if "${CLI[@]}" handoff --project "$HO_FIX" --target openfilm -o $WORK/dc-handoff-cli >$WORK/dc-ho2.out 2>$WORK/dc-ho2.err \
+  && test -f $WORK/dc-handoff-cli/film.html; then
   ok "cli handoff openfilm"
 else
-  bad "cli handoff: $(cat /tmp/dc-ho2.err /tmp/dc-ho2.out)"
+  bad "cli handoff: $(cat $WORK/dc-ho2.err $WORK/dc-ho2.out)"
 fi
 
 # HyperFrames export (skip live lint in CI-ish path — network already proven separately)
-if PYTHONPATH="$ROOT" python3 -m tools.handoff.cli hyperframes "$HO_FIX" -o /tmp/dc-handoff-hf >/tmp/dc-hf.out 2>/tmp/dc-hf.err \
-  && test -f /tmp/dc-handoff-hf/index.html \
-  && test -f /tmp/dc-handoff-hf/lemo-manifest.json \
-  && test -f /tmp/dc-handoff-hf/hyperframes.json \
-  && grep -q 'data-composition-id="main"' /tmp/dc-handoff-hf/index.html; then
+if PYTHONPATH="$ROOT" python3 -m tools.handoff.cli hyperframes "$HO_FIX" -o $WORK/dc-handoff-hf >$WORK/dc-hf.out 2>$WORK/dc-hf.err \
+  && test -f $WORK/dc-handoff-hf/index.html \
+  && test -f $WORK/dc-handoff-hf/lemo-manifest.json \
+  && test -f $WORK/dc-handoff-hf/hyperframes.json \
+  && grep -q 'data-composition-id="main"' $WORK/dc-handoff-hf/index.html; then
   ok "hyperframes export writes composition + lemo-manifest"
 else
-  bad "hyperframes export: $(cat /tmp/dc-hf.err /tmp/dc-hf.out)"
+  bad "hyperframes export: $(cat $WORK/dc-hf.err $WORK/dc-hf.out)"
 fi
 
-if grep -q 'needsUser' /tmp/dc-handoff-hf/lemo-manifest.json; then
+if grep -q 'needsUser' $WORK/dc-handoff-hf/lemo-manifest.json; then
   ok "hyperframes manifest marks needsUser blockers"
 else
   bad "hyperframes missing needsUser"
 fi
 
 # --- matrix tracker (18-film full factorial; no remux) ---
-if "${CLI[@]}" matrix >/tmp/dc-matrix.out 2>/tmp/dc-matrix.err \
-  && grep -q 'filled 18/18' /tmp/dc-matrix.out \
-  && grep -q 'M01' /tmp/dc-matrix.out \
-  && grep -q 'M08' /tmp/dc-matrix.out \
-  && grep -q 'M12' /tmp/dc-matrix.out \
-  && grep -q 'M18' /tmp/dc-matrix.out \
-  && grep -q 'delivery-pass' /tmp/dc-matrix.out; then
+if "${CLI[@]}" matrix >$WORK/dc-matrix.out 2>$WORK/dc-matrix.err \
+  && grep -q 'filled 18/18' $WORK/dc-matrix.out \
+  && grep -q 'M01' $WORK/dc-matrix.out \
+  && grep -q 'M08' $WORK/dc-matrix.out \
+  && grep -q 'M12' $WORK/dc-matrix.out \
+  && grep -q 'M18' $WORK/dc-matrix.out \
+  && grep -q 'delivery-pass' $WORK/dc-matrix.out; then
   ok "matrix lists 18/18 with delivery-pass"
 else
-  bad "matrix list: $(cat /tmp/dc-matrix.err /tmp/dc-matrix.out)"
+  bad "matrix list: $(cat $WORK/dc-matrix.err $WORK/dc-matrix.out)"
 fi
 
 # M01 + flash natives promoted to delivery-pass. The rendered films live under the films
 # root (WORDFILM_FILMS, <repo>/films or /workspace/films); without it only the status is checked.
 for mid in M01 M02 M06 M10; do
-  if "${CLI[@]}" matrix --id "$mid" --json >/tmp/dc-matrix-$mid.json 2>/tmp/dc-matrix-$mid.err \
-    && python3 -c "import json;d=json.load(open('/tmp/dc-matrix-$mid.json')); assert d['id']=='$mid' and d['status']=='delivery-pass'"; then
+  if "${CLI[@]}" matrix --id "$mid" --json >$WORK/dc-matrix-$mid.json 2>$WORK/dc-matrix-$mid.err \
+    && python3 -c "import json;d=json.load(open('$WORK/dc-matrix-$mid.json')); assert d['id']=='$mid' and d['status']=='delivery-pass'"; then
     ok "matrix --id $mid --json delivery-pass"
   else
-    bad "matrix $mid: $(cat /tmp/dc-matrix-$mid.err /tmp/dc-matrix-$mid.json)"
+    bad "matrix $mid: $(cat $WORK/dc-matrix-$mid.err $WORK/dc-matrix-$mid.json)"
   fi
   if ! have_films; then
     skip "matrix $mid mp4 on disk" "films root $FILMS not present (set WORDFILM_FILMS)"
-  elif python3 -c "import json;d=json.load(open('/tmp/dc-matrix-$mid.json')); assert d['mp4Exists'] and d['evidenceExists'], d" 2>/tmp/dc-matrix-$mid.ev; then
+  elif python3 -c "import json;d=json.load(open('$WORK/dc-matrix-$mid.json')); assert d['mp4Exists'] and d['evidenceExists'], d" 2>$WORK/dc-matrix-$mid.ev; then
     ok "matrix $mid mp4 + evidence on disk"
   else
-    bad "matrix $mid mp4/evidence missing under $FILMS: $(tail -1 /tmp/dc-matrix-$mid.ev)"
+    bad "matrix $mid mp4/evidence missing under $FILMS: $(tail -1 $WORK/dc-matrix-$mid.ev)"
   fi
 done
 
@@ -1318,22 +1319,22 @@ else
 fi
 
 # --- Premiere xmeml handoff ---
-rm -rf /tmp/dc-handoff-prem
-if PYTHONPATH="$ROOT" python3 -m tools.handoff.cli premiere "$HO_FIX" -o /tmp/dc-handoff-prem >/tmp/dc-prem.out 2>/tmp/dc-prem.err \
-  && test -f /tmp/dc-handoff-prem/premiere.xml \
-  && test -f /tmp/dc-handoff-prem/manifest.json \
-  && test -f /tmp/dc-handoff-prem/assets/master.mp4 \
-  && grep -q 'xmeml version="5"' /tmp/dc-handoff-prem/premiere.xml \
-  && grep -q 'clipitem id="clip-1"' /tmp/dc-handoff-prem/premiere.xml \
-  && grep -q 'clipitem id="clip-2"' /tmp/dc-handoff-prem/premiere.xml; then
+rm -rf $WORK/dc-handoff-prem
+if PYTHONPATH="$ROOT" python3 -m tools.handoff.cli premiere "$HO_FIX" -o $WORK/dc-handoff-prem >$WORK/dc-prem.out 2>$WORK/dc-prem.err \
+  && test -f $WORK/dc-handoff-prem/premiere.xml \
+  && test -f $WORK/dc-handoff-prem/manifest.json \
+  && test -f $WORK/dc-handoff-prem/assets/master.mp4 \
+  && grep -q 'xmeml version="5"' $WORK/dc-handoff-prem/premiere.xml \
+  && grep -q 'clipitem id="clip-1"' $WORK/dc-handoff-prem/premiere.xml \
+  && grep -q 'clipitem id="clip-2"' $WORK/dc-handoff-prem/premiere.xml; then
   ok "premiere handoff writes xmeml v5 + 2 clipitems"
 else
-  bad "premiere handoff: $(cat /tmp/dc-prem.err /tmp/dc-prem.out)"
+  bad "premiere handoff: $(cat $WORK/dc-prem.err $WORK/dc-prem.out)"
 fi
 
-if test -f "$HO_OUT/premiere.xml" || PYTHONPATH="$ROOT" python3 -m tools.handoff.cli openfilm "$HO_FIX" -o /tmp/dc-of-xml >/dev/null 2>&1; then
+if test -f "$HO_OUT/premiere.xml" || PYTHONPATH="$ROOT" python3 -m tools.handoff.cli openfilm "$HO_FIX" -o $WORK/dc-of-xml >/dev/null 2>&1; then
   # openfilm package must embed premiere.xml (re-export if earlier HO_OUT predates change)
-  if test -f "$HO_OUT/premiere.xml"; then OFXML="$HO_OUT/premiere.xml"; else OFXML="/tmp/dc-of-xml/premiere.xml"; fi
+  if test -f "$HO_OUT/premiere.xml"; then OFXML="$HO_OUT/premiere.xml"; else OFXML="$WORK/dc-of-xml/premiere.xml"; fi
   if grep -q 'xmeml' "$OFXML"; then
     ok "openfilm package includes premiere.xml"
   else
@@ -1343,31 +1344,31 @@ else
   bad "openfilm premiere.xml missing"
 fi
 
-if "${CLI[@]}" handoff --project "$HO_FIX" --target premiere -o /tmp/dc-prem-cli --no-budget >/tmp/dc-prem2.out 2>/tmp/dc-prem2.err \
-  && test -f /tmp/dc-prem-cli/premiere.xml; then
+if "${CLI[@]}" handoff --project "$HO_FIX" --target premiere -o $WORK/dc-prem-cli --no-budget >$WORK/dc-prem2.out 2>$WORK/dc-prem2.err \
+  && test -f $WORK/dc-prem-cli/premiere.xml; then
   ok "cli handoff premiere"
 else
-  bad "cli handoff premiere: $(cat /tmp/dc-prem2.err /tmp/dc-prem2.out)"
+  bad "cli handoff premiere: $(cat $WORK/dc-prem2.err $WORK/dc-prem2.out)"
 fi
 
 # --- budget ledger ---
-BUD_LEDGER=/tmp/dc-budget-ledger.jsonl
+BUD_LEDGER=$WORK/dc-budget-ledger.jsonl
 rm -f "$BUD_LEDGER"
-if "${CLI[@]}" budget append --ledger "$BUD_LEDGER" --item "test-local" --usd 0 --kind local --path-label controller --duration 1.5 >/tmp/dc-bud.out 2>/tmp/dc-bud.err \
-  && "${CLI[@]}" budget append --ledger "$BUD_LEDGER" --item "test-paid" --usd 0.12 --kind manual --tokens-in 10 --tokens-out 2 --path-label flash >/tmp/dc-bud2.out 2>/tmp/dc-bud2.err \
-  && "${CLI[@]}" budget summary --ledger "$BUD_LEDGER" --json >/tmp/dc-bud-sum.json 2>/tmp/dc-bud-sum.err \
-  && python3 -c "import json;d=json.load(open('/tmp/dc-bud-sum.json')); assert d['entries']==2 and abs(d['totalUsd']-0.12)<1e-9"; then
+if "${CLI[@]}" budget append --ledger "$BUD_LEDGER" --item "test-local" --usd 0 --kind local --path-label controller --duration 1.5 >$WORK/dc-bud.out 2>$WORK/dc-bud.err \
+  && "${CLI[@]}" budget append --ledger "$BUD_LEDGER" --item "test-paid" --usd 0.12 --kind manual --tokens-in 10 --tokens-out 2 --path-label flash >$WORK/dc-bud2.out 2>$WORK/dc-bud2.err \
+  && "${CLI[@]}" budget summary --ledger "$BUD_LEDGER" --json >$WORK/dc-bud-sum.json 2>$WORK/dc-bud-sum.err \
+  && python3 -c "import json;d=json.load(open('$WORK/dc-bud-sum.json')); assert d['entries']==2 and abs(d['totalUsd']-0.12)<1e-9"; then
   ok "budget append + summary"
 else
-  bad "budget: $(cat /tmp/dc-bud.err /tmp/dc-bud2.err /tmp/dc-bud-sum.err /tmp/dc-bud.out /tmp/dc-bud-sum.json 2>/dev/null)"
+  bad "budget: $(cat $WORK/dc-bud.err $WORK/dc-bud2.err $WORK/dc-bud-sum.err $WORK/dc-bud.out $WORK/dc-bud-sum.json 2>/dev/null)"
 fi
 
-if "${CLI[@]}" budget append --ledger "$BUD_LEDGER" --item "test-cny" --usd 0.05 --cny 0.5 --kind opencode-session --session-id ses_test --path-label flash >/tmp/dc-bud3.out 2>/tmp/dc-bud3.err \
-  && "${CLI[@]}" budget summary --ledger "$BUD_LEDGER" --json >/tmp/dc-bud-sum2.json 2>/tmp/dc-bud-sum2.err \
-  && python3 -c "import json;d=json.load(open('/tmp/dc-bud-sum2.json')); assert abs(d['totalCny']-0.5)<1e-9, d"; then
+if "${CLI[@]}" budget append --ledger "$BUD_LEDGER" --item "test-cny" --usd 0.05 --cny 0.5 --kind opencode-session --session-id ses_test --path-label flash >$WORK/dc-bud3.out 2>$WORK/dc-bud3.err \
+  && "${CLI[@]}" budget summary --ledger "$BUD_LEDGER" --json >$WORK/dc-bud-sum2.json 2>$WORK/dc-bud-sum2.err \
+  && python3 -c "import json;d=json.load(open('$WORK/dc-bud-sum2.json')); assert abs(d['totalCny']-0.5)<1e-9, d"; then
   ok "budget --cny tracked in totalCny"
 else
-  bad "budget: $(cat /tmp/dc-bud.err /tmp/dc-bud2.err /tmp/dc-bud-sum.err /tmp/dc-bud.out /tmp/dc-bud-sum.json 2>/dev/null)"
+  bad "budget: $(cat $WORK/dc-bud.err $WORK/dc-bud2.err $WORK/dc-bud-sum.err $WORK/dc-bud.out $WORK/dc-bud-sum.json 2>/dev/null)"
 fi
 
 if test -f "$CTL/fixtures/budget-ledger.jsonl" && test -f "$CTL/budget.py" \
@@ -1377,25 +1378,25 @@ else
   bad "budget automation files missing"
 fi
 
-if "${CLI[@]}" budget import-opencode --ledger /tmp/dc-budget-import.jsonl --min-usd 0.01 --dry-run --json >/tmp/dc-bud-imp.json 2>/tmp/dc-bud-imp.err \
-  && python3 -c "import json;d=json.load(open('/tmp/dc-bud-imp.json')); assert d.get('ok') is True and d.get('dryRun') is True"; then
+if "${CLI[@]}" budget import-opencode --ledger $WORK/dc-budget-import.jsonl --min-usd 0.01 --dry-run --json >$WORK/dc-bud-imp.json 2>$WORK/dc-bud-imp.err \
+  && python3 -c "import json;d=json.load(open('$WORK/dc-bud-imp.json')); assert d.get('ok') is True and d.get('dryRun') is True"; then
   ok "budget import-opencode --dry-run"
 else
   # DB may be absent off-box; still accept honest failure shape
-  if grep -q 'opencode db missing' /tmp/dc-bud-imp.json /tmp/dc-bud-imp.err 2>/dev/null; then
+  if grep -q 'opencode db missing' $WORK/dc-bud-imp.json $WORK/dc-bud-imp.err 2>/dev/null; then
     ok "budget import-opencode honest missing-db"
   else
-    bad "budget import: $(cat /tmp/dc-bud-imp.err /tmp/dc-bud-imp.json)"
+    bad "budget import: $(cat $WORK/dc-bud-imp.err $WORK/dc-bud-imp.json)"
   fi
 fi
 
-if "${CLI[@]}" matrix --filled >/tmp/dc-matrix-f.out 2>/tmp/dc-matrix-f.err \
-  && grep -q 'M05' /tmp/dc-matrix-f.out \
-  && ! grep -E '^M0[0-9].* empty ' /tmp/dc-matrix-f.out \
-  && ! grep -E '^M1[0-8].* empty ' /tmp/dc-matrix-f.out; then
+if "${CLI[@]}" matrix --filled >$WORK/dc-matrix-f.out 2>$WORK/dc-matrix-f.err \
+  && grep -q 'M05' $WORK/dc-matrix-f.out \
+  && ! grep -E '^M0[0-9].* empty ' $WORK/dc-matrix-f.out \
+  && ! grep -E '^M1[0-8].* empty ' $WORK/dc-matrix-f.out; then
   ok "matrix --filled hides empty"
 else
-  bad "matrix --filled: $(cat /tmp/dc-matrix-f.err /tmp/dc-matrix-f.out)"
+  bad "matrix --filled: $(cat $WORK/dc-matrix-f.err $WORK/dc-matrix-f.out)"
 fi
 
 if test -f "$CTL/docs/MATRIX-18.md" && test -f "$CTL/fixtures/matrix-18.json"; then
@@ -1405,7 +1406,7 @@ else
 fi
 
 # Cross-style x flash cells (M13-M18): every cell has a real mp4 + evidence, flash path
-"${CLI[@]}" matrix --path flash >/tmp/dc-matrix-flash.out 2>/tmp/dc-matrix-flash.err || true
+"${CLI[@]}" matrix --path flash >$WORK/dc-matrix-flash.out 2>$WORK/dc-matrix-flash.err || true
 if python3 -c "
 import json
 d=json.load(open('$CTL/fixtures/matrix-18.json'))
@@ -1416,10 +1417,10 @@ assert len(new)==6 and all(c['path']=='flash' and c['role']=='cross' for c in ne
 assert all(c['status']!='empty' and c.get('mp4') and c.get('evidence') for c in new)
 st={c['id']:c['status'] for c in new}
 assert st['M14']=='muxed' and st['M16']=='muxed', st  # not delivered until re-rendered with trimmed copy
-" && grep -q 'M13' /tmp/dc-matrix-flash.out && ! grep -q ' controller ' /tmp/dc-matrix-flash.out; then
+" && grep -q 'M13' $WORK/dc-matrix-flash.out && ! grep -q ' controller ' $WORK/dc-matrix-flash.out; then
   ok "matrix-18 full factorial; M13-M18 cross x flash honest status + --path flash"
 else
-  bad "matrix-18 cross x flash: $(cat /tmp/dc-matrix-flash.err)"
+  bad "matrix-18 cross x flash: $(cat $WORK/dc-matrix-flash.err)"
 fi
 if ! have_films; then
   skip "matrix-18 M13-M18 mp4 + evidence on disk" "films root $FILMS not present (set WORDFILM_FILMS)"
@@ -1430,19 +1431,19 @@ d=json.load(open('$CTL/fixtures/matrix-18.json'))
 new=[c for c in d['cells'] if c['id'] in ('M13','M14','M15','M16','M17','M18')]
 assert all(film_path(c['mp4']).is_file() and film_path(c['evidence']).is_file() for c in new)
 assert all(c['status']!='delivery-pass' or json.load(open(film_path(c['evidence']))).get('deliveryAllowed') for c in new)
-" 2>/tmp/dc-matrix-flash.ev; then
+" 2>$WORK/dc-matrix-flash.ev; then
   ok "matrix-18 M13-M18 mp4 + evidence on disk; delivery-pass cells allow delivery"
 else
-  bad "matrix-18 M13-M18 evidence under $FILMS: $(tail -1 /tmp/dc-matrix-flash.ev)"
+  bad "matrix-18 M13-M18 evidence under $FILMS: $(tail -1 $WORK/dc-matrix-flash.ev)"
 fi
 
 # Loader rejects a non-factorial tracker
 python3 -c "
-import json;d=json.load(open('$CTL/fixtures/matrix-18.json'));d['cells']=d['cells'][:12];json.dump(d,open('/tmp/dc-matrix-bad.json','w'))"
+import json;d=json.load(open('$CTL/fixtures/matrix-18.json'));d['cells']=d['cells'][:12];json.dump(d,open('$WORK/dc-matrix-bad.json','w'))"
 if PYTHONPATH="$CTL" python3 -c "
 import matrix
 try:
-    matrix.load_matrix('/tmp/dc-matrix-bad.json')
+    matrix.load_matrix('$WORK/dc-matrix-bad.json')
 except Exception:
     raise SystemExit(0)
 raise SystemExit(1)
@@ -1454,13 +1455,13 @@ fi
 
 # ---- DIALOGUE.md gate (dialogue_check.py / cli dialogue-check / TTS block) ----
 DLG="$FIX/dialogue/pass"
-DT=/tmp/dc-dialogue
+DT=$WORK/dc-dialogue
 rm -rf "$DT"; mkdir -p "$DT"
-if "${CLI[@]}" dialogue-check --project "$DLG" >/tmp/dc-dlg.out 2>&1 && grep -q 'PASS' /tmp/dc-dlg.out \
+if "${CLI[@]}" dialogue-check --project "$DLG" >$WORK/dc-dlg.out 2>&1 && grep -q 'PASS' $WORK/dc-dlg.out \
   && python3 -c "import json;d=json.load(open('$DLG/evidence/dialogue-check.json'));assert d['status']=='PASS' and d['duration']['totalChars']==92"; then
   ok "dialogue-check PASS fixture (92字 vs 22s ±15%)"
 else
-  bad "dialogue-check pass fixture: $(cat /tmp/dc-dlg.out)"
+  bad "dialogue-check pass fixture: $(cat $WORK/dc-dlg.out)"
 fi
 rm -rf "$DLG/evidence"
 
@@ -1577,7 +1578,7 @@ else
 fi
 
 # ---- dialogue-loop (mocked LLM; no network, no real ledger) ----
-DLL=/tmp/dc-dialogue-loop; rm -rf "$DLL"; mkdir -p "$DLL"
+DLL=$WORK/dc-dialogue-loop; rm -rf "$DLL"; mkdir -p "$DLL"
 mkloop() { rm -rf "$DLL/$1"; mkdir -p "$DLL/$1"; cp -r "$DLG/content" "$DLL/$1/"; rm -rf "$DLL/$1/evidence"; }
 LEDGER_N0=$( [ -f "$WORDFILM_BUDGET_LEDGER" ] && wc -l <"$WORDFILM_BUDGET_LEDGER" || echo 0 )
 REAL_N0=$(wc -l <"$CTL/fixtures/budget-ledger.jsonl")
@@ -1643,24 +1644,24 @@ else
 fi
 
 # stepaudio provider + music bed source: local mock StepFun API, fake key, no network
-if env -u STEP_API_KEY python3 "$CTL/tests/stepaudio_mock.py" >/tmp/dc_stepaudio_mock.log 2>&1; then
+if env -u STEP_API_KEY python3 "$CTL/tests/stepaudio_mock.py" >$WORK/dc_stepaudio_mock.log 2>&1; then
   ok "stepaudio: free gen-preview only (paid /audio/speech + non-free models refused), pitch retakes, session mode = 1 request split by ASR timings, 402 stops, music bed cut/fade/RMS + cache"
 else
-  bad "stepaudio mock (see /tmp/dc_stepaudio_mock.log)"
+  bad "stepaudio mock (see $WORK/dc_stepaudio_mock.log)"
 fi
 
 # elevenlabs provider: local mock API, fake key, no network
-if env -u ELEVEN_API_KEY -u ELEVENLABS_API_KEY python3 "$CTL/tests/elevenlabs_mock.py" >/tmp/dc_elevenlabs_mock.log 2>&1; then
+if env -u ELEVEN_API_KEY -u ELEVENLABS_API_KEY python3 "$CTL/tests/elevenlabs_mock.py" >$WORK/dc_elevenlabs_mock.log 2>&1; then
   ok "elevenlabs: needs-key without ELEVENLABS_API_KEY; mock TTS writes wav+dur; xi-api-key + multilingual_v2; listed in --list"
 else
-  bad "elevenlabs mock (see /tmp/dc_elevenlabs_mock.log)"
+  bad "elevenlabs mock (see $WORK/dc_elevenlabs_mock.log)"
 fi
 
 # elevenlabs-dialogue: local mock Text-to-Dialogue API, fake key, no network
-if env -u ELEVEN_API_KEY -u ELEVENLABS_API_KEY python3 "$CTL/tests/elevenlabs_dialogue_mock.py" >/tmp/dc_elevenlabs_dialogue_mock.log 2>&1; then
+if env -u ELEVEN_API_KEY -u ELEVENLABS_API_KEY python3 "$CTL/tests/elevenlabs_dialogue_mock.py" >$WORK/dc_elevenlabs_dialogue_mock.log 2>&1; then
   ok "elevenlabs-dialogue: needs-key; chunk ≤2000/≤10 voices; mock writes dialogue.wav+manifest; v4→v3 fallback; listed in --list"
 else
-  bad "elevenlabs-dialogue mock (see /tmp/dc_elevenlabs_dialogue_mock.log)"
+  bad "elevenlabs-dialogue mock (see $WORK/dc_elevenlabs_dialogue_mock.log)"
 fi
 
 # visual-check: synthetic film with known defects (OCR/ffmpeg local), semantic layer mocked, quality gate, speaker metric
@@ -1671,6 +1672,51 @@ elif [ "$rc" = 77 ]; then
   skip "visual-check mock" "$(grep '^SKIP:' "$WORK/visual_check_mock.log" | head -1 | sed 's/^SKIP: //')"
 else
   bad "visual-check mock: $(tail -20 "$WORK/visual_check_mock.log")"
+fi
+
+# visual-check geometry follows the film size: 16:9 result unchanged, 9:16 uses portrait regions
+python3 "$CTL/tests/visual_check_aspect.py" >"$WORK/visual_check_aspect.log" 2>&1 && rc=0 || rc=$?
+if [ "$rc" = 0 ]; then
+  ok "visual-check aspect: 16:9 issues unchanged; 9:16 registry scaled from engine.lock.json, no false clip, 90x160 luma scan, 360x640 sheet tiles"
+elif [ "$rc" = 77 ]; then
+  skip "visual-check aspect" "$(grep '^SKIP:' "$WORK/visual_check_aspect.log" | head -1 | sed 's/^SKIP: //')"
+else
+  bad "visual-check aspect: $(grep -v '^ok ' "$WORK/visual_check_aspect.log" | tail -20)"
+fi
+
+# TTS / speaker env names: WORDFILM_* first, the upstream LEMO_* name as fallback (read at call time)
+# spk-*: stand-in interpreters that "import resemblyzer" fine (exit 0), so _spk_python() picks them
+for n in spk-legacy spk-new; do printf '#!/bin/sh\nexit 0\n' >"$WORK/$n"; chmod +x "$WORK/$n"; done
+if (cd "$ROOT" && env -u WORDFILM_TTS_PYTHON -u LEMO_TTS_PYTHON -u WORDFILM_TTS_QWEN3_BASE -u LEMO_TTS_QWEN3_BASE \
+  -u WORDFILM_SPK_PYTHON -u LEMO_SPK_PYTHON -u WORDFILM_OPENCODE_DB -u LEMO_OPENCODE_DB python3 -c "
+import os, sys
+sys.path.insert(0, 'core/tts'); sys.path.insert(0, 'tools/deepseek-controller')
+from providers import env, runtime
+E = os.environ
+assert env('TTS_X_UNSET', 'd') == 'd'
+E['LEMO_TTS_QWEN3_BASE'] = 'http://legacy/v1'
+assert env('TTS_QWEN3_BASE') == 'http://legacy/v1'
+assert runtime.probe_qwen3().state == 'ready', runtime.probe_qwen3()
+E['WORDFILM_TTS_QWEN3_BASE'] = 'http://new/v1'
+assert env('TTS_QWEN3_BASE') == 'http://new/v1' and 'http://new/v1' in runtime.probe_qwen3().detail, runtime.probe_qwen3()
+E['WORDFILM_TTS_QWEN3_BASE'] = ''   # empty = unset
+assert env('TTS_QWEN3_BASE') == 'http://legacy/v1'
+E['LEMO_TTS_PYTHON'] = '/bin/sh'
+assert runtime.resolve_voice_python() == '/bin/sh'
+E['WORDFILM_TTS_PYTHON'] = sys.executable
+assert runtime.resolve_voice_python() == sys.executable
+import budget, importlib
+E['LEMO_OPENCODE_DB'] = '/legacy.db'; importlib.reload(budget); assert str(budget.DEFAULT_OPENCODE_DB) == '/legacy.db'
+E['WORDFILM_OPENCODE_DB'] = '/new.db'; importlib.reload(budget); assert str(budget.DEFAULT_OPENCODE_DB) == '/new.db'
+import quality
+E['LEMO_SPK_PYTHON'] = '$WORK/spk-legacy'
+assert quality._spk_python() == '$WORK/spk-legacy', quality._spk_python()
+E['WORDFILM_SPK_PYTHON'] = '$WORK/spk-new'
+assert quality._spk_python() == '$WORK/spk-new', quality._spk_python()
+" >"$WORK/env-names.log" 2>&1); then
+  ok "env names: WORDFILM_TTS_* / WORDFILM_SPK_PYTHON / WORDFILM_OPENCODE_DB win, LEMO_* still honoured, empty = unset"
+else
+  bad "env names: $(tail -5 "$WORK/env-names.log")"
 fi
 
 # budget ledger: tests write to \$WORDFILM_BUDGET_LEDGER, never the real fixtures ledger
@@ -1688,38 +1734,38 @@ else
 fi
 
 # --- aspect: 16:9 / 9:16 plan → render size (temp copies only; fixtures stay untouched) ---
-if "${CLI[@]}" validate "$FIX/plan-caption-news-portrait.json" >/dev/null 2>/tmp/dc-asp-val.err; then
+if "${CLI[@]}" validate "$FIX/plan-caption-news-portrait.json" >/dev/null 2>$WORK/dc-asp-val.err; then
   ok "validate plan-caption-news-portrait.json (aspect 9:16)"
 else
-  bad "portrait caption plan: $(cat /tmp/dc-asp-val.err)"
+  bad "portrait caption plan: $(cat $WORK/dc-asp-val.err)"
 fi
 
-if "${CLI[@]}" validate "$FIX/plan-invalid-pictogram-portrait.json" >/dev/null 2>/tmp/dc-asp-bad.err; then
+if "${CLI[@]}" validate "$FIX/plan-invalid-pictogram-portrait.json" >/dev/null 2>$WORK/dc-asp-bad.err; then
   bad "pictogram-motion + 9:16 should be rejected"
-elif grep -q "pictogram-motion does not support '9:16'" /tmp/dc-asp-bad.err; then
+elif grep -q "pictogram-motion does not support '9:16'" $WORK/dc-asp-bad.err; then
   ok "pictogram-motion + 9:16 rejected with manifest aspects message"
 else
-  bad "pictogram 9:16 rejected without aspect message: $(cat /tmp/dc-asp-bad.err)"
+  bad "pictogram 9:16 rejected without aspect message: $(cat $WORK/dc-asp-bad.err)"
 fi
 
 python3 -c "
-import json;d=json.load(open('$FIX/plan-caption-news.json'));d['aspect']='4:3';json.dump(d,open('/tmp/dc-asp-43.json','w'),ensure_ascii=False)"
-if "${CLI[@]}" validate /tmp/dc-asp-43.json >/dev/null 2>/tmp/dc-asp-43.err; then
+import json;d=json.load(open('$FIX/plan-caption-news.json'));d['aspect']='4:3';json.dump(d,open('$WORK/dc-asp-43.json','w'),ensure_ascii=False)"
+if "${CLI[@]}" validate $WORK/dc-asp-43.json >/dev/null 2>$WORK/dc-asp-43.err; then
   bad "aspect 4:3 should be rejected"
-elif grep -q '\$.aspect: must be one of' /tmp/dc-asp-43.err; then
+elif grep -q '\$.aspect: must be one of' $WORK/dc-asp-43.err; then
   ok "unknown aspect 4:3 rejected"
 else
-  bad "aspect 4:3: $(cat /tmp/dc-asp-43.err)"
+  bad "aspect 4:3: $(cat $WORK/dc-asp-43.err)"
 fi
 
 # a non-string aspect (LLM-written plan) is reported, not a TypeError crash
 python3 -c "
-import json;d=json.load(open('$FIX/plan-caption-news-portrait.json'));d['aspect']=['9:16'];json.dump(d,open('/tmp/dc-asp-list.json','w'),ensure_ascii=False)"
-"${CLI[@]}" validate /tmp/dc-asp-list.json >/dev/null 2>/tmp/dc-asp-list.err && rc=0 || rc=$?
-if [ "$rc" = 1 ] && grep -q '\$.aspect: must be one of' /tmp/dc-asp-list.err && ! grep -q Traceback /tmp/dc-asp-list.err; then
+import json;d=json.load(open('$FIX/plan-caption-news-portrait.json'));d['aspect']=['9:16'];json.dump(d,open('$WORK/dc-asp-list.json','w'),ensure_ascii=False)"
+"${CLI[@]}" validate $WORK/dc-asp-list.json >/dev/null 2>$WORK/dc-asp-list.err && rc=0 || rc=$?
+if [ "$rc" = 1 ] && grep -q '\$.aspect: must be one of' $WORK/dc-asp-list.err && ! grep -q Traceback $WORK/dc-asp-list.err; then
   ok "aspect [\"9:16\"] (list) reported as a validation error"
 else
-  bad "aspect list: rc=$rc $(cat /tmp/dc-asp-list.err)"
+  bad "aspect list: rc=$rc $(cat $WORK/dc-asp-list.err)"
 fi
 
 if PYTHONPATH="$CTL" python3 -c "
@@ -1727,40 +1773,40 @@ from common import render_size, project_size, size_arg
 assert render_size('16:9') == (1920, 1080) and render_size('9:16') == (1080, 1920)
 assert render_size({}) == (1920, 1080) and render_size({'aspect': '9:16'}) == (1080, 1920)
 assert size_arg((1080, 1920)) == '1080x1920'
-assert project_size('/tmp/dc-no-such-project') == (1920, 1080)
+assert project_size('$WORK/dc-no-such-project') == (1920, 1080)
 "; then
   ok "render_size maps 16:9→1920x1080, 9:16→1080x1920 (default 16:9)"
 else
   bad "render_size helper"
 fi
 
-rm -rf /tmp/dc-adapt-portrait
-if "${CLI[@]}" adapt "$FIX/plan-caption-news-portrait.json" -o /tmp/dc-adapt-portrait >/dev/null \
-  && python3 -c "import json;assert json.load(open('/tmp/dc-adapt-portrait/content/plan.json'))['aspect']=='9:16'"; then
+rm -rf $WORK/dc-adapt-portrait
+if "${CLI[@]}" adapt "$FIX/plan-caption-news-portrait.json" -o $WORK/dc-adapt-portrait >/dev/null \
+  && python3 -c "import json;assert json.load(open('$WORK/dc-adapt-portrait/content/plan.json'))['aspect']=='9:16'"; then
   ok "adapt portrait keeps aspect in content/plan.json"
 else
   bad "adapt portrait aspect"
 fi
 
-rm -rf /tmp/dc-scaffold-caption-portrait
-if "${CLI[@]}" scaffold "$FIX/plan-caption-news-portrait.json" -o /tmp/dc-scaffold-caption-portrait --lib "$ROOT" --force >/tmp/dc-scp.out 2>/tmp/dc-scp.err \
-  && grep -q 'size=1080x1920 aspect=9:16' /tmp/dc-scp.out \
+rm -rf $WORK/dc-scaffold-caption-portrait
+if "${CLI[@]}" scaffold "$FIX/plan-caption-news-portrait.json" -o $WORK/dc-scaffold-caption-portrait --lib "$ROOT" --force >$WORK/dc-scp.out 2>$WORK/dc-scp.err \
+  && grep -q 'size=1080x1920 aspect=9:16' $WORK/dc-scp.out \
   && python3 -c "
-import json;d=json.load(open('/tmp/dc-scaffold-caption-portrait/content/engine.lock.json'))
+import json;d=json.load(open('$WORK/dc-scaffold-caption-portrait/content/engine.lock.json'))
 assert d['aspect']=='9:16' and d['size']=='1080x1920', d" \
-  && grep -q 'core/render/still.mjs .* --size 1080x1920' /tmp/dc-scaffold-caption-portrait/PROJECT.md \
-  && grep -q 'core/render/video.mjs .* --size 1080x1920' /tmp/dc-scaffold-caption-portrait/PROJECT.md \
-  && grep -q 'core/render/readcheck.mjs .* --size 1080x1920' /tmp/dc-scaffold-caption-portrait/PROJECT.md \
-  && grep -q 'core/render/events.mjs .* --size 1080x1920' /tmp/dc-scaffold-caption-portrait/PROJECT.md \
-  && ! grep -q '1920x1080' /tmp/dc-scaffold-caption-portrait/PROJECT.md; then
+  && grep -q 'core/render/still.mjs .* --size 1080x1920' $WORK/dc-scaffold-caption-portrait/PROJECT.md \
+  && grep -q 'core/render/video.mjs .* --size 1080x1920' $WORK/dc-scaffold-caption-portrait/PROJECT.md \
+  && grep -q 'core/render/readcheck.mjs .* --size 1080x1920' $WORK/dc-scaffold-caption-portrait/PROJECT.md \
+  && grep -q 'core/render/events.mjs .* --size 1080x1920' $WORK/dc-scaffold-caption-portrait/PROJECT.md \
+  && ! grep -q '1920x1080' $WORK/dc-scaffold-caption-portrait/PROJECT.md; then
   ok "scaffold caption 9:16 records size 1080x1920 in engine.lock + PROJECT.md --size"
 else
-  bad "scaffold caption portrait: $(cat /tmp/dc-scp.out /tmp/dc-scp.err)"
+  bad "scaffold caption portrait: $(cat $WORK/dc-scp.out $WORK/dc-scp.err)"
 fi
 
-if grep -q -- '--size 1920x1080' /tmp/dc-scaffold-caption/PROJECT.md \
+if grep -q -- '--size 1920x1080' $WORK/dc-scaffold-caption/PROJECT.md \
   && python3 -c "
-import json;d=json.load(open('/tmp/dc-scaffold-caption/content/engine.lock.json'))
+import json;d=json.load(open('$WORK/dc-scaffold-caption/content/engine.lock.json'))
 assert d['aspect']=='16:9' and d['size']=='1920x1080', d"; then
   ok "scaffold caption default aspect stays 16:9 / 1920x1080"
 else
@@ -1768,12 +1814,12 @@ else
 fi
 
 python3 -c "
-import json;d=json.load(open('$FIX/plan-swiss-motion.json'));d['aspect']='9:16';json.dump(d,open('/tmp/dc-plan-swiss-portrait.json','w'),ensure_ascii=False)"
-rm -rf /tmp/dc-scaffold-swiss-portrait
-if "${CLI[@]}" scaffold /tmp/dc-plan-swiss-portrait.json -o /tmp/dc-scaffold-swiss-portrait --lib "$ROOT" --force >/tmp/dc-ssp.out 2>/tmp/dc-ssp.err \
+import json;d=json.load(open('$FIX/plan-swiss-motion.json'));d['aspect']='9:16';json.dump(d,open('$WORK/dc-plan-swiss-portrait.json','w'),ensure_ascii=False)"
+rm -rf $WORK/dc-scaffold-swiss-portrait
+if "${CLI[@]}" scaffold $WORK/dc-plan-swiss-portrait.json -o $WORK/dc-scaffold-swiss-portrait --lib "$ROOT" --force >$WORK/dc-ssp.out 2>$WORK/dc-ssp.err \
   && python3 -c "
 import json
-rt=json.load(open('/tmp/dc-scaffold-swiss-portrait/texts_runtime.json'))
+rt=json.load(open('$WORK/dc-scaffold-swiss-portrait/texts_runtime.json'))
 assert rt['aspect']=='9:16' and rt['frame']=={'width':1080,'height':1920}, rt.get('frame')
 assert rt['entries']
 for e in rt['entries']:
@@ -1785,7 +1831,7 @@ for e in rt['entries']:
 "; then
   ok "apply_swiss_texts on a 9:16 project clamps TEXTS boxes to 1080x1920"
 else
-  bad "swiss portrait texts_runtime: $(cat /tmp/dc-ssp.out /tmp/dc-ssp.err)"
+  bad "swiss portrait texts_runtime: $(cat $WORK/dc-ssp.out $WORK/dc-ssp.err)"
 fi
 
 if PYTHONPATH="$CTL" python3 -c "
@@ -1814,7 +1860,7 @@ class P:
 def fake(cmd, **kw):
     seen['cmd'] = cmd; return P()
 quality.subprocess.run = fake
-quality.run_readcheck(__import__('pathlib').Path('/tmp/dc-scaffold-caption-portrait'), style='caption-news')
+quality.run_readcheck(__import__('pathlib').Path('$WORK/dc-scaffold-caption-portrait'), style='caption-news')
 cmd = seen['cmd']
 assert cmd[-2:] == ['--size', '1080x1920'], cmd
 "; then
@@ -1824,42 +1870,42 @@ else
 fi
 
 # handoff: frame size from --size flag or ffprobe of a portrait master
-rm -rf /tmp/dc-handoff-portrait
-if PYTHONPATH="$ROOT" python3 -m tools.handoff.cli premiere "$HO_FIX" -o /tmp/dc-handoff-portrait --size 1080x1920 --json >/tmp/dc-hop.json 2>/tmp/dc-hop.err \
+rm -rf $WORK/dc-handoff-portrait
+if PYTHONPATH="$ROOT" python3 -m tools.handoff.cli premiere "$HO_FIX" -o $WORK/dc-handoff-portrait --size 1080x1920 --json >$WORK/dc-hop.json 2>$WORK/dc-hop.err \
   && python3 -c "
-import json;d=json.load(open('/tmp/dc-hop.json'))
+import json;d=json.load(open('$WORK/dc-hop.json'))
 assert (d['width'],d['height'],d['sizeSource'])==(1080,1920,'flag'), d" \
-  && test "$(grep -c '<width>1080</width>' /tmp/dc-handoff-portrait/premiere.xml)" = 2 \
-  && test "$(grep -c '<height>1920</height>' /tmp/dc-handoff-portrait/premiere.xml)" = 2; then
+  && test "$(grep -c '<width>1080</width>' $WORK/dc-handoff-portrait/premiere.xml)" = 2 \
+  && test "$(grep -c '<height>1920</height>' $WORK/dc-handoff-portrait/premiere.xml)" = 2; then
   ok "handoff premiere --size 1080x1920 writes portrait xmeml (source=flag)"
 else
-  bad "handoff premiere portrait: $(cat /tmp/dc-hop.err /tmp/dc-hop.json)"
+  bad "handoff premiere portrait: $(cat $WORK/dc-hop.err $WORK/dc-hop.json)"
 fi
 
-if PYTHONPATH="$ROOT" python3 -m tools.handoff.cli premiere "$HO_FIX" -o /tmp/dc-handoff-odd --size 1081x1920 >/dev/null 2>/tmp/dc-hoodd.err; then
+if PYTHONPATH="$ROOT" python3 -m tools.handoff.cli premiere "$HO_FIX" -o $WORK/dc-handoff-odd --size 1081x1920 >/dev/null 2>$WORK/dc-hoodd.err; then
   bad "handoff --size 1081x1920 should be rejected"
-elif grep -q 'even' /tmp/dc-hoodd.err; then
+elif grep -q 'even' $WORK/dc-hoodd.err; then
   ok "handoff rejects odd --size"
 else
-  bad "handoff odd size: $(cat /tmp/dc-hoodd.err)"
+  bad "handoff odd size: $(cat $WORK/dc-hoodd.err)"
 fi
 
 if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then
-  rm -rf /tmp/dc-portrait-film && mkdir -p /tmp/dc-portrait-film/out
+  rm -rf $WORK/dc-portrait-film && mkdir -p $WORK/dc-portrait-film/out
   if ffmpeg -y -hide_banner -loglevel error -f lavfi -i color=c=black:s=1080x1920:r=30:d=1 \
-       -c:v libx264 -preset ultrafast -pix_fmt yuv420p /tmp/dc-portrait-film/out/final.mp4 \
-    && PYTHONPATH="$ROOT" python3 -m tools.handoff.cli both /tmp/dc-portrait-film --with-premiere --json >/tmp/dc-hob.json 2>/tmp/dc-hob.err \
+       -c:v libx264 -preset ultrafast -pix_fmt yuv420p $WORK/dc-portrait-film/out/final.mp4 \
+    && PYTHONPATH="$ROOT" python3 -m tools.handoff.cli both $WORK/dc-portrait-film --with-premiere --json >$WORK/dc-hob.json 2>$WORK/dc-hob.err \
     && python3 -c "
-import json;d=json.load(open('/tmp/dc-hob.json'))
+import json;d=json.load(open('$WORK/dc-hob.json'))
 for k in ('openfilm','hyperframes','premiere'):
     assert (d[k]['width'],d[k]['height'],d[k]['sizeSource'])==(1080,1920,'probe'), (k,d[k])
 assert d['premiere']['fps']==30 and d['premiere']['fpsSource']=='probe'" \
-    && grep -q 'data-width="1080"' /tmp/dc-portrait-film/hyperframes-handoff/index.html \
-    && grep -q 'width:1080px;height:1920px' /tmp/dc-portrait-film/openfilm-handoff/film.html \
-    && ! grep -q '1920px;height:1080px\|width=1920' /tmp/dc-portrait-film/openfilm-handoff/film.html; then
+    && grep -q 'data-width="1080"' $WORK/dc-portrait-film/hyperframes-handoff/index.html \
+    && grep -q 'width:1080px;height:1920px' $WORK/dc-portrait-film/openfilm-handoff/film.html \
+    && ! grep -q '1920px;height:1080px\|width=1920' $WORK/dc-portrait-film/openfilm-handoff/film.html; then
     ok "handoff both: ffprobe of a 1080x1920 master drives all exports"
   else
-    bad "handoff probe portrait: $(cat /tmp/dc-hob.err)"
+    bad "handoff probe portrait: $(cat $WORK/dc-hob.err)"
   fi
 else
   skip "handoff ffprobe portrait" "ffmpeg/ffprobe not installed"
@@ -1903,19 +1949,19 @@ release.remote = lambda tag, repo=None: rels.get((tag, repo or release.REPO), {}
 got = sorted((t, os.path.basename(p), w) for t, p, w in release.plan())
 want = [('films', 'new.mp4', 'missing'), ('films.json', 'moved.mp4', 'on me/fork but tools/films.json names up/stream'), ('web', 'new.mp4', 'missing')]
 assert got == want, got
-" >/tmp/dc-plan.err 2>&1; then
+" >$WORK/dc-plan.err 2>&1; then
   ok "release.py plan() leaves upstream-hosted films alone, pushes only what their host lacks"
 else
-  bad "release.py plan() host selection: $(tail -5 /tmp/dc-plan.err)"
+  bad "release.py plan() host selection: $(tail -5 $WORK/dc-plan.err)"
 fi
 
 # core/three/post.js: DOF/GTAO targets stay at w*ssaa for pixelRatio 1 and 2 (addPass must not
 # resize them) and post.setSize re-targets them for 9:16. Stub renderer, no GPU needed.
 if command -v node >/dev/null 2>&1 && test -d "$ROOT/node_modules/three"; then
-  if node "$CTL/tests/three_post_size.mjs" >/tmp/dc-three.out 2>&1; then
-    ok "core/three/post.js DOF size owned by makePost ($(grep -c '^ok ' /tmp/dc-three.out) checks)"
+  if node "$CTL/tests/three_post_size.mjs" >$WORK/dc-three.out 2>&1; then
+    ok "core/three/post.js DOF size owned by makePost ($(grep -c '^ok ' $WORK/dc-three.out) checks)"
   else
-    bad "core/three/post.js sizing: $(grep -v '^ok ' /tmp/dc-three.out | head -20)"
+    bad "core/three/post.js sizing: $(grep -v '^ok ' $WORK/dc-three.out | head -20)"
   fi
 else
   skip "core/three/post.js sizing" "node or node_modules/three missing (npm ci)"
@@ -1924,10 +1970,10 @@ fi
 # swiss-motion 9:16 statements: Chinese copy (no spaces) breaks inside CJK runs and stays within
 # the measure on two lines; English and landscape layouts are unchanged. Stub canvas, no fonts needed.
 if command -v node >/dev/null 2>&1; then
-  if node "$CTL/tests/swiss_fit.mjs" >/tmp/dc-swiss-fit.out 2>&1; then
-    ok "swiss-motion 9:16 fit wraps CJK statements ($(grep -c '^ok ' /tmp/dc-swiss-fit.out) checks)"
+  if node "$CTL/tests/swiss_fit.mjs" >$WORK/dc-swiss-fit.out 2>&1; then
+    ok "swiss-motion 9:16 fit wraps CJK statements ($(grep -c '^ok ' $WORK/dc-swiss-fit.out) checks)"
   else
-    bad "swiss-motion 9:16 fit: $(grep -v '^ok ' /tmp/dc-swiss-fit.out | head -20)"
+    bad "swiss-motion 9:16 fit: $(grep -v '^ok ' $WORK/dc-swiss-fit.out | head -20)"
   fi
 else
   skip "swiss-motion 9:16 fit" "node missing"
@@ -1935,10 +1981,10 @@ fi
 
 # handoff pytest suite (frame size / fps); one command covers everything
 if python3 -c "import pytest" 2>/dev/null; then
-  if (cd "$ROOT" && python3 -m pytest tools/handoff/tests -q -p no:cacheprovider >/tmp/dc-pytest.out 2>&1); then
-    ok "pytest tools/handoff/tests ($(tail -1 /tmp/dc-pytest.out))"
+  if (cd "$ROOT" && python3 -m pytest tools/handoff/tests -q -p no:cacheprovider >$WORK/dc-pytest.out 2>&1); then
+    ok "pytest tools/handoff/tests ($(tail -1 $WORK/dc-pytest.out))"
   else
-    bad "pytest tools/handoff/tests: $(tail -20 /tmp/dc-pytest.out)"
+    bad "pytest tools/handoff/tests: $(tail -20 $WORK/dc-pytest.out)"
   fi
 else
   skip "pytest tools/handoff/tests" "pytest not installed (python3 -m pip install -r requirements-dev.txt)"

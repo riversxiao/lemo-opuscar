@@ -1,4 +1,7 @@
-"""No-network tests for ElevenLabs Text-to-Dialogue provider."""
+"""No-network tests for ElevenLabs Text-to-Dialogue provider.
+
+Deliberately sets the upstream LEMO_TTS_* names (the other mocks use WORDFILM_TTS_*), so the
+legacy fallback of providers.env stays covered."""
 import json
 import os
 import sys
