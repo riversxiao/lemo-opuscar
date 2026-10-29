@@ -71,7 +71,7 @@ demo/
   tools/fetch_sources.sh  downloads raw/ (~410 MB; Commons, USDA, Natural Earth) and extracts the swarm audio
   tools/prep.sh           footage → 30 fps JPEGs at display size (crop, lanczos, unsharp, delogo), report page, photos, map
   tools/map_prep.py       Natural Earth states → Albers-projected polygons
-  tools/fonts.sh          OFL subsets from the Google Fonts CSS API for every character in main.js
+  tools/fonts.sh          OFL subsets from the Google Fonts CSS API for every character in main.js and timeline.json
   tools/cues.py           timeline.json → audio/cues.json (+ subtitle timing check)
   tools/final_check.sh    loudness, black frames, speech-to-text of the final mix
   tools/footage.py, commons_thumb.py, commons-tools/   finding and logging footage (see STYLE.md §9)
@@ -79,5 +79,7 @@ demo/
 ```
 
 `sh demo/build.sh` (library set up with `setup.sh deps voice music`, sample packs freepats / vsco2ce / vcsl): sources → fonts → frames → voice + speech check → cues → reading check → events → render (1,785 frames, 30 fps) → mix → .srt → master (−14 LUFS, grain 1) → `caption-news-small.mp4` (1280 px, CRF 24) → poster and styleframe (22.3 s, the split screen) → final checks.
+
+Vertical: the page lays itself out from the viewport, so `--size 1080x1920` on `still.mjs`, `readcheck.mjs`, `events.mjs` and `video.mjs` gives the 9:16 cut (`style.json` lists `aspects` 16:9 and 9:16; the 16:9 frames are pixel-identical to the landscape-only page). Portrait layout: footage in a 1080×1560 band (cover-fit, at most 1.5× over the prepared frames; the blurred end-card ground may go further), caption card under the band with the chunks on two balanced lines and the English wrapped on up to two, bug at y 110, source tag at y 166 and credit beside the bug (a row lower when it is long), the split screen stacked (lost on top, added below), the three-way grid as three tall strips, charts, legend and the map re-anchored inside the band, end card on the whole frame with the sources wrapped. `readcheck` passes at both sizes.
 
 Demo-specific choices and pitfalls: the hive-rows footage is Dutch (Altena TV) and is used only as "a box is a colony", never labelled as a US location; its station logo is cropped out and two hive stencils with a beekeeper's phone number are blurred. The almond photo is from 2014 and says so. The report's own wording sets the words: "stressor", not "killer"; "four quarters summed", not "annual net loss"; the report's page-1 figure for varroa in April–June 2026 (26.3 %) disagrees with its own table (22.2 %), so only January–March is used. A first draft spent a bar chart on "11–12 % every quarter" and later a line chart with the same quarters — the same fact twice; the bar chart was cut. Chart titles longer than six characters failed the reading check and were shortened; the California label was moved earlier so it holds 2.5 s before the push.

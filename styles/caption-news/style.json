@@ -14,5 +14,9 @@
   "Data shorts"
  ],
  "frame_sec": 22.3,
- "dur": 59.5
+ "dur": 59.5,
+ "aspects": [
+  "16:9",
+  "9:16"
+ ]
 }
