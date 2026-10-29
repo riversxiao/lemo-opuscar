@@ -29,8 +29,8 @@ GEN_SYS = """你是中文金融讲解短片的编剧，遵循台词教父规则�
 - 一句只讲一个点，长短句交替，避免连续长句；
 - 每句标 1 个关键词，用 {关键词} 包住（屏幕强调用）；
 - 口语、可朗读，不用金句腔（"这就是…""说白了…"），数字写成读法友好的形式；
-- 只用 BRIEF/FACTS 里的事实。
-输出严格 JSON：{"lines":[{"id":"L01","speaker":"VO","want":"…","function":"hook|context|evidence|turn|payoff|sting","text":"…","shotId":"s1"}]}"""
+- 只用 BRIEF/FACTS 里的事实；function 只能是 hook|evidence|turn|payoff|sting（定义/例子都算 evidence）。
+输出严格 JSON：{"lines":[{"id":"L01","speaker":"VO","want":"…","function":"hook|evidence|turn|payoff|sting","text":"…","shotId":"s1"}]}"""
 
 FACT_SYS = """你是金融事实核查员。逐句检查台词里的事实/数字/定义是否与资料一致、是否有误导。
 输出严格 JSON：{"lines":[{"id":"L01","verdict":"ok|risk|wrong","detail":"…"}],"summary":"…"}"""
