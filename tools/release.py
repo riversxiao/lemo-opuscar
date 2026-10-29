@@ -16,6 +16,8 @@ Which GitHub repo: films and web cuts go to $WORDFILM_RELEASE_REPO (default rive
 packs stay on the repo that already hosts them, the `repo` field of tools/assets.json (today the upstream
 lemomo-ai/lemo-opuscar, which tools/fetch.sh downloads from); `pack` keeps that field. Only an explicitly set
 WORDFILM_RELEASE_REPO moves the packs: then pack writes it into assets.json and upload/verify use it for the packs too.
+Films the upstream already hosts keep their upstream links: upload records each film it puts on REPO in tools/films.json
+(commit it), styleboard/build.py links every full film from there, and pages.yml lays REPO's web cuts over the upstream's.
 """
 import glob, hashlib, json, os, re, shutil, subprocess, sys, tarfile, tempfile
 
@@ -23,6 +25,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 REPO = os.environ.get('WORDFILM_RELEASE_REPO') or 'riversxiao/wordfilm'   # films and web cuts
 OUT = os.path.join(ROOT, '.release')
 MANIFEST = os.path.join(ROOT, 'tools', 'assets.json')
+FILM_HOSTS = os.path.join(ROOT, 'tools', 'films.json')   # {default: repo, films: {slug: repo}}: where each full film is
 MAX_MB = 5
 SAMPLE_LIBS = ('freepats', 'karoryfer', 'salamander', 'vcsl', 'vsco2ce')
 
@@ -361,7 +364,20 @@ def upload():
             sys.exit(f'✗ {path} changed since `pack`: run python3 tools/release.py pack again')
         print(f'  ↑ {tag}/{os.path.basename(path)}  {os.path.getsize(path) / 1e6:.0f} MB  ({why})')
         gh('release', 'upload', tag, path, '--clobber', repo=asset_repo() if tag == 'assets' else REPO)
+        if tag == 'films': record_film_host(os.path.basename(path)[:-4])
     print('  ✓ releases up to date')
+
+
+def record_film_host(slug, repo=None):
+    """note in tools/films.json that REPO's films release now hosts <slug>.mp4 (the gallery links it from there)."""
+    repo = repo or REPO
+    hosts = json.load(open(FILM_HOSTS, encoding='utf-8')) if os.path.isfile(FILM_HOSTS) else {'default': 'lemomo-ai/lemo-opuscar', 'films': {}}
+    films = hosts.setdefault('films', {})
+    if films.get(slug) == repo or (slug not in films and hosts.get('default') == repo): return
+    films[slug] = repo
+    hosts['films'] = dict(sorted(films.items()))
+    with open(FILM_HOSTS, 'w', encoding='utf-8') as f: json.dump(hosts, f, indent=1, ensure_ascii=False); f.write('\n')
+    print(f'  → tools/films.json: {slug} on {repo} (commit it so the gallery links the film there)')
 
 
 def verify():

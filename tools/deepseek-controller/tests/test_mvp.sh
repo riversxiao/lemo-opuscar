@@ -1860,6 +1860,25 @@ else
   skip "handoff ffprobe portrait" "ffmpeg/ffprobe not installed"
 fi
 
+# release.py: a film uploaded to the fork is recorded in tools/films.json (scratch copy) so the
+# gallery links it there; films on the default (upstream) repo are not listed
+cp "$ROOT/tools/films.json" "$WORK/films.json"
+if python3 -c "
+import json, sys; sys.path.insert(0, '$ROOT/tools'); import release
+release.FILM_HOSTS = '$WORK/films.json'
+release.record_film_host('swiss-motion', 'riversxiao/wordfilm')
+release.record_film_host('swiss-motion', 'riversxiao/wordfilm')
+release.record_film_host('caption-news', 'lemomo-ai/lemo-opuscar')
+d = json.load(open('$WORK/films.json'))
+assert d['default'] == 'lemomo-ai/lemo-opuscar', d
+assert d['films'] == {'swiss-motion': 'riversxiao/wordfilm'}, d
+assert json.load(open('$ROOT/tools/films.json'))['films'] == {}, 'touched the tracked films.json'
+" >/dev/null; then
+  ok "release.py records fork-hosted films in tools/films.json (upstream films stay on the default)"
+else
+  bad "release.py record_film_host"
+fi
+
 # core/three/post.js: DOF/GTAO targets stay at w*ssaa for pixelRatio 1 and 2 (addPass must not
 # resize them) and post.setSize re-targets them for 9:16. Stub renderer, no GPU needed.
 if command -v node >/dev/null 2>&1 && test -d "$ROOT/node_modules/three"; then

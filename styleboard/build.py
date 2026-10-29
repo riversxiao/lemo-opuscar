@@ -9,7 +9,15 @@ CATALOG = os.path.join(HERE, 'catalog.json')   # generated; CI and tools/release
 
 REPO = 'riversxiao/wordfilm'                 # this fork: the gallery's repo links, docs and canonical site
 UPSTREAM = 'lemomo-ai/lemo-opuscar'          # the upstream: it hosts the demo films ("films", "web", "thanks" releases)
-FILMS_URL = f'https://github.com/{UPSTREAM}/releases/download/films'   # full films live on the upstream "films" release as <slug>.mp4
+# full films are <slug>.mp4 on a "films" release: the upstream's, unless tools/films.json (kept by tools/release.py
+# upload) says this fork hosts that film
+_HOSTS_P = os.path.join(ROOT, 'tools', 'films.json')
+FILM_HOSTS = json.load(open(_HOSTS_P, encoding='utf-8')) if os.path.isfile(_HOSTS_P) else {}
+
+
+def film_url(slug):
+    repo = FILM_HOSTS.get('films', {}).get(slug) or FILM_HOSTS.get('default') or UPSTREAM
+    return f'https://github.com/{repo}/releases/download/films/{slug}.mp4'
 BLOB_URL = f'https://github.com/{REPO}/blob/main'
 
 # The ten categories, in gallery order. A style.json must name one of them (both languages, exactly).
@@ -89,7 +97,7 @@ for s in styles:
     has_md = os.path.exists(os.path.join(ROOT, 'styles', slug, 'STYLE.md'))
     if site:
         s['video'] = f'films/{slug}.mp4' if s['dur'] else ''          # 720p web cut, served by Pages as video/mp4 (Safari needs it)
-        s['full'] = f'{FILMS_URL}/{slug}.mp4' if s['dur'] else ''       # full quality on Releases
+        s['full'] = film_url(slug) if s['dur'] else ''                  # full quality on Releases
         s['poster'] = f'posters/{slug}.jpg' if has_poster else ''
         s['stylemd'] = f'{BLOB_URL}/styles/{slug}/STYLE.md' if has_md else ''
     else:
@@ -151,7 +159,7 @@ for i, (cn, en) in enumerate(cats, 1):
 # the feature presentation above the nominees: Opuscar 98 (the film's sources are not part of the library;
 # the gallery streams the 720p web cut from Pages, the 1080p file is on the "films" release, the poster is styleboard/img)
 FEATURE = dict(poster='img/feature_opuscar98.jpg', dur='6:31',
-               src='films/opuscar98.mp4' if site else '../.release/web/opuscar98.mp4', full=f'{FILMS_URL}/opuscar98.mp4')
+               src='films/opuscar98.mp4' if site else '../.release/web/opuscar98.mp4', full=film_url('opuscar98'))
 n_vid = sum(bool(s.get('video')) for s in styles)
 minutes = sum(s.get('dur', 0) for s in styles) / 60
 n_all = len(styles)

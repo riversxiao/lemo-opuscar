@@ -5,7 +5,7 @@ name: gallery
 on:
   push:
     branches: [main]
-    paths: ['styleboard/**', 'styles/*/poster.jpg', 'styles/*/style.json', 'styles/*/STYLE.md', '.github/workflows/pages.yml']
+    paths: ['styleboard/**', 'styles/*/poster.jpg', 'styles/*/style.json', 'styles/*/STYLE.md', 'tools/films.json', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -27,12 +27,21 @@ jobs:
           python-version: '3.12'
       - run: python3 styleboard/build.py --site _site
       # 720p cuts live on the "web" release; Pages serves them as video/mp4 (Safari won't play Release downloads)
-      # a fork without its own "web" release (riversxiao/wordfilm today) uses the upstream one, lemomo-ai/lemo-opuscar
+      # per file: every cut from the upstream's "web" release (the default repo in tools/films.json, lemomo-ai/lemo-opuscar),
+      # then this repo's own cuts on top (tools/release.py upload puts new and re-cut films there), so a fork that has
+      # published only some films still serves all of them
       - name: download the web cuts
         run: |
-          if gh release view web --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then R=$GITHUB_REPOSITORY; else R=lemomo-ai/lemo-opuscar; fi
-          echo "web cuts from $R"
-          gh release download web --repo "$R" --pattern '*.mp4' --dir _site/films
+          UP=$(python3 -c "import json; print(json.load(open('tools/films.json')).get('default') or 'lemomo-ai/lemo-opuscar')")
+          echo "web cuts from $UP"
+          gh release download web --repo "$UP" --pattern '*.mp4' --dir _site/films
+          if [ "$GITHUB_REPOSITORY" != "$UP" ]; then
+            n=$(gh release view web --repo "$GITHUB_REPOSITORY" --json assets --jq '[.assets[] | select(.name | endswith(".mp4"))] | length' 2>/dev/null || echo 0)
+            if [ "${n:-0}" -gt 0 ]; then
+              echo "overlaying $n web cuts from $GITHUB_REPOSITORY"
+              gh release download web --repo "$GITHUB_REPOSITORY" --pattern '*.mp4' --dir _site/films --clobber
+            fi
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
       # every film the gallery links must be in the site, or its card opens a dead player (e.g. a style pushed before its films were published)
