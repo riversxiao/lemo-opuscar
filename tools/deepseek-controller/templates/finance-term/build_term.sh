@@ -83,7 +83,9 @@ build_one() {  # plan project name provider [handoffs:1|0]
   else
     python3 "$CTL/cli.py" mix --project "$PJ" --preset soft-pulse
   fi
-  node core/render/video.mjs "$PJ" --fps 30 --workers 4 --out "$PJ/out/video.mp4"
+  # frame size from the plan aspect (16:9 → 1920x1080, the renderer default; 9:16 → 1080x1920)
+  local SIZE; SIZE=$(PYTHONPATH="$CTL" python3 -c "import sys, common; from pathlib import Path; print(common.size_arg(common.project_size(Path(sys.argv[1]))))" "$PJ")
+  node core/render/video.mjs "$PJ" --size "$SIZE" --fps 30 --workers 4 --out "$PJ/out/video.mp4"
   bash core/render/mux.sh "$PJ/out/video.mp4" "$PJ/out/mix.wav" "$OUT" 30 1
   python3 "$CTL/vo_srt.py" --project "$PJ" --out "${OUT%.mp4}.srt"
   # 4) gates — one film at a time (parallel whisper runs gave hallucinated ASR)
