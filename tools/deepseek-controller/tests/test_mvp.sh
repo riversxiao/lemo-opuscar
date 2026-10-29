@@ -1070,6 +1070,23 @@ else
   bad "matrix M01 json: $(cat /tmp/dc-matrix-m01.err /tmp/dc-matrix-m01.json)"
 fi
 
+# Flash natives promoted to delivery-pass
+for mid in M02 M06 M10; do
+  if "${CLI[@]}" matrix --id "$mid" --json >/tmp/dc-matrix-$mid.json 2>/tmp/dc-matrix-$mid.err \
+    && python3 -c "import json;d=json.load(open('/tmp/dc-matrix-$mid.json')); assert d['id']=='$mid' and d['status']=='delivery-pass' and d['mp4Exists']"; then
+    ok "matrix --id $mid delivery-pass"
+  else
+    bad "matrix $mid: $(cat /tmp/dc-matrix-$mid.err /tmp/dc-matrix-$mid.json)"
+  fi
+done
+
+# Docs: budget + experts
+if test -f "$CTL/docs/BUDGET.md" && test -f "$CTL/docs/EXPERTS.md"; then
+  ok "BUDGET.md + EXPERTS.md present"
+else
+  bad "budget/experts docs missing"
+fi
+
 if "${CLI[@]}" matrix --filled >/tmp/dc-matrix-f.out 2>/tmp/dc-matrix-f.err \
   && grep -q 'M05' /tmp/dc-matrix-f.out \
   && ! grep -E '^M0[0-9].* empty ' /tmp/dc-matrix-f.out \

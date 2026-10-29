@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "title": "12-film comparison matrix",
-  "updated": "2026-10-29T01:30:33+08:00",
+  "updated": "2026-10-29T10:37:42+08:00",
   "filmRoot": "/workspace/films",
   "pathConvention": "/workspace/films/matrix-{topic}-{style}-{path}",
   "dimensions": {
@@ -57,12 +57,12 @@
       "style": "swiss",
       "path": "flash",
       "role": "native",
-      "status": "muxed",
+      "status": "delivery-pass",
       "canonical": "/workspace/films/matrix-fuli-swiss-flash",
       "alias": "/workspace/films/fuli-swiss-ds-v001",
       "mp4": "/workspace/films/fuli-swiss-ds-v001/fuli-swiss-ds-v001.mp4",
-      "evidence": null,
-      "notes": "OpenCode DeepSeek Flash; no plan.json / --delivery yet"
+      "evidence": "/workspace/films/fuli-swiss-ds-v001/evidence/quality-mux-delivery.json",
+      "notes": "Flash swiss native; plan.json retrofit; audio-only loudnorm for TP≤−1; --delivery PASS"
     },
     {
       "id": "M03",
@@ -109,12 +109,12 @@
       "style": "pictogram",
       "path": "flash",
       "role": "native",
-      "status": "muxed",
+      "status": "delivery-pass",
       "canonical": "/workspace/films/matrix-fensan-pictogram-flash",
       "alias": "/workspace/films/fensan-pictogram-ds-v001",
       "mp4": "/workspace/films/fensan-pictogram-ds-v001/fensan-pictogram-ds-v001.mp4",
-      "evidence": null,
-      "notes": "Flash pictogram; optional VO"
+      "evidence": "/workspace/films/fensan-pictogram-ds-v001/evidence/quality-mux-delivery.json",
+      "notes": "Flash pictogram music+SRT only (voice.provider=none); plan.json retrofit; --delivery PASS (ASR N/A)"
     },
     {
       "id": "M07",
@@ -161,12 +161,12 @@
       "style": "caption",
       "path": "flash",
       "role": "native",
-      "status": "muxed",
+      "status": "delivery-pass",
       "canonical": "/workspace/films/matrix-liudong-caption-flash",
       "alias": "/workspace/films/liudong-caption-ds-v001",
       "mp4": "/workspace/films/liudong-caption-ds-v001/liudong-caption-ds-v001.mp4",
-      "evidence": null,
-      "notes": "Flash caption news"
+      "evidence": "/workspace/films/liudong-caption-ds-v001/evidence/quality-mux-delivery.json",
+      "notes": "Flash caption native; plan.json retrofit; voices/→audio/vo; zh-homophone lexicon extended; --delivery PASS"
     },
     {
       "id": "M11",
@@ -207,6 +207,9 @@
       "note": "VO↔picture aligned; delivery-pass"
     }
   ],
-  "nextKnife": [],
-  "proofNote": "M01/M02/M05/M06/M09/M10 from prior scaffold. M03/M04/M07 cross-style controller filled 2026-10-29. M08/M11/M12 filled 2026-10-29 (Asia/Shanghai) — matrix controller cells 12/12 complete for this epic."
+  "nextKnife": [
+    "Later epic: cross-style × flash (6 more → 18)",
+    "Optional polish: Caption Commons packs; Swiss German-poster literal rebrand"
+  ],
+  "proofNote": "Controller native+cross 9 cells delivery-pass prior. Flash natives M02/M06/M10 promoted to delivery-pass 2026-10-29 Asia/Shanghai (plan.json + evidence; M02 audio-only TP fix; M06 no-VO music+SRT; M10 ASR lexicon). Matrix 12/12 delivery-pass for this epic."
 }

@@ -35,19 +35,19 @@ Native style per topic (historical showcase diagonal):
 | ID | topic | style | path | role | status | film / alias |
 |---|---|---|---|---|---|---|
 | M01 | fuli | swiss | controller | native | **delivery-pass** | `/workspace/films/fuli-controller-e2e` → target `matrix-fuli-swiss-controller` |
-| M02 | fuli | swiss | flash | native | **muxed** | `/workspace/films/fuli-swiss-ds-v001` (no `--delivery` gate yet) |
+| M02 | fuli | swiss | flash | native | **delivery-pass** | `/workspace/films/fuli-swiss-ds-v001` (plan retrofit; audio-only TP loudnorm) |
 | M03 | fuli | pictogram | controller | cross | **delivery-pass** | `/workspace/films/matrix-fuli-pictogram-controller` (finance-v001) |
 | M04 | fuli | caption | controller | cross | **delivery-pass** | `/workspace/films/matrix-fuli-caption-controller` (compound-v001) |
 | M05 | fensan | pictogram | controller | native | **delivery-pass** | `/workspace/films/fensan-controller-e2e` |
-| M06 | fensan | pictogram | flash | native | **muxed** | `/workspace/films/fensan-pictogram-ds-v001` |
+| M06 | fensan | pictogram | flash | native | **delivery-pass** | `/workspace/films/fensan-pictogram-ds-v001` (music+SRT; `voice.provider=none`) |
 | M07 | fensan | swiss | controller | cross | **delivery-pass** | `/workspace/films/matrix-fensan-swiss-controller` |
 | M08 | fensan | caption | controller | cross | **delivery-pass** | `/workspace/films/matrix-fensan-caption-controller` (diversify-v001) |
 | M09 | liudong | caption | controller | native | **delivery-pass** | `/workspace/films/liudong-controller-e2e` |
-| M10 | liudong | caption | flash | native | **muxed** | `/workspace/films/liudong-caption-ds-v001` |
+| M10 | liudong | caption | flash | native | **delivery-pass** | `/workspace/films/liudong-caption-ds-v001` (plan retrofit; ASR lexicon) |
 | M11 | liudong | swiss | controller | cross | **delivery-pass** | `/workspace/films/matrix-liudong-swiss-controller` |
 | M12 | liudong | pictogram | controller | cross | **delivery-pass** | `/workspace/films/matrix-liudong-pictogram-controller` (finance-v001) |
 
-**Filled:** all **12/12**. Controller native+cross: M01/M03/M04/M05/M07/M08/M09/M11/M12 (`--delivery` PASS). Flash natives M02/M06/M10 muxed.
+**Filled:** all **12/12** · **delivery-pass 12/12** (2026-10-29 Asia/Shanghai).
 
 ### Improved siblings (not separate matrix cells)
 
@@ -85,7 +85,7 @@ Until a cell is scaffolded under `matrix-…`, the tracker may **alias** an exis
 1. Plan validates (`cli.py validate`)
 2. Muxed mp4 under film root (alias OK)
 3. For **controller** cells: `quality --delivery` PASS  
-4. For **flash** cells: mp4 + COMPARE/BUILD notes; delivery gate optional until Flash path grows a plan.json
+4. For **flash** cells: plan.json + `quality --delivery` PASS (same gate; music-only OK when `voice.provider=none`)
 5. No edits to locked engine cores unless the cell is an explicit style-unlock sibling (out of matrix id)
 
 ## CLI
@@ -99,18 +99,21 @@ python3 tools/deepseek-controller/cli.py matrix --id M01   # one cell
 
 ## Proof slice (2026-10-29 Asia/Shanghai)
 
-Documented existing delivery films into M01 / M05 / M09. Flash natives M02 / M06 / M10 as `muxed`. Cross-style controller M03/M04/M07 then M08/M11/M12 filled with full still→video→mux + `--delivery` PASS.
+1. Documented existing delivery films into M01 / M05 / M09; Flash natives M02 / M06 / M10 as `muxed`.
+2. Cross-style controller M03/M04/M07 then M08/M11/M12 filled with full still→video→mux + `--delivery` PASS.
+3. **Flash promotion:** M02/M06/M10 gained `content/plan.json` + evidence; M02 audio-only loudnorm (TP −0.9 → ≤−1); M06 music+SRT `provider=none`; M10 ASR zh-homophone lexicon for Whisper finance drift. **12/12 delivery-pass.**
 
 ## Next knife (exact cells)
 
-**Controller 12/12 complete** (2026-10-29 Asia/Shanghai). Follow-ups:
+**Matrix 12/12 delivery-pass complete** (2026-10-29 Asia/Shanghai). Follow-ups:
 
-1. Promote Flash cells **M02/M06/M10** to `delivery-pass` (add plan.json + evidence) without full remux if media already OK
-2. Later epic: cross-style × flash (6 more → 18)
-3. Optional polish: Caption Commons packs for diversify/compound cells; Swiss German-poster literal rebrand
+1. Later epic: cross-style × flash (6 more → 18)
+2. Optional polish: Caption Commons packs for diversify/compound cells; Swiss German-poster literal rebrand
+3. See [BUDGET.md](BUDGET.md) · [EXPERTS.md](EXPERTS.md)
 
 ## Related
 
 - [E2E-swiss.md](E2E-swiss.md) · [E2E-pictogram.md](E2E-pictogram.md) · [E2E-caption.md](E2E-caption.md)
 - [STUDIO.md](STUDIO.md) · [TTS.md](TTS.md) · [MUSIC-BED.md](MUSIC-BED.md) · [nle-handoff.md](nle-handoff.md)
+- [BUDGET.md](BUDGET.md) · [EXPERTS.md](EXPERTS.md)
 - `/workspace/films/COMPARE-multi-style-ds.md` · `showcase/COMPARE.md`

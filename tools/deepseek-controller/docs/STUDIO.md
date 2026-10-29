@@ -86,8 +86,8 @@ Files such as `styles/glass-product/demo/studio.js` and `styles/white-model/demo
 
 **Plug-in verdict:** **cannot plug Studio into the adapters today** — nothing to point at. Overlap already owned by the controller: JSON plan schema, manifests, engine hash lock, VO-driven schedule, `--delivery` quality gate, optional music bed. Still **missing vs eval wish-list** (and therefore still “Studio-shaped gaps”):
 
-- Per-film **budget ledger** (model + TTS + build + fail retries, no secrets)
-- Formal **expert-candidate** workflow (isolated engine PR, not per-film patches)
+- Per-film **budget ledger** — started: [BUDGET.md](BUDGET.md) (manual; automate later)
+- Formal **expert-candidate** shortlist — started: [EXPERTS.md](EXPERTS.md) (not yet isolated engine-PR workflow)
 - Any Studio GUI / multi-agent orchestration API
 
 Avoid dual controllers: if Studio later arrives, **diff its plan/hash/ledger/expert pieces against `tools/deepseek-controller/`** and migrate only the gaps — do not re-implement a second plan→adapt path.
