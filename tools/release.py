@@ -11,11 +11,16 @@
   python3 tools/release.py verify    list what upload would do; exit 1 if anything is missing or different. Changes nothing
 
 Needs the GitHub CLI (`gh auth login`) for upload and verify. Usually run through tools/publish.sh.
+
+Which GitHub repo: films and web cuts go to $WORDFILM_RELEASE_REPO (default riversxiao/wordfilm, this fork). The asset
+packs stay on the repo that already hosts them, the `repo` field of tools/assets.json (today the upstream
+lemomo-ai/lemo-opuscar, which tools/fetch.sh downloads from); `pack` keeps that field. Only an explicitly set
+WORDFILM_RELEASE_REPO moves the packs: then pack writes it into assets.json and upload/verify use it for the packs too.
 """
 import glob, hashlib, json, os, re, shutil, subprocess, sys, tarfile, tempfile
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-REPO = 'lemomo-ai/lemo-opuscar'
+REPO = os.environ.get('WORDFILM_RELEASE_REPO') or 'riversxiao/wordfilm'   # films and web cuts
 OUT = os.path.join(ROOT, '.release')
 MANIFEST = os.path.join(ROOT, 'tools', 'assets.json')
 MAX_MB = 5
@@ -43,7 +48,7 @@ def git(*a):
     if os.path.isdir(os.path.join(ROOT, '.git')):
         cmd = ['git', '-C', ROOT]
     else:
-        gd = os.path.join(tempfile.gettempdir(), 'lemo-opuscar-probe.git')
+        gd = os.path.join(tempfile.gettempdir(), 'wordfilm-probe.git')
         if not os.path.isdir(gd): subprocess.run(['git', 'init', '-q', '--bare', gd], check=True)
         cmd = ['git', f'--git-dir={gd}', f'--work-tree={ROOT}']
     return subprocess.run(cmd + list(a), cwd=ROOT, capture_output=True, text=True, check=True).stdout.split('\0')
@@ -294,19 +299,24 @@ def pack():
         dst = tar(f'{name}.tar', paths)
         man[name] = dict(file=f'{name}.tar', size=os.path.getsize(dst), sha256=sha(dst))
         print(f'  {name}.tar  {man[name]["size"] / 1e6:.0f} MB')
-    json.dump(dict(repo=REPO, tag='assets', packs=man), open(MANIFEST, 'w'), indent=1)
+    json.dump(dict(repo=asset_repo(), tag='assets', packs=man), open(MANIFEST, 'w'), indent=1)
     print(f'→ {os.path.relpath(MANIFEST, ROOT)}')
 
 
-def gh(*a, check=True):
-    r = subprocess.run(['gh', *a, '--repo', REPO], cwd=ROOT, capture_output=True, text=True)
+def asset_repo():
+    """the repo hosting the asset packs: an explicit $WORDFILM_RELEASE_REPO, else the one tools/assets.json names, else REPO."""
+    return os.environ.get('WORDFILM_RELEASE_REPO') or load('tools/assets.json', {}).get('repo') or REPO
+
+
+def gh(*a, check=True, repo=None):
+    r = subprocess.run(['gh', *a, '--repo', repo or REPO], cwd=ROOT, capture_output=True, text=True)
     if check and r.returncode: sys.exit(f'✗ gh {" ".join(a[:3])} failed: {(r.stderr or r.stdout).strip()[:300]}')
     return r
 
 
 def remote(tag):
     """{name: (size, sha256 or None)} of a release; {} when the release doesn't exist yet."""
-    r = gh('release', 'view', tag, '--json', 'assets', check=False)
+    r = gh('release', 'view', tag, '--json', 'assets', check=False, repo=asset_repo() if tag == 'assets' else REPO)
     if r.returncode: return {}
     return {a['name']: (a['size'], (a.get('digest') or '').removeprefix('sha256:') or None) for a in json.loads(r.stdout).get('assets', [])}
 
@@ -339,13 +349,14 @@ def upload():
     blocked = [w for t, p, w in todo if p is None]
     if blocked: sys.exit('✗ nothing uploaded; first fix:\n  ' + '\n  '.join(blocked))
     for tag, title in (('assets', 'Assets (fetched by tools/fetch.sh)'), ('films', 'Films (full quality)'), ('web', 'Web cuts (720p, copied into the gallery)')):
-        if gh('release', 'view', tag, check=False).returncode:
-            gh('release', 'create', tag, '--title', title, '--notes', 'Rolling release, updated by tools/publish.sh.', '--latest=false')
+        repo = asset_repo() if tag == 'assets' else REPO
+        if gh('release', 'view', tag, check=False, repo=repo).returncode:
+            gh('release', 'create', tag, '--title', title, '--notes', 'Rolling release, updated by tools/publish.sh.', '--latest=false', repo=repo)
     for tag, path, why in sorted(todo, key=lambda x: x[0] == 'assets'):   # films first: the gallery streams them
         if tag == 'assets' and sha(path) != next(p['sha256'] for p in load('tools/assets.json', {})['packs'].values() if p['file'] == os.path.basename(path)):
             sys.exit(f'✗ {path} changed since `pack`: run python3 tools/release.py pack again')
         print(f'  ↑ {tag}/{os.path.basename(path)}  {os.path.getsize(path) / 1e6:.0f} MB  ({why})')
-        gh('release', 'upload', tag, path, '--clobber')
+        gh('release', 'upload', tag, path, '--clobber', repo=asset_repo() if tag == 'assets' else REPO)
     print('  ✓ releases up to date')
 
 

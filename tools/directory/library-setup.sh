@@ -1,5 +1,5 @@
 #!/bin/sh
-# Lemo-Opuscar library (plugin directory edition): check the tools and install packages. Run from anywhere.
+# WordFilm library (plugin directory edition): check the tools and install packages. Run from anywhere.
 #   sh tools/setup.sh                       report what is missing → prints LIB=<path>
 #   sh tools/setup.sh deps [voice] [music]  install packages: core = Node packages, headless browser, Python core tier;
 #                                           voice = TTS and speech check (+ the English voice model); music = pluck.py (numba)

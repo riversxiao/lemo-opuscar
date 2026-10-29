@@ -1,15 +1,15 @@
-# Lemo-Opuscar
+# WordFilm
 
 **{STYLES} film styles, each with a short film made entirely in code.**<br>
 {STYLES} 种影片风格，每种都配一支完全用代码做出来的短片。
 
 Pick a style, bring your own story, and let Claude direct the film. Claude writes the treatment, draws every frame in code, writes an original score, mixes the sound and renders a finished MP4. No video model, no stock footage.
 
-This is the plugin directory edition (version {VERSION}): the guides, the {STYLES} style prompts and the rendering tools, without the demo films. **The films, the gallery and the newest styles live in the main repository: [github.com/lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar).** Watch every demo film on the [gallery](https://lemomo-ai.github.io/lemo-opuscar/).
+This is the plugin directory edition (version {VERSION}): the guides, the {STYLES} style prompts and the rendering tools, without the demo films. **The films, the gallery and the newest styles live in the main repository: [github.com/riversxiao/wordfilm](https://github.com/riversxiao/wordfilm).** Watch every demo film on the [gallery](https://riversxiao.github.io/wordfilm/).
 
 ## Try it
 
-Install the plugin from the Claude plugin directory. (The full edition, with the demo sources, installs from the main repository instead: `claude plugin marketplace add lemomo-ai/lemo-opuscar`, then `claude plugin install lemo-opuscar@lemolab`. Use one or the other.)
+Install the plugin from the Claude plugin directory. (The full edition, with the demo sources, installs from the main repository instead: `claude plugin marketplace add riversxiao/wordfilm`, then `claude plugin install wordfilm@wordfilm`. Use one or the other.)
 
 Open Claude Code in a folder for your film, and ask:
 
@@ -38,7 +38,7 @@ To make a style your own, change a library style or start from a blank page: Cla
 
 ## What it downloads
 
-The library ships inside the plugin. On first use it is copied to `~/.lemo-opuscar` (set `LEMO_OPUSCAR_HOME` for another folder), and packages install there, so they survive plugin updates. Nothing is installed system-wide. Claude downloads only what your film needs:
+The library ships inside the plugin. On first use it is copied to `~/.wordfilm` (set `WORDFILM_HOME` for another folder; the old `LEMO_OPUSCAR_HOME` still works, and an existing `~/.lemo-opuscar` folder is still used when `~/.wordfilm` does not exist), and packages install there, so they survive plugin updates. Nothing is installed system-wide. Claude downloads only what your film needs:
 
 | What | From | When | Size |
 |---|---|---|---|
@@ -46,7 +46,7 @@ The library ships inside the plugin. On first use it is copied to `~/.lemo-opusc
 | Headless Chromium for frame-by-frame rendering | Playwright's download servers (Microsoft) | first film | ~100–200 MB |
 | Python packages: numpy, scipy, soundfile, soxr, pillow | PyPI | first film | ~150 MB |
 | Voice tier: kokoro-onnx, edge-tts, faster-whisper | PyPI | only for a film with narration | ~200 MB |
-| Kokoro voice model (offline TTS) | this project's [GitHub Releases](https://github.com/lemomo-ai/lemo-opuscar/releases/tag/assets) | only for a film with narration | 354 MB |
+| Kokoro voice model (offline TTS) | the upstream project's [GitHub Releases](https://github.com/lemomo-ai/lemo-opuscar/releases/tag/assets) | only for a film with narration | 354 MB |
 | Whisper model for the speech check | Hugging Face (or the mirror you set in `HF_ENDPOINT`) | first narration check | ~145 MB (English), ~480 MB (Chinese) |
 | numba, for plucked strings | PyPI | only if the score uses them | ~140 MB |
 | Instrument sample libraries (VSCO 2 CE, VCSL, FreePats, Karoryfer, Salamander) | this project's GitHub Releases | only the libraries the score uses | 70–400 MB each |
@@ -66,4 +66,4 @@ The library ships inside the plugin. On first use it is copied to `~/.lemo-opusc
 
 MIT. Fonts in `core/fonts/` are OFL; the sample libraries and HDRIs keep their own licences (listed in `core/audio/INSTRUMENTS.md` and `core/assets/polyhaven/SOURCES.md`). You are responsible for the material you put in your films.
 
-Made by LemoLab · by Lemomo ([@lemomo_ai](https://x.com/lemomo_ai)). Problems or ideas: [open an issue](https://github.com/lemomo-ai/lemo-opuscar/issues) in the main repository.
+WordFilm is maintained by [riversxiao](https://github.com/riversxiao), forked from [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar), made by LemoLab · by Lemomo ([@lemomo_ai](https://x.com/lemomo_ai)). Problems or ideas: [open an issue](https://github.com/riversxiao/wordfilm/issues) in the main repository.

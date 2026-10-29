@@ -27,7 +27,12 @@ jobs:
           python-version: '3.12'
       - run: python3 styleboard/build.py --site _site
       # 720p cuts live on the "web" release; Pages serves them as video/mp4 (Safari won't play Release downloads)
-      - run: gh release download web --repo "$GITHUB_REPOSITORY" --pattern '*.mp4' --dir _site/films
+      # a fork without its own "web" release (riversxiao/wordfilm today) uses the upstream one, lemomo-ai/lemo-opuscar
+      - name: download the web cuts
+        run: |
+          if gh release view web --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then R=$GITHUB_REPOSITORY; else R=lemomo-ai/lemo-opuscar; fi
+          echo "web cuts from $R"
+          gh release download web --repo "$R" --pattern '*.mp4' --dir _site/films
         env:
           GH_TOKEN: ${{ github.token }}
       # every film the gallery links must be in the site, or its card opens a dead player (e.g. a style pushed before its films were published)
