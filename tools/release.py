@@ -18,8 +18,9 @@ lemomo-ai/lemo-opuscar, which tools/fetch.sh downloads from); `pack` keeps that 
 WORDFILM_RELEASE_REPO moves the packs: then pack writes it into assets.json and upload/verify use it for the packs too.
 Films the upstream already hosts keep their upstream links: upload/verify compare each film and web cut against the repo
 tools/films.json names for it (the file's default, the upstream, when it is not listed) and push to REPO only what that host
-lacks or holds at another size. upload records each film it puts on REPO in tools/films.json (commit it), styleboard/build.py
-links every full film from there, and pages.yml lays REPO's web cuts over the upstream's.
+lacks or holds at another size. upload records each film it puts on REPO in tools/films.json (commit it; verify warns while
+it is uncommitted), styleboard/build.py links every full film from there, and pages.yml lays REPO's web cuts over the
+upstream's and checks that every full-quality link is on its release.
 """
 import glob, hashlib, json, os, re, shutil, subprocess, sys, tarfile, tempfile
 
@@ -402,6 +403,9 @@ def record_film_host(slug, repo=None):
 def verify():
     todo = plan()
     for tag, path, why in todo: print(f'  ✗ {tag}: ' + (f'{os.path.basename(path)} {why}' if path else why))
+    if any(x.strip() for x in git('status', '--porcelain', '--', 'tools/films.json')):   # upload just recorded films there
+        print('  ! tools/films.json has uncommitted changes: commit it with this release, or the gallery keeps linking those'
+              ' films to a repo that does not host them')
     if todo: sys.exit(1)
     print('  ✓ the releases hold every pack in tools/assets.json and every film and web cut on this machine')
 

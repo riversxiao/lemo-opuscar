@@ -60,7 +60,20 @@ jobs:
             [ -s "_site/$f" ] || { echo "::error::the gallery links $f but it is not in _site (is it missing from the 'web' release? run tools/publish.sh)"; missing=1; }
           done
           echo "$(echo "$links" | wc -l) linked films checked, $(echo "$expected" | wc -l) expected from the catalog"
+          # each "full quality" link names the repo tools/films.json gives that film (e.g. a film uploaded to this fork
+          # while tools/films.json was left uncommitted still points at the upstream): its "films" release must hold it
+          full=$( { grep -o 'https://github.com/[^"/]*/[^"/]*/releases/download/films/[^"]*\.mp4' _site/index.html || true; } | sort -u)
+          [ -n "$full" ] || { echo "::error::_site/index.html has no full-quality film links: did the gallery markup change?"; exit 1; }
+          for repo in $(echo "$full" | cut -d/ -f4,5 | sort -u); do
+            names=$(gh release view films --repo "$repo" --json assets --jq '.assets[].name') || { echo "::error::cannot read the films release of $repo"; missing=1; continue; }
+            for f in $(echo "$full" | grep "^https://github.com/$repo/releases/" | sed 's|.*/||'); do
+              grep -qx "$f" <<< "$names" || { echo "::error::the gallery links $f on $repo's films release, which does not have it (commit tools/films.json after tools/release.py upload)"; missing=1; }
+            done
+          done
+          echo "$(echo "$full" | wc -l) full-quality links checked"
           [ "$missing" = 0 ]
+        env:
+          GH_TOKEN: ${{ github.token }}
       - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
