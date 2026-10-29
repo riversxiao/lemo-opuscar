@@ -71,17 +71,21 @@ PAL_ALIASES: dict[str, str] = {
 }
 
 
+_KEEP_CASE: set[str] = set()  # plan.brand.keepCase for the film being compiled (e.g. Beta, VaR)
+
+
 def _en_title(zh: str, fallback: str = "") -> str:
     zh = (zh or "").strip()
+    k = _KEEP_CASE
     if zh in EN_GLOSS:
         return EN_GLOSS[zh]
     # already Latin
     # upper_keep: VaR stays VaR (VAR reads as vector autoregression)
     if zh and re.fullmatch(r"[A-Za-z0-9 .·\-&/,']+", zh):
-        return upper_keep(zh)
+        return upper_keep(zh, k)
     if fallback and re.fullmatch(r"[A-Za-z0-9 .·\-&/,']+", fallback):
-        return upper_keep(fallback)
-    return upper_keep(fallback or zh or "ITEM")[:24]
+        return upper_keep(fallback, k)
+    return upper_keep(fallback or zh or "ITEM", k)[:24]
 
 
 def _pal(raw: Any) -> str:
@@ -229,6 +233,12 @@ def build_brand_strings(
     zh = title if any("\u4e00" <= c <= "\u9fff" for c in title) else topic
     if topic in EN_GLOSS:
         en = EN_GLOSS[topic]
+    # keepCase words (plan.brand.keepCase + mixed-case acronyms) survive the title upper-casing:
+    # 贝塔系数 Beta must not become 贝塔系数 BETA (acronym_case gate)
+    _keep = set(((plan.get("brand") or {}) if isinstance(plan.get("brand"), dict) else {}).get("keepCase") or []) | _plan_acronyms(plan)
+    for _w in sorted(_keep, key=len, reverse=True):
+        if _w.upper() != _w:
+            en = re.sub(r"(?<![A-Za-z])" + re.escape(_w.upper()) + r"(?![A-Za-z])", _w, en)
     card_n = sum(1 for s in compiled if s.get("kind") == "card")
     chap_n = sum(1 for s in compiled if s.get("kind") == "chapter")
     ticks = max(card_n, 1)
@@ -347,6 +357,30 @@ def case_guard(runtime: dict[str, Any], brand: dict[str, Any]) -> list[str]:
     return acronym_case_violations(display_strings(runtime, brand), set(brand.get("keepCase") or []))
 
 
+def _merge_viz(project: Path, compiled: list[dict[str, Any]], sched_shots: list[dict[str, Any]]) -> None:
+    """finance-v003: attach content/viz.json scenes by shot id (viz_pick.py) and vizDur
+    (= shot dur minus the schedule's outroSec on the last shot, which becomes the end card)."""
+    vp = project / "content" / "viz.json"
+    if not vp.is_file():
+        return
+    try:
+        viz = load_json(vp)
+    except (OSError, ValueError):
+        return
+    raw = (viz or {}).get("shots") or []
+    if isinstance(raw, dict):
+        by_shot = {str(k): v for k, v in raw.items()}
+    else:
+        by_shot = {str(v.get("shot")): v for v in raw if isinstance(v, dict)}
+    outro = {str(s.get("id")): float(s.get("outroSec") or 0.0) for s in sched_shots if isinstance(s, dict)}
+    for s in compiled:
+        v = by_shot.get(str(s.get("id")))
+        if not v:
+            continue
+        s["viz"] = v
+        s["vizDur"] = round(max(0.5, float(s.get("dur") or 0.0) - outro.get(str(s.get("id")), 0.0)), 4)
+
+
 def apply_pictogram_edl(
     project: Path,
     *,
@@ -380,7 +414,14 @@ def apply_pictogram_edl(
     bar = beat * 4
 
     sched_shots = list((parsed or {}).get("shots") or [])
+    global _KEEP_CASE
+    try:
+        _pl = load_json(project / "content" / "plan.json")
+        _KEEP_CASE = set(((_pl.get("brand") or {}).get("keepCase") or [])) | _plan_acronyms(_pl)
+    except (OSError, ValueError, AttributeError):
+        _KEEP_CASE = set()
     compiled = _compile_shots(shots_in, beat=beat, schedule_shots=sched_shots)
+    _merge_viz(project, compiled, sched_shots)
 
     if parsed and parsed.get("scheduledDurationSec"):
         dur = float(parsed["scheduledDurationSec"])

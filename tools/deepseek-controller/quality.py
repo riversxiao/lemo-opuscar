@@ -974,6 +974,50 @@ def run_visual_check_gate(project: Path, media: Path | None, delivery: bool) -> 
     kinds = sorted({i.get("kind") for i in hi})
     return check("visual_check", "FAIL", f"severity=high: {fs}, {len(hi)} high ({', '.join(kinds)}){tail}", required=req)
 
+def _tp_max(project: Path) -> float:
+    """True-peak ceiling: env LEMO_TP_MAX_DBTP, else −2 dBTP for finance-v003 (per-line visual)
+    series films (content/viz.json present), else the legacy −1 dBTP."""
+    import os
+    v = os.environ.get("LEMO_TP_MAX_DBTP")
+    if v:
+        return float(v)
+    return -2.0 if (Path(project) / "content" / "viz.json").is_file() else -1.0
+
+
+def run_viz_gates(project: Path, media: Path | None) -> list[dict[str, Any]]:
+    """finance-v003 gates (required once content/viz.json exists):
+    visual_content  — evidence/visual-content.json from viz_pick.py (金融专家 content lint)
+    visual_duplicate — evidence/visual-dupe.json from visual_dupe.py (series near-duplicate keyframes)"""
+    project = Path(project)
+    if not (project / "content" / "viz.json").is_file():
+        return [check("visual_content", "NOT_APPLICABLE", "no content/viz.json (pre-v003 film)", required=False),
+                check("visual_duplicate", "NOT_APPLICABLE", "no content/viz.json (pre-v003 film)", required=False)]
+    out = []
+    p = project / "evidence" / "visual-content.json"
+    if not p.is_file():
+        out.append(check("visual_content", "NOT_CHECKED", "run viz_pick.py --lines L --project P", required=True))
+    else:
+        r = load_json(p)
+        iss = r.get("issues") or []
+        sc = r.get("scenes") or {}
+        det = f"{len(set(sc.values()))} distinct scenes / {len(sc)} lines; " + ("; ".join(f"{i.get('line')}: {i.get('rule')}" for i in iss[:4]) or "lint clean")
+        out.append(check("visual_content", "PASS" if r.get("status") == "PASS" else "FAIL", det, required=True))
+    p = project / "evidence" / "visual-dupe.json"
+    if not p.is_file():
+        out.append(check("visual_duplicate", "NOT_CHECKED", "run visual_dupe.py --project P", required=True))
+    else:
+        r = load_json(p)
+        stale = media is not None and Path(media).is_file() and Path(media).stat().st_mtime > p.stat().st_mtime + 1
+        if stale:
+            out.append(check("visual_duplicate", "NOT_CHECKED", "media changed after visual_dupe — re-run it", required=True))
+        else:
+            c = (r.get("closest") or [{}])[0]
+            det = (f"{len(r.get('keyframes') or [])} keyframes vs {r.get('comparedFilms')}; {len(r.get('duplicates') or [])} near-dup; "
+                   f"closest {c.get('a')}~{c.get('b')} ham={c.get('ham')} corr={c.get('corr')}")
+            out.append(check("visual_duplicate", "PASS" if r.get("status") == "PASS" else "FAIL", det, required=True))
+    return out
+
+
 def run_speaker_check(project: Path, has_vo: bool) -> dict[str, Any]:
     """ONE-narrator gate for multi-line VO: speaker-embedding cosine (Resemblyzer, local, free).
 
@@ -1158,9 +1202,10 @@ def gate(
                 detail += " (want −14±1)"
             if tp is not None:
                 detail += f", TP={tp} dBTP"
-                if tp > -1.0 + 1e-6:
+                tpmax = _tp_max(project)
+                if tp > tpmax + 1e-6:
                     st = "FAIL"
-                    detail += " (want ≤ −1 dBTP)"
+                    detail += f" (want ≤ {tpmax:g} dBTP)"
             checks.append(check("loudness_ebur128", st, detail))
         else:
             checks.append(
@@ -1235,6 +1280,7 @@ def gate(
 
     checks.append(run_acronym_case(project))
     checks.append(run_visual_check_gate(project, media, delivery))
+    checks.extend(run_viz_gates(project, media))
     if delivery or pacing_enforce:
         checks.append(run_pacing_gate(project, media_path if media_path.is_file() else None,
                                       enforce=pacing_enforce, skip_visual=skip_heavy))
@@ -1267,7 +1313,7 @@ def gate(
         "blocking": [{"name": b["name"], "status": b["status"]} for b in blocking],
         "standards": {
             "loudness_lufs": {"target": -14.0, "tol": 1.0},
-            "true_peak_dbtp_max": -1.0,
+            "true_peak_dbtp_max": _tp_max(project),
             "media_duration": (
                 "engine DUR ±1s when content/engine.lock.json protects film.js or main.js "
                 "(style_locked_duration from film.js/main.js/edl_runtime|edl.js); else plan targetDurationSec +2.5s"

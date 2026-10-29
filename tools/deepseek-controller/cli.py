@@ -125,6 +125,7 @@ def cmd_mix(args: argparse.Namespace) -> int:
             bed_gain=args.bed_gain,
             bed_source=args.bed_source,
             music_caption=args.music_caption,
+            music_library=Path(args.music_library) if args.music_library else None,
         )
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
@@ -681,6 +682,7 @@ def build_parser() -> argparse.ArgumentParser:
     m.add_argument("--bed-source", choices=("procedural", "stepaudio"), default="procedural",
                    help="stepaudio = StepFun stepaudio-3-music-preview instrumental (free preview; STEPFUN_API_KEY)")
     m.add_argument("--music-caption", default=None, help="style prompt for --bed-source stepaudio")
+    m.add_argument("--music-library", default=None, help="persistent StepAudio bed dir (raw.wav + meta.json); reused, no request")
     m.add_argument(
         "--vo-only",
         action="store_true",

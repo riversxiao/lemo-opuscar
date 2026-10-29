@@ -135,14 +135,20 @@ def build(project: Path, pacing: str | None = None, *, drift: list[dict] | None 
     beats: list[dict[str, Any]] = []
     for s in tl["shots"]:
         t0, t1 = float(s["t0"]), float(s["t1"])
-        bounds = split_shot(t0, t1, cue_starts, max_sec)
-        edges = [t0] + bounds + [t1]
+        # an outro/end card at the tail of the last shot is its own picture (finance-v003 draws it as a
+        # separate card): cut there at full frame instead of a CSS reframe across it
+        outro = float(s.get("outroSec") or 0.0) if (project / "content" / "viz.json").is_file() else 0.0
+        t1v = t1 - outro if outro > 0.3 and t1 - outro > t0 + 0.8 else t1
+        bounds = split_shot(t0, t1v, cue_starts, max_sec)
+        edges = [t0] + bounds + [t1v] + ([t1] if t1v < t1 else [])
         for i in range(len(edges) - 1):
-            sc, ox, oy = (1.0, 0.0, 0.0) if i == 0 else FRAMINGS[(i - 1) % len(FRAMINGS)]
+            is_outro = t1v < t1 and i == len(edges) - 2
+            sc, ox, oy = (1.0, 0.0, 0.0) if (i == 0 or is_outro) else FRAMINGS[(i - 1) % len(FRAMINGS)]
             b = {"t0": round(edges[i], 3), "t1": round(edges[i + 1], 3), "shotId": s.get("id"),
-                 "sub": i, "scale": sc, "ox": ox, "oy": oy, "kind": "shot" if i == 0 else "reframe"}
+                 "sub": i, "scale": sc, "ox": ox, "oy": oy,
+                 "kind": "shot" if i == 0 else ("outro" if is_outro else "reframe")}
             # long sub-beats inside a split shot get a slow push so they never sit frozen
-            if bounds and b["t1"] - b["t0"] >= 2.5:
+            if bounds and b["t1"] - b["t0"] >= 2.5 and b["kind"] != "outro":
                 b["drift"] = DRIFT
             beats.append(b)
     beat_edges = sorted({b["t0"] for b in beats if b["kind"] == "reframe"} | {float(s["t0"]) for s in tl["shots"]})

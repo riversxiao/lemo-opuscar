@@ -12,6 +12,37 @@ Source list: `/workspace/finance/frm_core100.csv` (box only; 100 rows,
 Per-term eyebrow + end card via `plan.brand` / `lines.json` `brand` (also CSV columns `eyebrow`,`endTitle`,`endLine`). Acronym-safe uppercase (`upper_keep` / scenes `upKeep`); quality `acronym_case` FAILs VaR→VAR. `plan.glossary` adds （gloss） at first SRT use.
 
 
+## Style finance-v003 + ElevenLabs narration + StepAudio bed (series from 贝塔 pilot, 2026-10-29)
+
+Pilot: **#4 贝塔 Beta** → `/workspace/films/beta-v001/` (`examples/004-beta-v001.lines.json`).
+
+```bash
+TTS_PROVIDER=elevenlabs STYLE_VERSION=finance-v003 \
+  bash tools/deepseek-controller/templates/finance-term/build_term.sh /workspace/films/_<term>-term /workspace/films/<name>
+# picture/gate fix only (no new EL characters):  REUSE_VOICES=1 … same command
+```
+
+- **Narration**: ElevenLabs, one voice per series — Tex `TKaUqol7GKx4m7enpCpP`, `eleven_v4`, speed natural 1.0
+  (never Skylar/Shasha/Kathy). The provider reads the voice from `ELEVENLABS_VOICE_ID` (build_term sets it;
+  the plan `voiceId` alone falls back to Rachel) and the build stops if `voices/spoken.json` names another voice.
+  `say` spells numbers/percent in Chinese words (一百万, 九十九天, 大于一); acronyms only in captions.
+  EL has **no take cache**: every `tts` call bills characters (`voices/spoken.json` → `chars`).
+- **Per-line visuals**: each line's `visual` (台词教父 drafts — read-only, copy into `<term>/src/lines.json`)
+  → `viz_pick.py` → `content/viz.json` (scene + data) + `evidence/visual-content.json`
+  (金融专家 lint: no tickers / fund names / K线截图, no monotonically rising return curves, no chips / casino / 赌桌,
+  no scene twice in a film). Overrides: `VIZ_OVERRIDES="--override L01='…'"`. Unmapped visual → FAIL:
+  add a RULES entry in viz_pick.py and a `VIZ.<scene>` in `styles/pictogram-motion/versions/finance-v003/scenes.js`.
+- **End card**: `schedule --outro 1.5` (≤ OUTRO_MAX_SEC) → finale = last line's scene, iris into endTitle/endLine.
+  beats.py cuts at the outro instead of a CSS reframe; pacing density metrics use the spoken part (D − outro).
+- **Duplicate-visual gate**: `visual_dupe.py --project P` grabs one keyframe per shot → `<film>/keyframes/*.png`,
+  dHash + layout correlation vs. own shots and the series (erm, var-plain, risk-appetite, var-template-v002 +
+  `/workspace/films/_visual-index/finance.json`); near-duplicate → FAIL. `--register` adds a PASSed film to the index.
+  (Calibration: the old pose-card films FAIL against each other — ham 1–9, corr 0.85–0.95.)
+- **Music**: StepAudio bed from `/workspace/films/_music-library/finance-calm-01` (`--music-library`, raw copied into
+  `<film>/music/`, no new request; usage recorded in its `meta.json`). Ducked mix → mux −14 LUFS,
+  `LEMO_TP_CEIL=-2.8` + retry above −2.0; quality requires TP ≤ −2 dBTP for v003 films.
+- quality adds required `visual_content` + `visual_duplicate` once `content/viz.json` exists.
+
 ## Drafting lines (future)
 
 Prefer **OpenCode + `VOLCENGINE_CODING_API_KEY`** (Volcano Coding Plan) for drafting/fact-check of lines — not the Ark normal API. Expert approval still locks wording; dialogue-loop stays check-only.
@@ -28,7 +59,7 @@ Prefer **OpenCode + `VOLCENGINE_CODING_API_KEY`** (Volcano Coding Plan) for draf
 
 ## ElevenLabs backup (optional)
 
-`EL_BACKUP=1` (or `batch_terms.py build --el-backup`) builds `<film>/backup-el/` and muxes `<name>-el.mp4` with Skylar (`uDnTdfbGbx3cHHFnY83O`) + `eleven_v4`. Provider spells Chinese numbers and joins letter spellings (E-S→ES) for ASR. Off by default (uses Creator character quota). Tex failed zh number ASR; Skylar+v4 passed.
+`EL_BACKUP=1` (or `batch_terms.py build --el-backup`) builds `<film>/backup-el/` and muxes `<name>-el.mp4` with Skylar (`uDnTdfbGbx3cHHFnY83O`) + `eleven_v4`. Provider spells Chinese numbers and joins letter spellings (E-S→ES) for ASR. Off by default (uses Creator character quota). Tex failed zh number ASR with Arabic numerals; with Chinese-word `say` Tex + v4 passes (number test 2026-10-29: 一百万 / 九十九天 / 贝塔大于一 exact) and is the series narrator for finance-v003.
 
 ## Files
 
@@ -81,6 +112,8 @@ States: `awaiting-expert-lines` → `approved` → `planned` → `delivered` (qu
 | asr_check: session take keeps mishearing a phrase (e.g. 多少钱→多大险) | `LEMO_TTS_STEPAUDIO_MODE=line` re-take (still speed 1.0); speaker gate must PASS |
 | pacing interLineGapMax | shots are VO-driven (`beats` 4 minimum); never raise `beats` |
 | pacing shot/frozen | `cli.py pacing-rework --project P --media M` |
+| visual_content (v003) | fix the scene library / data, or a `--override` agreed with 金融专家; never edit the drafts |
+| visual_duplicate (v003) | change that shot's scene layout/motion (new `VIZ.<scene>` variant), re-render with `REUSE_VOICES=1` |
 | anything in wording | stop: report to the 金融专家, never rewrite |
 
 ## Run gates one film at a time

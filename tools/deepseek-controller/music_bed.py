@@ -285,6 +285,35 @@ def fetch_stepaudio_bed(project: Path, dur: float, *, caption: str = STEPAUDIO_C
     return out, meta
 
 
+def seed_from_library(project: Path, lib: Path) -> str:
+    """Copy a persistent library bed (<lib>/raw.wav + meta.json) into <project>/music/ so
+    fetch_stepaudio_bed reuses it without a new StepAudio request. Returns its caption."""
+    import shutil
+    lib = Path(lib)
+    meta = json.loads((lib / "meta.json").read_text(encoding="utf-8"))
+    mdir = Path(project).resolve() / "music"
+    mdir.mkdir(parents=True, exist_ok=True)
+    raw = mdir / "stepaudio_raw.wav"
+    if not raw.is_file() or raw.stat().st_size != (lib / meta.get("file", "raw.wav")).stat().st_size:
+        shutil.copyfile(lib / meta.get("file", "raw.wav"), raw)
+    pm = mdir / "stepaudio_bed_meta.json"
+    old = json.loads(pm.read_text(encoding="utf-8")) if pm.is_file() else {}
+    if old.get("caption") != meta["caption"] or old.get("libraryId") != meta.get("id"):
+        pm.write_text(json.dumps({"taskId": meta.get("taskId"), "model": meta.get("model"), "caption": meta["caption"],
+                                  "rewrittenCaption": meta.get("rewrittenCaption"), "sr": meta.get("sr"),
+                                  "durSec": meta.get("durSec"), "libraryId": meta.get("id"), "libraryDir": str(lib),
+                                  "bedDurSec": -1}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    try:  # record usage in the library meta
+        used = meta.setdefault("usedBy", [])
+        name = Path(project).resolve().name
+        if name not in used:
+            used.append(name)
+            (lib / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    except OSError:
+        pass
+    return meta["caption"]
+
+
 def mix_bed_vo(
     project: Path,
     *,
@@ -297,6 +326,7 @@ def mix_bed_vo(
     bed_gain: float = 1.0,
     bed_source: str = "procedural",
     music_caption: str | None = None,
+    music_library: Path | None = None,
 ) -> dict:
     project = Path(project).resolve()
     tl_path = project / "timeline.json"
@@ -329,6 +359,8 @@ def mix_bed_vo(
 
     sa_meta = None
     if bed_source == "stepaudio" and bed_path is None:
+        if music_library:
+            music_caption = seed_from_library(project, Path(music_library))
         bed_path, sa_meta = fetch_stepaudio_bed(project, dur, caption=music_caption or STEPAUDIO_CAPTION)
     if bed_path is not None:
         bed_path = Path(bed_path)
@@ -401,6 +433,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--bed-gain", type=float, default=1.0)
     ap.add_argument("--bed-source", choices=("procedural", "stepaudio"), default="procedural")
     ap.add_argument("--music-caption", default=None)
+    ap.add_argument("--music-library", default=None, help="persistent bed dir (raw.wav + meta.json)")
     args = ap.parse_args(argv)
     try:
         info = mix_bed_vo(
@@ -414,6 +447,7 @@ def main(argv: list[str] | None = None) -> int:
             bed_gain=args.bed_gain,
             bed_source=args.bed_source,
             music_caption=args.music_caption,
+            music_library=Path(args.music_library) if args.music_library else None,
         )
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)

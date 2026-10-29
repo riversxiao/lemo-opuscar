@@ -86,9 +86,11 @@ fi
 # True-peak safety: loudnorm falls back to dynamic mode / AAC adds inter-sample overshoot, so the
 # finished file could land above -1 dBTP. After loudnorm, a 4x-oversampled brickwall limiter holds
 # the ceiling (LEMO_TP_CEIL dBFS, default -2.0), then a measured retry trims gain once if the encoded
-# file still has TP > -1.0. LEMO_TP_LIMIT=0 turns the limiter off (legacy behaviour).
+# file still has TP > LEMO_TP_RETRY_ABOVE (default -1.0; finance-v003 series uses -2.0). LEMO_TP_LIMIT=0 turns the limiter off (legacy behaviour).
 TPC="${LEMO_TP_CEIL:--2.0}"
 case "$TPC" in ''|*[!0-9.-]*) die "LEMO_TP_CEIL must be a number in dBFS, got '$TPC'";; esac
+TPR="${LEMO_TP_RETRY_ABOVE:--1.0}"
+case "$TPR" in ''|*[!0-9.-]*) die "LEMO_TP_RETRY_ABOVE must be a number in dB, got '$TPR'";; esac
 LIMF() {  # $1 = extra gain dB (<=0)
   if [ "${LEMO_TP_LIMIT:-1}" = "0" ]; then echo "volume=${1}dB"; return; fi
   _lin=$(awk -v d="$TPC" 'BEGIN { printf "%.4f", 10 ^ (d / 20) }')
@@ -107,8 +109,8 @@ mux_once 0
 R=$(measure)
 if [ "$NORM" = 1 ] && [ "${LEMO_TP_LIMIT:-1}" != "0" ]; then
   OP=$(echo "$R" | awk '$1 == "Peak:" { print $2 }')
-  if awk -v p="$OP" 'BEGIN { exit !(p + 0 > -1.0) }'; then
-    G=$(awk -v p="$OP" 'BEGIN { printf "%.2f", -(p + 1.4) }')
+  if awk -v p="$OP" -v r="$TPR" 'BEGIN { exit !(p + 0 > r + 0) }'; then
+    G=$(awk -v p="$OP" -v r="$TPR" 'BEGIN { printf "%.2f", -(p - r + 0.4) }')
     echo "mux.sh: note: true peak $OP dB after limiter; trimming ${G} dB and muxing once more" >&2
     mux_once "$G"; R=$(measure)
   fi

@@ -189,6 +189,10 @@ def measure(project: Path, media: Path | None = None, *, visual: bool = True) ->
                 shot_src = "beats_runtime"
         except (OSError, ValueError, KeyError, TypeError):
             pass
+    # A declared outro/end card (schedule --outro, ≤ OUTRO_MAX_SEC) is a silent brand card after the
+    # content: density metrics (overallCps, speechRatio, tailSilenceSec) use the spoken part only.
+    outro = min(float(tl.get("outroSec") or 0.0), 1.5)  # pacing_profile.OUTRO_MAX_SEC
+    Dc = max(0.1, D - outro) if D else D
     hook_end = None
     for a0, a1, lid in segs:
         if (lines.get(lid) or {}).get("function") == "hook":
@@ -207,16 +211,16 @@ def measure(project: Path, media: Path | None = None, *, visual: bool = True) ->
         "articulationCps": round(chars / sum(spans), 2) if spans and chars else None,
         "lineCpsMin": round(min(per_line), 2) if per_line else None,
         "lineCpsMax": round(max(per_line), 2) if per_line else None,
-        "overallCps": round(chars / D, 2) if D and chars else None,
+        "overallCps": round(chars / Dc, 2) if Dc and chars else None,
         "enWps": round(en / sum(spans), 2) if en and spans else None,
-        "speechRatio": round(speech / D, 3) if D else None,
+        "speechRatio": round(speech / Dc, 3) if Dc else None,
         "interLineGapMean": round(st.mean(gaps), 2) if gaps else 0.0,
         "interLineGapMax": max(gaps) if gaps else 0.0,
         "intraPauseMax": max(intra) if intra else 0.0,
         "intraPauses": len(intra),
         "firstVoSec": round(segs[0][0], 2) if segs else None,
         "hookEndSec": hook_end,
-        "tailSilenceSec": round(D - segs[-1][1], 2) if segs else None,
+        "tailSilenceSec": round(Dc - segs[-1][1], 2) if segs else None,
         "shots": len(shots),
         "shotMeanSec": round(st.mean(shots), 2) if shots else None,
         "shotSdSec": round(st.pstdev(shots), 2) if shots else None,
