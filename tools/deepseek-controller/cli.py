@@ -223,6 +223,8 @@ def cmd_dialogue_loop(args: argparse.Namespace) -> int:
             argv += [flag, str(val)]
     if args.no_ledger:
         argv.append("--no-ledger")
+    if getattr(args, "allow_paid", False):
+        argv.append("--allow-paid")
     return dialogue_loop.main(argv)
 
 
@@ -566,6 +568,8 @@ def build_parser() -> argparse.ArgumentParser:
     dl.add_argument("--mock", help="tests only: canned critic/reviser replies (no network)")
     dl.add_argument("--item", help="ledger item label")
     dl.add_argument("--no-ledger", action="store_true")
+    dl.add_argument("--allow-paid", action="store_true",
+                    help="after all free models fail, use paid DeepSeek official (OFF by default)")
     dl.set_defaults(func=cmd_dialogue_loop)
 
     q = sub.add_parser("quality", help="write quality.json and gate delivery")

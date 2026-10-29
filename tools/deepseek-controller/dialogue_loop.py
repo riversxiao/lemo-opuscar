@@ -18,11 +18,15 @@ BEST_EFFORT (never PASS). <project>/evidence/dialogue-loop.json records the
 status and the sha256 of the lines that were approved; `cli.py tts` refuses to
 run unless status == PASS and the current lines still hash to that value.
 
-LLM transport: DeepSeek official only (https://api.deepseek.com, DEEPSEEK_API_KEY).
-No fallback provider: any provider error stops the loop (exit 3).
+LLM transport: FREE-first chain (llm_free.py):
+  1. TokenHarbor deepseek-v4.1-flash:free (TOKENHARBOR_API_KEY)
+  2. OpenRouter nvidia/nemotron-3.5-lightning:free, then recursive/flint-v1.0:free
+Never falls back to paid DeepSeek official / paid OpenRouter unless --allow-paid.
+429 rate-limit → wait ~60s and retry same model (max 3); free-quota exhaustion → next model;
+all free failing → PROVIDER_ERROR (exit 3). OpenCode free models are not in the chain.
 Tests: --mock <json> ({"critic":[...], "reviser":[...]} consumed in order) — no network.
-Spend guard: --max-cny (balance delta via /user/balance) and --min-balance floor.
-Cost: one ledger row per real run (kind=llm-api; cny = balance delta; tokens summed).
+Spend guard (paid path only): --max-cny / --min-balance via DeepSeek /user/balance.
+Cost: one ledger row per real run (kind=llm-api; model + per-call providers logged).
 """
 from __future__ import annotations
 
@@ -43,8 +47,11 @@ import dialogue_check as dc
 
 ROOT = Path(__file__).resolve().parent
 LIB = ROOT.parent.parent
-API = os.environ.get("DC_DEEPSEEK_BASE", "https://api.deepseek.com")
-MODEL = "deepseek-flash"
+# Free-first LLM (TokenHarbor → OpenRouter :free). Paid DeepSeek only with --allow-paid.
+import llm_free as _llm
+from llm_free import ProviderError, BadJSON, FreeFirstClient  # noqa: F401 — re-export
+
+MODEL = "free-first"  # label; real model is chosen per call by FreeFirstClient
 
 LINE_DIMS = ("factual", "natural", "asr_safe", "function_fit")
 SCRIPT_DIMS = ("factual", "consistency", "hook", "flow", "no_jinju", "natural")
@@ -53,12 +60,7 @@ TH = {"line_min": 3, "script_min": 4, "max_high": 0, "max_medium": 2}
 EDIT_KEYS = ("text", "say", "cap", "want")
 
 
-class ProviderError(RuntimeError):
-    pass
-
-
-class BadJSON(ValueError):
-    pass
+# ProviderError / BadJSON come from llm_free (FreeFirstClient raises them).
 
 
 class BudgetStop(RuntimeError):
@@ -87,60 +89,12 @@ def load_lines(path: Path) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------- LLM
-class DeepSeekClient:
-    def __init__(self, model: str = MODEL, effort: str = "high", timeout: int = 300):
-        key = os.environ.get("DEEPSEEK_API_KEY")
-        if not key:
-            raise ProviderError("DEEPSEEK_API_KEY not set")
-        self._key = key
-        self.model, self.effort, self.timeout = model, effort, timeout
-        self.usage = {"calls": 0, "prompt": 0, "completion": 0, "reasoning": 0, "cacheHit": 0}
+class DeepSeekClient(_llm.FreeFirstClient):
+    """Back-compat alias. Prefer FreeFirstClient. With allow_paid=False (default) this is free-first."""
 
-    def balance(self) -> float | None:
-        req = urllib.request.Request(f"{API}/user/balance", headers={"Authorization": f"Bearer {self._key}"})
-        try:
-            d = json.load(urllib.request.urlopen(req, timeout=30))
-            for b in d.get("balance_infos") or []:
-                if b.get("currency") == "CNY":
-                    return float(b["total_balance"])
-        except (urllib.error.URLError, ValueError, KeyError, TimeoutError):
-            return None
-        return None
-
-    def chat_json(self, system: str, user: str, retries: int = 2) -> dict[str, Any]:
-        """Malformed JSON from the model is retried (same provider/model); HTTP/transport errors stop."""
-        for attempt in range(retries + 1):
-            try:
-                return self._chat_once(system, user)
-            except BadJSON as e:
-                if attempt == retries:
-                    raise ProviderError(f"DeepSeek returned non-JSON content {retries + 1}x: {e}") from None
-        raise AssertionError
-
-    def _chat_once(self, system: str, user: str) -> dict[str, Any]:
-        body = {"model": self.model, "messages": [{"role": "system", "content": system},
-                                                  {"role": "user", "content": user}],
-                "response_format": {"type": "json_object"}, "temperature": 0.3,
-                "max_tokens": 16000, "reasoning_effort": self.effort}
-        req = urllib.request.Request(f"{API}/chat/completions", data=json.dumps(body).encode(),
-                                     headers={"Authorization": f"Bearer {self._key}",
-                                              "Content-Type": "application/json"})
-        try:
-            r = json.load(urllib.request.urlopen(req, timeout=self.timeout))
-        except urllib.error.HTTPError as e:
-            raise ProviderError(f"DeepSeek HTTP {e.code}: {e.read()[:300]!r}") from None
-        except (urllib.error.URLError, TimeoutError, ValueError) as e:
-            raise ProviderError(f"DeepSeek transport error: {e}") from None
-        u = r.get("usage") or {}
-        self.usage["calls"] += 1
-        self.usage["prompt"] += int(u.get("prompt_tokens") or 0)
-        self.usage["completion"] += int(u.get("completion_tokens") or 0)
-        self.usage["reasoning"] += int((u.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0)
-        self.usage["cacheHit"] += int(u.get("prompt_cache_hit_tokens") or 0)
-        try:
-            return json.loads(r["choices"][0]["message"]["content"])
-        except (KeyError, IndexError, ValueError, TypeError) as e:
-            raise BadJSON(str(e)) from None
+    def __init__(self, model: str = MODEL, effort: str = "high", timeout: int = 300, allow_paid: bool = False):
+        # `model` is ignored in free mode (chain picks). With allow_paid, paid DeepSeek is appended.
+        super().__init__(effort=effort, timeout=timeout, allow_paid=allow_paid)
 
 
 class MockClient:
@@ -404,14 +358,18 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
     det_final = dc.check_lines(chosen, tgt, **det_kw)
     if status != "PASS" and status != "PROVIDER_ERROR":
         status = "BEST_EFFORT"
-    if client and b0 is not None and getattr(client, "usage", {}).get("calls"):
-        time.sleep(settle_sec)  # /user/balance lags a few seconds behind usage
+    if client and b0 is not None and getattr(client, "usage", {}).get("calls") and getattr(client, "allow_paid", False):
+        time.sleep(settle_sec)  # /user/balance lags a few seconds behind usage (paid DeepSeek only)
     b1 = client.balance() if client else None
     summary = {"schemaVersion": 1, "status": status, "stopReason": stop_reason,
                "chosenRound": best["round"] if best else None, "rounds": len(rounds),
                "maxRounds": max_rounds, "linesPath": str(lp), "linesSha256": lines_sha(chosen),
                "deterministicFinal": det_final["status"], "thresholds": TH,
-               "model": getattr(client, "model", None), "usage": dict(getattr(client, "usage", {})),
+               "model": getattr(client, "model", None),
+               "provider": getattr(client, "provider", None),
+               "allowPaid": bool(getattr(client, "allow_paid", False)),
+               "callLog": list(getattr(client, "call_log", [])),
+               "usage": dict(getattr(client, "usage", {})),
                "balanceBefore": b0, "balanceAfter": b1,
                "cny": round(b0 - b1, 2) if (b0 is not None and b1 is not None) else None,
                "durationSec": round(time.time() - t_start, 1),
@@ -454,15 +412,21 @@ def log_cost(summary: dict[str, Any], project: Path, item: str) -> dict | None:
     u = summary.get("usage") or {}
     if not u.get("calls") or summary.get("model") == "mock":
         return None
+    calls = summary.get("callLog") or []
+    models_used = [f"{c.get('provider')}/{c.get('model')}" for c in calls] or [summary.get("model")]
+    paid = any(c.get("paid") for c in calls)
+    source = "free-first" if not paid else "deepseek-balance+api-usage"
     return append_entry({
-        "kind": "llm-api", "item": item, "usd": 0.0, "cny": summary.get("cny"),
+        "kind": "llm-api", "item": item, "usd": 0.0, "cny": summary.get("cny") or 0.0,
         "tokensIn": u.get("prompt"), "tokensOut": u.get("completion"),
         "durationSec": summary.get("durationSec"), "path": "dialogue-loop", "project": str(project),
-        "model": summary.get("model"), "source": "deepseek-balance+api-usage",
+        "model": summary.get("model"), "source": source,
         "notes": (f"dialogue-loop {summary.get('status')} in {summary.get('rounds')} round(s), {u.get('calls')} calls; "
-                  f"billed CNY = DeepSeek /user/balance delta {summary.get('balanceBefore')}→{summary.get('balanceAfter')}; "
-                  f"usd not computed (no official USD price table here; see cny); reasoning tokens {u.get('reasoning')}"),
-        "meta": {"cacheHitTokens": u.get("cacheHit"), "reasoningTokens": u.get("reasoning")},
+                  f"models={[m for m in models_used]}; "
+                  f"billed CNY = balance delta {summary.get('balanceBefore')}→{summary.get('balanceAfter')} "
+                  f"(0 for free providers); reasoning tokens {u.get('reasoning')}"),
+        "meta": {"cacheHitTokens": u.get("cacheHit"), "reasoningTokens": u.get("reasoning"),
+                 "provider": summary.get("provider"), "callLog": calls, "allowPaid": summary.get("allowPaid")},
     })
 
 
@@ -473,17 +437,22 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--brief", default=None)
     ap.add_argument("--max-rounds", type=int, default=4)
     ap.add_argument("--target", type=float, default=None)
-    ap.add_argument("--model", default=MODEL)
-    ap.add_argument("--effort", default="high", choices=["low", "high", "max"])
-    ap.add_argument("--max-cny", type=float, default=2.0, help="stop when DeepSeek balance drops this much")
-    ap.add_argument("--min-balance", type=float, default=5.0, help="stop when balance ≤ this")
+    ap.add_argument("--model", default=MODEL, help="ignored in free-first mode (chain picks); kept for flags compat")
+    ap.add_argument("--effort", default="high", choices=["low", "high", "max"], help="DeepSeek paid reasoning_effort only")
+    ap.add_argument("--allow-paid", action="store_true",
+                    help="append paid DeepSeek official after all free models fail (OFF by default)")
+    ap.add_argument("--max-cny", type=float, default=2.0, help="paid path: stop when DeepSeek balance drops this much")
+    ap.add_argument("--min-balance", type=float, default=5.0, help="paid path: stop when balance ≤ this")
     ap.add_argument("--mock", default=os.environ.get("DC_DIALOGUE_LLM_MOCK"), help="tests: canned replies JSON")
     ap.add_argument("--item", default=None, help="ledger item label")
     ap.add_argument("--no-ledger", action="store_true")
     a = ap.parse_args(argv)
     project = Path(a.project).resolve()
     try:
-        client = MockClient(Path(a.mock)) if a.mock else DeepSeekClient(a.model, a.effort)
+        if a.mock:
+            client = MockClient(Path(a.mock))
+        else:
+            client = FreeFirstClient(effort=a.effort, allow_paid=a.allow_paid)
     except ProviderError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 3

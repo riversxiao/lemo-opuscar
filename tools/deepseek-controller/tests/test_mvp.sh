@@ -1461,6 +1461,13 @@ else
   bad "visual-check mock (see /tmp/dc_visual_check_mock.log)"
 fi
 
+# free-first LLM chain (TokenHarbor → OpenRouter :free; no OpenCode; no paid without --allow-paid)
+if env -u DEEPSEEK_API_KEY python3 "$CTL/tests/llm_free_mock.py" >/tmp/dc_llm_free_mock.log 2>&1; then
+  ok "llm_free: TokenHarbor→nemotron:free→flint:free; 429 retry same; quota advances; no paid without --allow-paid; ledger logs model"
+else
+  bad "llm_free mock (see /tmp/dc_llm_free_mock.log)"
+fi
+
 # pacing P0: profile by content_type, ceiling-only duration, no pad, pause trim, speed, report-only gate
 if env -u STEP_API_KEY -u LEMO_PACING python3 "$CTL/tests/pacing_mock.py" >/tmp/dc_pacing_mock.log 2>&1; then
   ok "pacing: market→fast / others→standard + overrides; ceiling-only dialogue; no pad + 1.5s outro; pause trim keeps beat; edge rate + stepaudio speed; pad FAIL; pacing gate report-only"
