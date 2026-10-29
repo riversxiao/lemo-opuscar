@@ -60,6 +60,13 @@ Don't push before the upload has finished, and don't commit `tools/assets.json` 
 
 Back up first (old versions move out of the repository, not into git). Re-render, replace `<slug>.mp4`, and run `sh tools/publish.sh`: it re-uploads the film and refreshes its web cut.
 
+A change to a demo (a native 9:16 layout, a shared core tool) must keep its landscape output byte-identical. Check it with `tools/portrait_check.py` (flags in [`core/README.md`](core/README.md), **Portrait check**):
+
+1. `git worktree add --detach ~/.cache/wordfilm/wt-old <old commit>` and `ln -s "$PWD/node_modules" ~/.cache/wordfilm/wt-old/node_modules`.
+2. `python3 tools/portrait_check.py --lib ~/.cache/wordfilm/wt-old --out ~/.cache/wordfilm/portrait-check/ref [--footage] <slug …>` (name the slugs when the old commit's `style.json` files have no `portrait` field).
+3. `python3 tools/portrait_check.py --compare ~/.cache/wordfilm/portrait-check/ref [--footage] <slug …>`: exit 0 and `landscape identical to the reference`; look at `sheet-port.jpg` for the 9:16 frames.
+4. `git worktree remove ~/.cache/wordfilm/wt-old`.
+
 ## Directory edition
 
 The Claude plugin directory lists a self-contained build of the plugin, on the orphan branch `directory` (the submission tracks that branch; `main` stays what visitors see). It carries the guides, every `STYLE.md` / `style.json` / `DEMO.md`, `core/` (without the Poly Haven models, which only demo code uses) and its own `README.md`, `SECURITY.md` and `SKILL.md`: nothing is cloned or fetched to tell the agent what to do, there are no demo sources, and Chinese edge-tts narration is used only with the user's consent. The sources of the plugin-only files are in `tools/directory/`; the build and its checks (file sizes, personal info) are in `tools/directory.py`.

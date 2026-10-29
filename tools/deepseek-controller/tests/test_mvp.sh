@@ -2119,6 +2119,30 @@ else
   skip "swiss-motion 9:16 fit" "node missing"
 fi
 
+# tools/portrait_check.py: the reproducible 9:16 check (copies, fonts, footage, stills, sheets, --compare).
+# Only the plan is tested here (--dry-run: no network, no files); real renders download fonts/footage.
+PCC="$WORK/pc-cache"
+if python3 -m py_compile "$ROOT/tools/portrait_check.py" \
+  && WORDFILM_CACHE="$PCC" python3 "$ROOT/tools/portrait_check.py" --dry-run >$WORK/dc-pc.out 2>&1 \
+  && [ ! -e "$PCC" ] \
+  && grep -q "copies in $PCC/portrait-check/styles" $WORK/dc-pc.out \
+  && ( for s in caption-news swiss-motion pictogram-motion art-deco hd-2d microgame; do grep -q "^$s: portrait" $WORK/dc-pc.out || exit 1; done ) \
+  && grep -q '^caption-news: portrait native, t = 22.3' $WORK/dc-pc.out \
+  && grep -q '^art-deco: portrait reframe' $WORK/dc-pc.out \
+  && grep -q 'render node core/render/still.mjs .*/styles/hd-2d/demo 55.08 --size 1080x1920' $WORK/dc-pc.out \
+  && grep -q 'tools/fonts.sh (demo fetcher), fetch_fonts.ensure_fonts (controller)' $WORK/dc-pc.out \
+  && WORDFILM_CACHE="$PCC" python3 "$ROOT/tools/portrait_check.py" --dry-run white-model --t 1 2.5 >$WORK/dc-pc2.out 2>&1 \
+  && grep -q 'footage (only with --footage) until data/zshadow.png exists' $WORK/dc-pc2.out \
+  && grep -q 'demo 1 2.5 --out' $WORK/dc-pc2.out \
+  && ! WORDFILM_CACHE="$PCC" python3 "$ROOT/tools/portrait_check.py" --dry-run no-such-style >/dev/null 2>&1 \
+  && ! WORDFILM_CACHE="$PCC" python3 "$ROOT/tools/portrait_check.py" --dry-run --t soon >/dev/null 2>&1 \
+  && [ ! -e "$PCC" ]; then
+  ok "portrait_check.py --dry-run plans natives + reframe sample under \$WORDFILM_CACHE, writes nothing; bad slug / --t rejected"
+else
+  bad "portrait_check.py dry run: $(cat $WORK/dc-pc.out $WORK/dc-pc2.out 2>/dev/null | head -30)"
+fi
+skip "portrait_check.py renders" "downloads fonts and footage; run python3 tools/portrait_check.py [--footage] by hand"
+
 # styleboard/build.py must stay valid on Python 3.10/3.11 (CI builds Pages on 3.12, people run 3.11+):
 # no backslashes inside f-string expressions. Compile with every such interpreter on PATH.
 SB_PYS=""
