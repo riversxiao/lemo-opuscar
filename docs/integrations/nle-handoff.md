@@ -11,6 +11,9 @@ packages plus honest FCP `xmeml` for Premiere/Resolve **import**.
 | **Controller** | `python3 tools/deepseek-controller/cli.py handoff --project <film> --target all` | openfilm + hyperframes + premiere | fixture tests in `test_mvp.sh` |
 
 Python package: `tools/handoff/` (`openfilm`, `hyperframes`, `premiere`, `common`).
+Frame size / fps: `--size WxH` and `--fps` flags win, then ffprobe of the master,
+then 1920x1080 @ 24fps; vertical 1080x1920 masters export as vertical sequences.
+Tests: `python3 -m pytest tools/handoff/tests -q`.
 
 ## What is claimed vs what runs
 

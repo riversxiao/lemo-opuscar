@@ -58,7 +58,10 @@ def cmd_scaffold(args: argparse.Namespace) -> int:
     except (ValueError, FileExistsError, FileNotFoundError, RuntimeError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
-    print(f"OK scaffold {info.get('style')} mode={info.get('mode')} → {info['project']}")
+    print(
+        f"OK scaffold {info.get('style')} mode={info.get('mode')} "
+        f"size={info.get('size')} aspect={info.get('aspect')} → {info['project']}"
+    )
     if info.get("protectedSha256"):
         for name, h in info["protectedSha256"].items():
             print(f"  lock {name}: {h[:16]}…")

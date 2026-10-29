@@ -20,7 +20,14 @@ python3 tools/deepseek-controller/cli.py handoff \
   --target premiere
 ```
 
-POSIX wrappers:
+Frame size and rate: `--size WxH` (even, 16..8192) and `--fps` (24, 29.97 or
+30000/1001) override; otherwise ffprobe of the master MP4 decides, and without
+ffprobe the default is 1920x1080 @ 24fps. A 9:16 film therefore exports at
+1080x1920 into `premiere.xml`, `film.html` and the HyperFrames `index.html`
+without extra flags. `--json` reports the resolved values and their source
+(`flag` | `probe` | `default`).
+
+POSIX wrappers (extra flags such as `--size` pass through):
 
 | Rail | Wrapper |
 |---|---|

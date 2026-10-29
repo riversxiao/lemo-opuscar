@@ -12,7 +12,7 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
-from common import ROOT, dump_json, load_json
+from common import ROOT, dump_json, load_json, project_size, size_arg
 
 
 STATUSES = ("PASS", "FAIL", "NOT_CHECKED", "NOT_APPLICABLE")
@@ -512,7 +512,8 @@ def run_readcheck(project: Path, *, style: str = "") -> dict[str, Any]:
 
     try:
         proc = subprocess.run(
-            ["node", str(script), str(project)],
+            # viewport follows the project aspect (content/engine.lock.json size)
+            ["node", str(script), str(project), "--size", size_arg(project_size(project))],
             capture_output=True,
             text=True,
             timeout=300,

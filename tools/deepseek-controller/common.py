@@ -29,10 +29,57 @@ FORBIDDEN_VALUE_RE = re.compile(
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 ID_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_-]{0,31}$")
 
+# plan.aspect → render size (core/render/*.mjs --size WxH). 16:9 is the default.
+ASPECT_SIZES: dict[str, tuple[int, int]] = {"16:9": (1920, 1080), "9:16": (1080, 1920)}
+DEFAULT_ASPECT = "16:9"
+# Output frame rate of each locked demo (STYLE.md / build.sh); --fps for video.mjs + mux.sh
+STYLE_FPS: dict[str, int] = {"swiss-motion": 24, "caption-news": 30, "pictogram-motion": 60}
+
 
 def load_json(path: Path) -> Any:
     with path.open(encoding="utf-8") as f:
         return json.load(f)
+
+
+def plan_aspect(plan: dict[str, Any] | None) -> str:
+    """Aspect of a plan dict ('16:9' when absent)."""
+    if isinstance(plan, dict) and isinstance(plan.get("aspect"), str):
+        return plan["aspect"]
+    return DEFAULT_ASPECT
+
+
+def render_size(plan_or_aspect: dict[str, Any] | str | None) -> tuple[int, int]:
+    """(width, height) for a plan dict or an aspect string; unknown aspect raises ValueError."""
+    aspect = plan_or_aspect if isinstance(plan_or_aspect, str) else plan_aspect(plan_or_aspect)
+    if aspect not in ASPECT_SIZES:
+        raise ValueError(f"unknown aspect {aspect!r} (need one of {list(ASPECT_SIZES)})")
+    return ASPECT_SIZES[aspect]
+
+
+def size_arg(size: tuple[int, int]) -> str:
+    """(1080, 1920) → '1080x1920' (the --size value for core/render tools)."""
+    return f"{int(size[0])}x{int(size[1])}"
+
+
+def project_aspect(project: Path) -> str:
+    """Aspect of a scaffolded project: engine.lock.json > content/plan.json > 16:9."""
+    project = Path(project)
+    for rel in ("content/engine.lock.json", "content/plan.json"):
+        p = project / rel
+        if not p.is_file():
+            continue
+        try:
+            data = load_json(p)
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict) and data.get("aspect") in ASPECT_SIZES:
+            return data["aspect"]
+    return DEFAULT_ASPECT
+
+
+def project_size(project: Path) -> tuple[int, int]:
+    """Render size of a scaffolded project (see project_aspect)."""
+    return ASPECT_SIZES[project_aspect(project)]
 
 
 def dump_json(path: Path, data: Any, *, indent: int = 2) -> None:

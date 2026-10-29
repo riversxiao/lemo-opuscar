@@ -1459,6 +1459,185 @@ else
   bad "budget ledger env override / noise"
 fi
 
+# --- aspect: 16:9 / 9:16 plan → render size (temp copies only; fixtures stay untouched) ---
+if "${CLI[@]}" validate "$FIX/plan-caption-news-portrait.json" >/dev/null 2>/tmp/dc-asp-val.err; then
+  ok "validate plan-caption-news-portrait.json (aspect 9:16)"
+else
+  bad "portrait caption plan: $(cat /tmp/dc-asp-val.err)"
+fi
+
+if "${CLI[@]}" validate "$FIX/plan-invalid-pictogram-portrait.json" >/dev/null 2>/tmp/dc-asp-bad.err; then
+  bad "pictogram-motion + 9:16 should be rejected"
+elif grep -q "pictogram-motion does not support '9:16'" /tmp/dc-asp-bad.err; then
+  ok "pictogram-motion + 9:16 rejected with manifest aspects message"
+else
+  bad "pictogram 9:16 rejected without aspect message: $(cat /tmp/dc-asp-bad.err)"
+fi
+
+python3 -c "
+import json;d=json.load(open('$FIX/plan-caption-news.json'));d['aspect']='4:3';json.dump(d,open('/tmp/dc-asp-43.json','w'),ensure_ascii=False)"
+if "${CLI[@]}" validate /tmp/dc-asp-43.json >/dev/null 2>/tmp/dc-asp-43.err; then
+  bad "aspect 4:3 should be rejected"
+elif grep -q '\$.aspect: must be one of' /tmp/dc-asp-43.err; then
+  ok "unknown aspect 4:3 rejected"
+else
+  bad "aspect 4:3: $(cat /tmp/dc-asp-43.err)"
+fi
+
+if PYTHONPATH="$CTL" python3 -c "
+from common import render_size, project_size, size_arg
+assert render_size('16:9') == (1920, 1080) and render_size('9:16') == (1080, 1920)
+assert render_size({}) == (1920, 1080) and render_size({'aspect': '9:16'}) == (1080, 1920)
+assert size_arg((1080, 1920)) == '1080x1920'
+assert project_size('/tmp/dc-no-such-project') == (1920, 1080)
+"; then
+  ok "render_size maps 16:9→1920x1080, 9:16→1080x1920 (default 16:9)"
+else
+  bad "render_size helper"
+fi
+
+rm -rf /tmp/dc-adapt-portrait
+if "${CLI[@]}" adapt "$FIX/plan-caption-news-portrait.json" -o /tmp/dc-adapt-portrait >/dev/null \
+  && python3 -c "import json;assert json.load(open('/tmp/dc-adapt-portrait/content/plan.json'))['aspect']=='9:16'"; then
+  ok "adapt portrait keeps aspect in content/plan.json"
+else
+  bad "adapt portrait aspect"
+fi
+
+rm -rf /tmp/dc-scaffold-caption-portrait
+if "${CLI[@]}" scaffold "$FIX/plan-caption-news-portrait.json" -o /tmp/dc-scaffold-caption-portrait --lib "$ROOT" --force >/tmp/dc-scp.out 2>/tmp/dc-scp.err \
+  && grep -q 'size=1080x1920 aspect=9:16' /tmp/dc-scp.out \
+  && python3 -c "
+import json;d=json.load(open('/tmp/dc-scaffold-caption-portrait/content/engine.lock.json'))
+assert d['aspect']=='9:16' and d['size']=='1080x1920', d" \
+  && grep -q 'core/render/still.mjs .* --size 1080x1920' /tmp/dc-scaffold-caption-portrait/PROJECT.md \
+  && grep -q 'core/render/video.mjs .* --size 1080x1920' /tmp/dc-scaffold-caption-portrait/PROJECT.md \
+  && grep -q 'core/render/readcheck.mjs .* --size 1080x1920' /tmp/dc-scaffold-caption-portrait/PROJECT.md \
+  && grep -q 'core/render/events.mjs .* --size 1080x1920' /tmp/dc-scaffold-caption-portrait/PROJECT.md \
+  && ! grep -q '1920x1080' /tmp/dc-scaffold-caption-portrait/PROJECT.md; then
+  ok "scaffold caption 9:16 records size 1080x1920 in engine.lock + PROJECT.md --size"
+else
+  bad "scaffold caption portrait: $(cat /tmp/dc-scp.out /tmp/dc-scp.err)"
+fi
+
+if grep -q -- '--size 1920x1080' /tmp/dc-scaffold-caption/PROJECT.md \
+  && python3 -c "
+import json;d=json.load(open('/tmp/dc-scaffold-caption/content/engine.lock.json'))
+assert d['aspect']=='16:9' and d['size']=='1920x1080', d"; then
+  ok "scaffold caption default aspect stays 16:9 / 1920x1080"
+else
+  bad "scaffold caption landscape size missing"
+fi
+
+python3 -c "
+import json;d=json.load(open('$FIX/plan-swiss-motion.json'));d['aspect']='9:16';json.dump(d,open('/tmp/dc-plan-swiss-portrait.json','w'),ensure_ascii=False)"
+rm -rf /tmp/dc-scaffold-swiss-portrait
+if "${CLI[@]}" scaffold /tmp/dc-plan-swiss-portrait.json -o /tmp/dc-scaffold-swiss-portrait --lib "$ROOT" --force >/tmp/dc-ssp.out 2>/tmp/dc-ssp.err \
+  && python3 -c "
+import json
+rt=json.load(open('/tmp/dc-scaffold-swiss-portrait/texts_runtime.json'))
+assert rt['aspect']=='9:16' and rt['frame']=={'width':1080,'height':1920}, rt.get('frame')
+assert rt['entries']
+for e in rt['entries']:
+    assert 0<=e['x0']<e['x1']<=1080 and 0<=e['y0']<e['y1']<=1920, e
+import sys; sys.path.insert(0, '$CTL')
+from apply_swiss_texts import POS_BOX_PORTRAIT
+for e in rt['entries']:
+    assert (e['x0'], e['y0'], e['x1'], e['y1']) == POS_BOX_PORTRAIT[e['pos']], ('not the portrait box', e)
+"; then
+  ok "apply_swiss_texts on a 9:16 project clamps TEXTS boxes to 1080x1920"
+else
+  bad "swiss portrait texts_runtime: $(cat /tmp/dc-ssp.out /tmp/dc-ssp.err)"
+fi
+
+if PYTHONPATH="$CTL" python3 -c "
+from apply_swiss_texts import build_texts_runtime
+lines=[{'id':'l1','t':1.0,'text':'Small. Big statement'},{'id':'l6','t':30.0,'text':'Wall line'}]
+land=build_texts_runtime(lines, dur=44)
+assert land['frame']=={'width':1920,'height':1080}
+assert all(e['x1']<=1920 and e['y1']<=1080 for e in land['entries'])
+por=build_texts_runtime(lines, dur=44, aspect='9:16')
+assert all(e['x1']<=1080 and e['y1']<=1920 for e in por['entries'])
+try:
+    build_texts_runtime(lines, aspect='4:3'); raise SystemExit(1)
+except ValueError:
+    pass
+"; then
+  ok "build_texts_runtime boxes per aspect (16:9 landscape, 9:16 portrait)"
+else
+  bad "build_texts_runtime aspect"
+fi
+
+if PYTHONPATH="$CTL" python3 -c "
+import subprocess, quality
+seen = {}
+class P:
+    returncode = 0; stdout = 'ok'; stderr = ''
+def fake(cmd, **kw):
+    seen['cmd'] = cmd; return P()
+quality.subprocess.run = fake
+quality.run_readcheck(__import__('pathlib').Path('/tmp/dc-scaffold-caption-portrait'), style='caption-news')
+cmd = seen['cmd']
+assert cmd[-2:] == ['--size', '1080x1920'], cmd
+"; then
+  ok "quality readcheck passes --size from the project aspect"
+else
+  bad "quality readcheck --size"
+fi
+
+# handoff: frame size from --size flag or ffprobe of a portrait master
+rm -rf /tmp/dc-handoff-portrait
+if PYTHONPATH="$ROOT" python3 -m tools.handoff.cli premiere "$HO_FIX" -o /tmp/dc-handoff-portrait --size 1080x1920 --json >/tmp/dc-hop.json 2>/tmp/dc-hop.err \
+  && python3 -c "
+import json;d=json.load(open('/tmp/dc-hop.json'))
+assert (d['width'],d['height'],d['sizeSource'])==(1080,1920,'flag'), d" \
+  && test "$(grep -c '<width>1080</width>' /tmp/dc-handoff-portrait/premiere.xml)" = 2 \
+  && test "$(grep -c '<height>1920</height>' /tmp/dc-handoff-portrait/premiere.xml)" = 2; then
+  ok "handoff premiere --size 1080x1920 writes portrait xmeml (source=flag)"
+else
+  bad "handoff premiere portrait: $(cat /tmp/dc-hop.err /tmp/dc-hop.json)"
+fi
+
+if PYTHONPATH="$ROOT" python3 -m tools.handoff.cli premiere "$HO_FIX" -o /tmp/dc-handoff-odd --size 1081x1920 >/dev/null 2>/tmp/dc-hoodd.err; then
+  bad "handoff --size 1081x1920 should be rejected"
+elif grep -q 'even' /tmp/dc-hoodd.err; then
+  ok "handoff rejects odd --size"
+else
+  bad "handoff odd size: $(cat /tmp/dc-hoodd.err)"
+fi
+
+if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then
+  rm -rf /tmp/dc-portrait-film && mkdir -p /tmp/dc-portrait-film/out
+  if ffmpeg -y -hide_banner -loglevel error -f lavfi -i color=c=black:s=1080x1920:r=30:d=1 \
+       -c:v libx264 -preset ultrafast -pix_fmt yuv420p /tmp/dc-portrait-film/out/final.mp4 \
+    && PYTHONPATH="$ROOT" python3 -m tools.handoff.cli both /tmp/dc-portrait-film --with-premiere --json >/tmp/dc-hob.json 2>/tmp/dc-hob.err \
+    && python3 -c "
+import json;d=json.load(open('/tmp/dc-hob.json'))
+for k in ('openfilm','hyperframes','premiere'):
+    assert (d[k]['width'],d[k]['height'],d[k]['sizeSource'])==(1080,1920,'probe'), (k,d[k])
+assert d['premiere']['fps']==30 and d['premiere']['fpsSource']=='probe'" \
+    && grep -q 'data-width="1080"' /tmp/dc-portrait-film/hyperframes-handoff/index.html \
+    && grep -q 'width:1080px;height:1920px' /tmp/dc-portrait-film/openfilm-handoff/film.html \
+    && ! grep -q '1920px;height:1080px\|width=1920' /tmp/dc-portrait-film/openfilm-handoff/film.html; then
+    ok "handoff both: ffprobe of a 1080x1920 master drives all exports"
+  else
+    bad "handoff probe portrait: $(cat /tmp/dc-hob.err)"
+  fi
+else
+  echo "SKIP: handoff ffprobe portrait (ffmpeg/ffprobe not installed)"
+fi
+
+# handoff pytest suite (frame size / fps); one command covers everything
+if python3 -c "import pytest" 2>/dev/null; then
+  if (cd "$ROOT" && python3 -m pytest tools/handoff/tests -q -p no:cacheprovider >/tmp/dc-pytest.out 2>&1); then
+    ok "pytest tools/handoff/tests ($(tail -1 /tmp/dc-pytest.out))"
+  else
+    bad "pytest tools/handoff/tests: $(tail -20 /tmp/dc-pytest.out)"
+  fi
+else
+  echo "SKIP: pytest not installed (python3 -m pip install pytest; then python3 -m pytest tools/handoff/tests)"
+fi
+
 echo
 echo "Results: $pass passed, $fail failed"
 

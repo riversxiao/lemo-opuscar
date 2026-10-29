@@ -9,6 +9,9 @@
     "en",
     "zh-en"
   ],
+  "aspects": [
+    "16:9"
+  ],
   "durationSec": {
     "min": 20,
     "max": 60,
