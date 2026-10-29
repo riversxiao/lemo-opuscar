@@ -1087,6 +1087,70 @@ else
   bad "budget/experts docs missing"
 fi
 
+# --- Premiere xmeml handoff ---
+rm -rf /tmp/dc-handoff-prem
+if PYTHONPATH="$ROOT" python3 -m tools.handoff.cli premiere "$HO_FIX" -o /tmp/dc-handoff-prem >/tmp/dc-prem.out 2>/tmp/dc-prem.err \
+  && test -f /tmp/dc-handoff-prem/premiere.xml \
+  && test -f /tmp/dc-handoff-prem/manifest.json \
+  && test -f /tmp/dc-handoff-prem/assets/master.mp4 \
+  && grep -q 'xmeml version="5"' /tmp/dc-handoff-prem/premiere.xml \
+  && grep -q 'clipitem id="clip-1"' /tmp/dc-handoff-prem/premiere.xml \
+  && grep -q 'clipitem id="clip-2"' /tmp/dc-handoff-prem/premiere.xml; then
+  ok "premiere handoff writes xmeml v5 + 2 clipitems"
+else
+  bad "premiere handoff: $(cat /tmp/dc-prem.err /tmp/dc-prem.out)"
+fi
+
+if test -f "$HO_OUT/premiere.xml" || PYTHONPATH="$ROOT" python3 -m tools.handoff.cli openfilm "$HO_FIX" -o /tmp/dc-of-xml >/dev/null 2>&1; then
+  # openfilm package must embed premiere.xml (re-export if earlier HO_OUT predates change)
+  if test -f "$HO_OUT/premiere.xml"; then OFXML="$HO_OUT/premiere.xml"; else OFXML="/tmp/dc-of-xml/premiere.xml"; fi
+  if grep -q 'xmeml' "$OFXML"; then
+    ok "openfilm package includes premiere.xml"
+  else
+    bad "openfilm missing premiere.xml content"
+  fi
+else
+  bad "openfilm premiere.xml missing"
+fi
+
+if "${CLI[@]}" handoff --project "$HO_FIX" --target premiere -o /tmp/dc-prem-cli --no-budget >/tmp/dc-prem2.out 2>/tmp/dc-prem2.err \
+  && test -f /tmp/dc-prem-cli/premiere.xml; then
+  ok "cli handoff premiere"
+else
+  bad "cli handoff premiere: $(cat /tmp/dc-prem2.err /tmp/dc-prem2.out)"
+fi
+
+# --- budget ledger ---
+BUD_LEDGER=/tmp/dc-budget-ledger.jsonl
+rm -f "$BUD_LEDGER"
+if "${CLI[@]}" budget append --ledger "$BUD_LEDGER" --item "test-local" --usd 0 --kind local --path-label controller --duration 1.5 >/tmp/dc-bud.out 2>/tmp/dc-bud.err \
+  && "${CLI[@]}" budget append --ledger "$BUD_LEDGER" --item "test-paid" --usd 0.12 --kind manual --tokens-in 10 --tokens-out 2 --path-label flash >/tmp/dc-bud2.out 2>/tmp/dc-bud2.err \
+  && "${CLI[@]}" budget summary --ledger "$BUD_LEDGER" --json >/tmp/dc-bud-sum.json 2>/tmp/dc-bud-sum.err \
+  && python3 -c "import json;d=json.load(open('/tmp/dc-bud-sum.json')); assert d['entries']==2 and abs(d['totalUsd']-0.12)<1e-9"; then
+  ok "budget append + summary"
+else
+  bad "budget: $(cat /tmp/dc-bud.err /tmp/dc-bud2.err /tmp/dc-bud-sum.err /tmp/dc-bud.out /tmp/dc-bud-sum.json 2>/dev/null)"
+fi
+
+if test -f "$CTL/fixtures/budget-ledger.jsonl" && test -f "$CTL/budget.py" \
+  && grep -q 'budget-ledger.jsonl' "$CTL/docs/BUDGET.md"; then
+  ok "budget.py + ledger fixture + BUDGET.md wire-up"
+else
+  bad "budget automation files missing"
+fi
+
+if "${CLI[@]}" budget import-opencode --ledger /tmp/dc-budget-import.jsonl --min-usd 0.01 --dry-run --json >/tmp/dc-bud-imp.json 2>/tmp/dc-bud-imp.err \
+  && python3 -c "import json;d=json.load(open('/tmp/dc-bud-imp.json')); assert d.get('ok') is True and d.get('dryRun') is True"; then
+  ok "budget import-opencode --dry-run"
+else
+  # DB may be absent off-box; still accept honest failure shape
+  if grep -q 'opencode db missing' /tmp/dc-bud-imp.json /tmp/dc-bud-imp.err 2>/dev/null; then
+    ok "budget import-opencode honest missing-db"
+  else
+    bad "budget import: $(cat /tmp/dc-bud-imp.err /tmp/dc-bud-imp.json)"
+  fi
+fi
+
 if "${CLI[@]}" matrix --filled >/tmp/dc-matrix-f.out 2>/tmp/dc-matrix-f.err \
   && grep -q 'M05' /tmp/dc-matrix-f.out \
   && ! grep -E '^M0[0-9].* empty ' /tmp/dc-matrix-f.out \

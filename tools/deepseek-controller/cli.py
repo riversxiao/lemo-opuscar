@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DeepSeek controller CLI: validate | adapt | scaffold | tts | schedule | mix | quality | handoff | matrix."""
+"""DeepSeek controller CLI: validate | adapt | scaffold | tts | schedule | mix | quality | handoff | matrix | budget."""
 from __future__ import annotations
 
 import argparse
@@ -191,26 +191,32 @@ def cmd_quality(args: argparse.Namespace) -> int:
 
 
 def cmd_handoff(args: argparse.Namespace) -> int:
-    """OpenFilm / HyperFrames export from a finished film dir (mux + timeline)."""
+    """OpenFilm / HyperFrames / Premiere-XML export from a finished film dir."""
     import json
     import sys as _sys
+    import time as _time
+
     root = Path(__file__).resolve().parents[2]
     if str(root) not in _sys.path:
         _sys.path.insert(0, str(root))
     from tools.handoff.openfilm import export_openfilm
     from tools.handoff.hyperframes import export_hyperframes
+    from tools.handoff.premiere import export_premiere
+
+    from budget import log_local_step
 
     film = Path(args.project)
     target = args.target
     infos = {}
-    if target in ("openfilm", "both"):
+    t0 = _time.perf_counter()
+    if target in ("openfilm", "both", "all"):
         infos["openfilm"] = export_openfilm(
             film,
             name=args.name,
             out_dir=Path(args.out) if args.out and target == "openfilm" else None,
             extract_shots=args.extract_shots,
         )
-    if target in ("hyperframes", "both"):
+    if target in ("hyperframes", "both", "all"):
         infos["hyperframes"] = export_hyperframes(
             film,
             name=args.name,
@@ -218,6 +224,25 @@ def cmd_handoff(args: argparse.Namespace) -> int:
             try_init_cli=args.try_init_cli,
             run_lint=args.lint,
         )
+    if target in ("premiere", "all"):
+        infos["premiere"] = export_premiere(
+            film,
+            name=args.name,
+            out_dir=Path(args.out) if args.out and target == "premiere" else None,
+        )
+    # both also gets premiere when --with-premiere
+    if target == "both" and getattr(args, "with_premiere", False):
+        infos["premiere"] = export_premiere(film, name=args.name)
+
+    if not getattr(args, "no_budget", False):
+        log_local_step(
+            f"handoff:{target}",
+            duration_sec=_time.perf_counter() - t0,
+            project=str(film),
+            path_label="handoff",
+            notes=",".join(infos.keys()),
+        )
+
     if args.json:
         print(json.dumps(infos, ensure_ascii=False, indent=2))
     else:
@@ -227,9 +252,87 @@ def cmd_handoff(args: argparse.Namespace) -> int:
                 print("  lint: PASS")
             elif k == "hyperframes" and info.get("lintOk") is False:
                 print("  lint: FAIL")
+            if k == "premiere" and info.get("xml"):
+                print(f"  xml: {info['xml']}")
     if infos.get("hyperframes", {}).get("lintOk") is False:
         return 1
     return 0
+
+
+def cmd_budget(args: argparse.Namespace) -> int:
+    """Append / summarize / import OpenCode costs into fixtures/budget-ledger.jsonl."""
+    import json
+    from budget import (
+        append_entry,
+        import_opencode_sessions,
+        ledger_path,
+        summarize,
+    )
+
+    ledger = Path(args.ledger) if args.ledger else None
+    action = args.budget_cmd
+    if action == "summary":
+        s = summarize(ledger)
+        if args.json:
+            print(json.dumps(s, ensure_ascii=False, indent=2))
+        else:
+            print(f"ledger: {s['ledger']}")
+            print(f"entries: {s['entries']}")
+            print(f"totalUsd: ${s['totalUsd']:.6f}")
+            print(f"tokensIn/Out: {s['tokensIn']} / {s['tokensOut']}")
+            if s["byKind"]:
+                print("byKind:")
+                for k, v in s["byKind"].items():
+                    print(f"  {k}: ${v:.6f}")
+            if s["byPath"]:
+                print("byPath:")
+                for k, v in s["byPath"].items():
+                    print(f"  {k}: ${v:.6f}")
+        return 0
+    if action == "append":
+        row = append_entry(
+            {
+                "kind": args.kind,
+                "item": args.item,
+                "usd": args.usd,
+                "tokensIn": args.tokens_in,
+                "tokensOut": args.tokens_out,
+                "durationSec": args.duration,
+                "path": args.path_label,
+                "project": args.project,
+                "model": args.model,
+                "source": args.source or "cli",
+                "notes": args.notes or "",
+            },
+            path=ledger,
+        )
+        if args.json:
+            print(json.dumps(row, ensure_ascii=False, indent=2))
+        else:
+            print(f"OK appended → {ledger_path(ledger)} usd=${row['usd']}")
+        return 0
+    if action == "import-opencode":
+        res = import_opencode_sessions(
+            db_path=Path(args.db) if args.db else None,
+            ledger=ledger,
+            title_substr=args.filter,
+            min_usd=args.min_usd,
+            dry_run=args.dry_run,
+        )
+        if args.json:
+            print(json.dumps(res, ensure_ascii=False, indent=2))
+        else:
+            if not res.get("ok"):
+                print(f"ERROR: {res.get('error')}", file=sys.stderr)
+                return 1
+            print(
+                f"OK opencode import dryRun={res['dryRun']} "
+                f"imported={res['imported']} would={res['wouldImport']} "
+                f"skipped={res['skipped']} sumUsdWould=${res['sumUsdWould']:.6f}"
+            )
+        return 0 if res.get("ok") else 1
+    print(f"unknown budget action {action}", file=sys.stderr)
+    return 2
 
 
 
@@ -260,7 +363,7 @@ def cmd_matrix(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="deepseek-controller",
-        description="Minimal DeepSeek film controller (plan → adapt → scaffold → tts → schedule → mix → quality → handoff → matrix)",
+        description="Minimal DeepSeek film controller (plan → adapt → scaffold → tts → schedule → mix → quality → handoff → matrix → budget)",
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -377,19 +480,30 @@ def build_parser() -> argparse.ArgumentParser:
 
     ho = sub.add_parser(
         "handoff",
-        help="OpenFilm / HyperFrames package from finished mux + timeline (NLE handoff)",
+        help="OpenFilm / HyperFrames / Premiere-XML from finished mux + timeline",
     )
     ho.add_argument("--project", required=True, help="film project directory with muxed mp4")
     ho.add_argument(
         "--target",
-        choices=("openfilm", "hyperframes", "both"),
+        choices=("openfilm", "hyperframes", "premiere", "both", "all"),
         default="both",
+        help="both=openfilm+hyperframes; all=+premiere; premiere=xmeml only",
     )
     ho.add_argument("--name", default=None)
     ho.add_argument("-o", "--out", default=None, help="override out dir (single-target only)")
     ho.add_argument("--extract-shots", action="store_true")
     ho.add_argument("--try-init-cli", action="store_true", help="hyperframes: try npx init --video")
     ho.add_argument("--lint", action="store_true", help="hyperframes: run lint after export")
+    ho.add_argument(
+        "--with-premiere",
+        action="store_true",
+        help="when --target both, also write premiere-handoff/",
+    )
+    ho.add_argument(
+        "--no-budget",
+        action="store_true",
+        help="skip $0 ledger line for this handoff",
+    )
     ho.add_argument("--json", action="store_true")
     ho.set_defaults(func=cmd_handoff)
 
@@ -408,6 +522,63 @@ def build_parser() -> argparse.ArgumentParser:
     mx.add_argument("--filled", action="store_true", help="hide empty cells")
     mx.add_argument("--id", help="show one cell (e.g. M01)")
     mx.set_defaults(func=cmd_matrix)
+
+    bg = sub.add_parser(
+        "budget",
+        help="append/summarize/import spend into fixtures/budget-ledger.jsonl",
+    )
+    bg_sub = bg.add_subparsers(dest="budget_cmd", required=True)
+
+    def _budget_common(sp: argparse.ArgumentParser) -> None:
+        sp.add_argument(
+            "--ledger",
+            default=None,
+            help="override fixtures/budget-ledger.jsonl",
+        )
+        sp.add_argument("--json", action="store_true")
+
+    bgs = bg_sub.add_parser("summary", help="sum usd/tokens in the ledger")
+    _budget_common(bgs)
+    bgs.set_defaults(func=cmd_budget)
+
+    bga = bg_sub.add_parser("append", help="append one honest ledger line")
+    _budget_common(bga)
+    bga.add_argument("--item", required=True)
+    bga.add_argument("--usd", type=float, required=True)
+    bga.add_argument("--kind", default="manual")
+    bga.add_argument("--tokens-in", type=int, default=0)
+    bga.add_argument("--tokens-out", type=int, default=0)
+    bga.add_argument("--duration", type=float, default=None)
+    bga.add_argument("--path-label", default=None, dest="path_label")
+    bga.add_argument("--project", default=None)
+    bga.add_argument("--model", default=None)
+    bga.add_argument("--source", default="cli")
+    bga.add_argument("--notes", default="")
+    bga.set_defaults(func=cmd_budget)
+
+    bgi = bg_sub.add_parser(
+        "import-opencode",
+        help="seed from OpenCode session_v2 costs (optional one-shot)",
+    )
+    _budget_common(bgi)
+    bgi.add_argument(
+        "--db",
+        default=None,
+        help="default: /home/box/.local/share/opencode/opencode.db",
+    )
+    bgi.add_argument(
+        "--filter",
+        default=None,
+        help="substring filter on title/directory/id",
+    )
+    bgi.add_argument(
+        "--min-usd",
+        type=float,
+        default=0.0,
+        help="only import sessions with cost >= this (default 0 = paid+free rows)",
+    )
+    bgi.add_argument("--dry-run", action="store_true")
+    bgi.set_defaults(func=cmd_budget)
 
     return p
 
