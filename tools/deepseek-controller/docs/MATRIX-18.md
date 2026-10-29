@@ -87,6 +87,12 @@ Retrofits (metadata / evidence only, no re-render):
 
 Honest misses: Flash wrote longer caption copy than the locked 30s caption timeline allows. No K-scale / no fake pass — M14/M16 stay **muxed** until copy is cut and re-rendered.
 
+Root-cause fixes landed (no re-render yet, status unchanged):
+
+- **Overrun guard.** The schedule already failed (32.25s / 31.25s > 30s), but nothing stopped the pipeline from applying the cues and rendering anyway: the Flash run backed up/restored `timeline.json` around `schedule` and the render went ahead. Now `schedule` for caption-news also checks the copy against the locked `main.js` `DUR` (even when `targetDurationSec` or `--target` would allow more) and names the shots to trim, e.g. `copy overruns the locked caption-news timeline by 2.25s: content 32.25s > locked 30.00s; trim shots: c7 (30.00-32.25s)`. `apply_caption_timeline.py` refuses a failed or overrunning `timeline.parsed.json` unless `--force` (diagnostics only). Covered by `tests/test_mvp.sh` (32.25s plan against a 30s lock).
+- **ASR lexicon.** `asr_homophones.json` now lists 复立 in the 复利 class, so `--asr-mode=zh-homophone-tolerant` clears the M14 L05 residual (复利 heard as 复立). Covered by `tests/test_mvp.sh`.
+- **Still to do:** M14 and M16 need a re-render with trimmed copy (and a fresh `--delivery` gate) on a machine that has the film files under the films root (`$WORDFILM_FILMS`, `<repo>/films` or `/workspace/films`). Until then they stay **muxed**.
+
 ### Improved siblings (not separate matrix cells)
 
 | Better cut | Related cell | Why |
@@ -147,8 +153,8 @@ python3 tools/deepseek-controller/cli.py matrix --path flash  # only flash cells
 
 **Matrix 18/18 filled, 16/18 delivery-pass** (2026-10-29 Asia/Shanghai). Follow-ups:
 
-1. **M14** fuli×caption×flash: cut VO/copy to fit 30s (schedule 32.25s) + ASR lexicon 复立→复利, re-render, re-gate
-2. **M16** fensan×caption×flash: trim copy to fit 30s (schedule 31.25s), re-render, re-gate
+1. **M14** fuli×caption×flash: cut VO/copy to fit 30s (schedule 32.25s; `schedule` now rejects it before render), re-render, re-gate. ASR lexicon 复立→复利 is in `asr_homophones.json`.
+2. **M16** fensan×caption×flash: trim copy to fit 30s (schedule 31.25s; `schedule` now rejects it before render), re-render, re-gate
 3. Optional polish: Caption Commons packs for diversify/compound cells; Swiss German-poster literal rebrand
 4. See [BUDGET.md](BUDGET.md) · [EXPERTS.md](EXPERTS.md)
 

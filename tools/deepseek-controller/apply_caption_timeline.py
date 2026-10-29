@@ -122,7 +122,11 @@ def apply_caption_timeline(
     *,
     parsed: dict[str, Any] | None = None,
     enter: float = 0.35,
+    force: bool = False,
 ) -> dict[str, Any]:
+    """Raises ValueError (unless force) when the parsed schedule failed or its
+    copy runs past main.js DUR: applying it would render captions/VO that the
+    locked picture cuts off."""
     project = Path(project).resolve()
     parsed_path = project / "timeline.parsed.json"
     tl_path = project / "timeline.json"
@@ -138,6 +142,22 @@ def apply_caption_timeline(
     tl = load_json(tl_path)
     if not isinstance(tl, dict):
         raise ValueError("timeline.json must be an object")
+
+    if not force:
+        if parsed.get("ok") is False:
+            errs = "; ".join(str(e) for e in parsed.get("errors") or []) or "ok=false"
+            raise ValueError(
+                f"schedule did not pass ({errs}); fix the copy and re-run schedule "
+                f"before applying (--force applies it anyway, diagnostics only)"
+            )
+        locked = _engine_dur(project)
+        content = float(parsed.get("contentDurationSec") or parsed.get("scheduledDurationSec") or 0.0)
+        if locked and content > locked + 1e-6:
+            raise ValueError(
+                f"copy overruns the locked caption-news timeline by {content - locked:.2f}s: "
+                f"content {content:.2f}s > main.js DUR {locked:.2f}s; trim captions/VO "
+                f"and re-run schedule (--force applies it anyway, diagnostics only)"
+            )
 
     shots = {s["id"]: s for s in (parsed.get("shots") or []) if isinstance(s, dict) and "id" in s}
     cues = [c for c in (parsed.get("cues") or []) if isinstance(c, dict)]
@@ -260,9 +280,14 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--project", required=True)
     ap.add_argument("--enter", type=float, default=0.35)
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="apply a failed or overrunning schedule anyway (diagnostics only, not for delivery)",
+    )
     args = ap.parse_args(argv)
     try:
-        info = apply_caption_timeline(Path(args.project), enter=args.enter)
+        info = apply_caption_timeline(Path(args.project), enter=args.enter, force=args.force)
     except (OSError, ValueError, FileNotFoundError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
