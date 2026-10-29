@@ -90,7 +90,7 @@
 | 1 | **OpenFilm NLE 手递** | `docs/integrations/nle-handoff.md` · `tools/openfilm_handoff.sh` · `tools/handoff/` | **v2 多分镜导出可用**（`film.html` + EDL + ffmpeg rebuild）；本机 `openfilm look` 已过；Studio GUI 需一次浏览器下载；Premiere XML / `frame(t)` 适配器 **未做** |
 | 2 | **HyperFrames 备用轨** | `docs/integrations/hyperframes.md` · `tools/hyperframes_export.sh` | **导出可用** + 本机 `lint`；默认仍 Playwright；desktop/cloud/skills = needs-user |
 | 3 | **中文 TTS 路由** | `tools/tts_router.md` · `core/tts/tts_router.py` · `cli.py tts` · `providers/` | edge + kokoro **ready**（`.venv-voice`）；qwen3/omnivoice **HTTP ready when `*_BASE` set**（不臆造 Key、不下载大模型）；`AGENTS.deepseek.md`：跳过词对齐 ≠ 跳过 VO 完整性 |
-| 4 | **Remotion 信息图** | `docs/integrations/remotion.md` · `plugin/skills/lemo-remotion-infographic/SKILL.md` | 桥接说明 **stub**；不 vendoring Remotion 模板；不碰 Opus demo |
+| 4 | **Remotion 信息图** | `docs/integrations/remotion.md` · `plugin/skills/lemo-remotion-infographic/SKILL.md` | **模板可用**：`template/`（1080p24 + 9:16）、`scripts/plan_to_props.py`、`scripts/render.sh` → `mux.sh`；不碰 Opus demo |
 | 5 | Stickman my-style | `docs/integrations/stickman-style.md` + `MY-STYLES.md` 指针 | 调研笔记（偏 stix / 自研 SVG，勿走视频大模型） |
 | 6 | 动效 / 合集 stitch | `docs/integrations/motion-and-stitch.md` | 计划短文 |
 | 7 | 本地歌床 YuE2/Plenio | `docs/integrations/local-music.md` | 调研（VRAM / 许可注意） |
