@@ -9,7 +9,9 @@ For each slug (default: every style whose style.json says "portrait": "native", 
 art-deco, hd-2d, microgame):
 
   1. copy styles/<slug>/ (without films) to <cache>/portrait-check/styles/<slug>/; files fetched earlier stay, so the
-     second run is offline. <cache> is $WORDFILM_CACHE, else ~/.cache/wordfilm.
+     second run is offline. <cache> is $WORDFILM_CACHE, else ~/.cache/wordfilm. The copy records the files it took
+     from the library (.portrait-check-files.json) and drops the ones the library no longer has, so a --lib run and
+     a run of this checkout each render a clean tree (only fetched fonts and footage are shared).
   2. fonts: the demo's own fetcher when it has one (tools/fonts.py, tools/fetch_fonts.py, tools/fonts.sh), the
      controller's fetch_fonts for caption-news / swiss-motion / pictogram-motion, then every @font-face file still
      missing from Google Fonts (css2 API, whole font, cached in <cache>/portrait-check/fontcache). All OFL.
@@ -20,14 +22,17 @@ art-deco, hd-2d, microgame):
   4. stills with core/render/still.mjs at the style frame (style.json frame_sec) or --t times: 1920x1080 into
      <out>/<slug>/land/ and 1080x1920 into <out>/<slug>/port/ (native or reframed, as style.json says).
   5. contact sheets <out>/sheet-land.jpg and <out>/sheet-port.jpg (core/render/sheet.py, needs Pillow).
-  6. --compare REF: cmp every landscape still against REF/<slug>/land/<same name>; exit 1 on any difference.
+  6. --compare REF: cmp every landscape still against REF/<slug>/land/<same name>; exit 1 on any difference, and on
+     any REF still of a checked slug that this run did not produce (skipped style, missing time point).
      Make REF from another checkout (a git worktree of the old commit, with node_modules linked in). Name the
      slugs when the old checkout's style.json files have no "portrait" field yet:
        python3 tools/portrait_check.py --lib ../wordfilm-old --out ~/.cache/wordfilm/portrait-check/ref [slug ...]
        python3 tools/portrait_check.py --compare ~/.cache/wordfilm/portrait-check/ref
 
 --dry-run prints the plan (copies, font and footage steps, render commands) and touches nothing: no network, no files.
-Exit 0 when every still rendered (and matched with --compare), 1 otherwise, 2 on a usage error.
+Exit 0 when every style rendered all its stills (and matched with --compare); 1 on a failure, a missing still or
+reference, or when nothing rendered at all; 2 on a usage error; 3 when the rest passed but some styles were skipped
+(footage missing: run again with --footage).
 """
 import argparse, glob, json, os, re, shutil, subprocess, sys, urllib.parse, urllib.request
 
@@ -131,6 +136,31 @@ def google_font(fam, wt, it, path, cache):
     return False
 
 
+MANIFEST = '.portrait-check-files.json'
+
+
+def sync_copy(src, copy):
+    """copy src over copy (no *.mp4) and delete the files an earlier copy took from a library that src lacks.
+    Files the copy gained on its own (fetched fonts, footage) are kept. Returns (stale files removed, had a list)."""
+    skip = shutil.ignore_patterns('*.mp4')
+    files = set()
+    for d, dirs, names in os.walk(src, followlinks=True):
+        ign = skip(d, dirs + names)
+        dirs[:] = [x for x in dirs if x not in ign]
+        files.update(os.path.relpath(os.path.join(d, n), src) for n in names if n not in ign)
+    man = os.path.join(copy, MANIFEST)
+    try: old = set(json.load(open(man, encoding='utf-8')))
+    except (OSError, ValueError): old = None
+    shutil.copytree(src, copy, dirs_exist_ok=True, ignore=skip)
+    removed = 0
+    for rel in sorted((old or set()) - files):
+        f = os.path.join(copy, rel)
+        if os.path.isfile(f) or os.path.islink(f):
+            os.remove(f); removed += 1
+    with open(man, 'w', encoding='utf-8') as fh: json.dump(sorted(files), fh, indent=0)
+    return removed, old is not None
+
+
 def run(cmd, cwd, log, env=None):
     with open(log, 'a', encoding='utf-8') as lf:
         lf.write(f'$ {cmd if isinstance(cmd, str) else " ".join(cmd)}\n'); lf.flush()
@@ -193,7 +223,7 @@ def main():
                 ['node', still, demo, *times, '--size', '1080x1920', '--out', port, '--prefix', 'p_']]
         print(f'\n{slug}: portrait {m.get("portrait") or "unset"}, t = {" ".join(times)}')
         if a.dry_run:
-            print(f'  copy   styles/{slug}/ -> {copy}/ (keeps files fetched before, skips *.mp4)')
+            print(f'  copy   styles/{slug}/ -> {copy}/ (keeps files fetched before, drops library files {lib} lacks, skips *.mp4)')
             steps = [f'{t} (demo fetcher)' for t, _ in tools] + (['fetch_fonts.ensure_fonts (controller)'] if slug in CONTROLLER_FONTS else [])
             print(f'  fonts  {", ".join(steps + ["Google Fonts css2 for any @font-face file still missing"])}'
                   f' ({len(font_faces(os.path.join(src, "demo")))} @font-face files)')
@@ -206,7 +236,15 @@ def main():
 
         os.makedirs(os.path.dirname(log), exist_ok=True)
         open(log, 'w').close()
-        shutil.copytree(src, copy, dirs_exist_ok=True, ignore=shutil.ignore_patterns('*.mp4'))
+        fresh = not os.path.isdir(copy)
+        removed, listed = sync_copy(src, copy)
+        if removed: print(f'  copy   dropped {removed} file(s) an earlier copy took from another library')
+        elif not listed and not fresh:
+            print(f'  ! copy made before file lists: files from another library may linger; delete {copy} for a clean tree')
+        if foot and not a.footage and not os.path.exists(os.path.join(demo, foot[0])):
+            # the demo cannot render without its footage: skip it rather than report a render failure
+            print(f'  - skipped: footage missing ({foot[0]}); add --footage to fetch it (large)')
+            skipped.append(slug); continue
         # fonts
         for t, kind in tools:
             if not missing_fonts(demo): break
@@ -227,20 +265,15 @@ def main():
               + (f', still missing: {", ".join(sorted(set(f[1] for f in miss)))}' if miss else ', all present'))
         # footage
         if foot and not os.path.exists(os.path.join(demo, foot[0])):
-            if a.footage:
-                for step in foot[1]:
-                    if run(step, demo, log, env):
-                        problems.append(f'{slug}: footage step failed: {step[:60]}'); break
-                ready = os.path.exists(os.path.join(demo, foot[0]))
-                print(f'  footage {"ready" if ready else "NOT ready"}')
-                if not ready:
-                    if not any(p.startswith(slug + ': footage') for p in problems):
-                        problems.append(f'{slug}: footage not ready ({foot[0]} missing, see {log})')
-                    continue
-            else:
-                # the demo cannot render without its footage: skip it rather than report a render failure
-                print(f'  - skipped: footage missing ({foot[0]}); add --footage to fetch it (large)')
-                skipped.append(slug); continue
+            for step in foot[1]:
+                if run(step, demo, log, env):
+                    problems.append(f'{slug}: footage step failed: {step[:60]}'); break
+            ready = os.path.exists(os.path.join(demo, foot[0]))
+            print(f'  footage {"ready" if ready else "NOT ready"}')
+            if not ready:
+                if not any(p.startswith(slug + ': footage') for p in problems):
+                    problems.append(f'{slug}: footage not ready ({foot[0]} missing, see {log})')
+                continue
         if needs: print(f'  ! needs footage this tool does not fetch: {", ".join(needs)}')
         # stills
         ok = True
@@ -250,12 +283,15 @@ def main():
                 ok = False; problems.append(f'{slug}: {"landscape" if d == land else "portrait"} render failed: {tail(log, 3)}')
         logged = open(log, encoding='utf-8', errors='replace').read().splitlines()
         for ln in sorted(set(ln.strip() for ln in logged if '[reframe]' in ln)): print('  ' + ln)
-        # the controller overlays (edl_runtime.json, texts_runtime.json) are optional by design; anything else is worth a look
+        # the controller overlays (edl/texts/beats_runtime.json) are optional by design; anything else is worth a look
         gaps = sorted(set(re.sub(r'^.*?/@film/', '', ln.split(' (')[0]) for ln in logged if 'optional file missing' in ln
-                          and not re.search(r'/(edl|texts)_runtime\.json', ln)))
+                          and not re.search(r'/(edl|texts|beats)_runtime\.json', ln)))
         if gaps: print(f'  ! optional files missing: {", ".join(gaps[:8])}' + (' ...' if len(gaps) > 8 else ''))
         shots = sorted(glob.glob(os.path.join(land, '*.jpg'))), sorted(glob.glob(os.path.join(port, '*.jpg')))
         print(f'  stills {len(shots[0])} landscape, {len(shots[1])} portrait' + ('' if ok else f'  ✗ (see {log})'))
+        for kind, got in zip(('landscape', 'portrait'), shots):
+            if ok and len(got) < len(times):
+                problems.append(f'{slug}: {len(got)} of {len(times)} {kind} stills written (see {log})')
         results.append((slug, shots))
         if a.compare:
             for f in shots[0]:
@@ -265,6 +301,17 @@ def main():
                 if not same: problems.append(f'{slug}: {os.path.basename(f)} differs from {ref}' if os.path.isfile(ref) else f'{slug}: no reference {ref}')
 
     if a.dry_run: return 0
+    if a.compare:
+        # a REF still this run did not produce (skipped slug, failed render, missing time point) is a problem too
+        for slug in slugs:
+            refdir = os.path.join(os.path.abspath(os.path.expanduser(a.compare)), slug, 'land')
+            now = os.path.join(out, slug, 'land')
+            for ref in sorted(glob.glob(os.path.join(refdir, '*.jpg'))):
+                if slug in skipped or not os.path.isfile(os.path.join(now, os.path.basename(ref))):
+                    problems.append(f'{slug}: reference {os.path.basename(ref)} has no still in this run'
+                                    + (' (skipped)' if slug in skipped else ''))
+    if not results and not problems:
+        problems.append('nothing rendered: every style was skipped')
     sheet = os.path.join(lib, 'core', 'render', 'sheet.py')
     for i, (name, cols, w) in enumerate((('sheet-land.jpg', 4, 480), ('sheet-port.jpg', 6, 270))):
         files = [f for _, shots in results for f in shots[i]]
@@ -276,8 +323,8 @@ def main():
     if skipped: print(f'  - skipped (footage missing, run again with --footage): {", ".join(skipped)}')
     if problems: return 1
     print(f'  ✓ {len(results)} styles rendered in 16:9 and 9:16' + (', landscape identical to the reference' if a.compare else '')
-          + (f'; {len(skipped)} skipped' if skipped else ''))
-    return 0
+          + (f'; {len(skipped)} skipped, so not every style was checked (exit 3)' if skipped else ''))
+    return 3 if skipped else 0
 
 
 if __name__ == '__main__':
