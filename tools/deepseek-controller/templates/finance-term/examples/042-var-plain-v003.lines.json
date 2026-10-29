@@ -1,0 +1,104 @@
+{
+  "_doc": "var-plain-v003: 台词教父 final lines.json (source of truth /workspace/films/dialogue-drafts/var-plain-v003.lines.json), 通俗金融学.",
+  "seq": "042",
+  "term": "Value at Risk (VaR)",
+  "zh": "风险价值",
+  "approvedBy": "金融专家 2026-10-29 (台词教父 final lines; relayed by wen hao 21:20 Asia/Shanghai; do not rewrite)",
+  "approvedAt": "2026-10-29T21:20:00+08:00",
+  "brand": {
+    "eyebrow": "RISK MEASUREMENT",
+    "titleEn": "VaR",
+    "titleZh": "风险价值",
+    "endTitle": "风险价值 VaR",
+    "endLine": "门槛 ≠ 最多亏这么多",
+    "sloganEn": "VALUE AT RISK",
+    "sloganZh": "风险价值",
+    "sloganJp": "",
+    "keepCase": [
+      "VaR"
+    ]
+  },
+  "glossary": {},
+  "cards": [
+    {
+      "shot": "p0",
+      "zh": "一百万",
+      "en": "ONE MILLION"
+    },
+    {
+      "shot": "p1",
+      "zh": "风险价值",
+      "en": "VaR"
+    },
+    {
+      "shot": "p2",
+      "zh": "这条线",
+      "en": "THE LINE"
+    },
+    {
+      "shot": "p3",
+      "zh": "99天 / 100天",
+      "en": "99 OF 100 DAYS"
+    },
+    {
+      "shot": "p4",
+      "zh": "剩下那一天",
+      "en": "THE OTHER DAY"
+    },
+    {
+      "shot": "p5",
+      "zh": "门槛",
+      "en": "THRESHOLD"
+    },
+    {
+      "shot": "p6",
+      "zh": "坏日子平均",
+      "en": "BAD-DAY AVERAGE"
+    }
+  ],
+  "lines": [
+    {
+      "id": "L01",
+      "role": "hook",
+      "shot": "p0",
+      "cap": "一百万。不是说你{最多}就亏这么多。"
+    },
+    {
+      "id": "L02",
+      "role": "evidence",
+      "shot": "p1",
+      "cap": "这一百万，叫{风险价值}（VaR）。",
+      "say": "这一百万，叫风险价值。"
+    },
+    {
+      "id": "L03",
+      "role": "evidence",
+      "shot": "p2",
+      "cap": "说白了：大多数日子里，亏大概不会过{这条线}。"
+    },
+    {
+      "id": "L04",
+      "role": "evidence",
+      "shot": "p3",
+      "cap": "比如按一天算，一百天里大概有九十九天，{亏超不过}一百万。"
+    },
+    {
+      "id": "L05",
+      "role": "turn",
+      "shot": "p4",
+      "cap": "可那剩下的一天，可能{亏得更多}。"
+    },
+    {
+      "id": "L06",
+      "role": "evidence",
+      "shot": "p5",
+      "cap": "它只报{门槛}，不报翻过去有多惨。"
+    },
+    {
+      "id": "L07",
+      "role": "payoff",
+      "shot": "p6",
+      "cap": "所以后来更看坏日子：最惨那几档，{平均}要亏多少。"
+    }
+  ]
+}
