@@ -6,10 +6,13 @@ Checks (FAIL unless noted):
   length     each line's say/text ≤ 35 字 (punctuation/whitespace not counted)
   hook       a `hook` line among the first 3 VO beats
   coverage   hook + (evidence|turn) + payoff present
-  duration   Σ字 / 4.5 字/秒 within ±15 % of targetDurationSec
+  duration   Σ字 / profile 字/秒 ≤ targetDurationSec × (1+15 %) — the target is a CEILING;
+             shorter is fine (duration follows content, no lower fill). Rate comes from the
+             pacing profile (pacing_profile.py: fast 5.8 / standard 5.3 / calm 4.6 字/秒).
   jinju      strong 金句升华 patterns (「让我们…」「其实…才是…」「归根结底」…)
   same-say   `say` must keep the CJK key chars of `text` (no short paraphrase)
-WARN only: weaker cliché words, investment-advice tone, ending-line flourish.
+WARN only: weaker cliché words, investment-advice tone, ending-line flourish,
+           a line longer than the profile's lineMaxChars (FAIL stays at 35).
 
 Target: --target, else content/plan.json targetDurationSec.
 Writes <project>/evidence/dialogue-check.json (status PASS|FAIL).
@@ -24,9 +27,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import pacing_profile as pp
+
 FUNCTIONS = ("hook", "turn", "evidence", "payoff", "sting")
 MAX_CHARS = 35
-DEFAULT_RATE = 4.5
+DEFAULT_RATE = pp.PROFILES[pp.DEFAULT]["cps"]  # 5.3 字/秒 (was 4.5 → scripts padded to fill time)
 DEFAULT_TOL = 0.15
 HOOK_WITHIN = 3
 
@@ -103,6 +108,8 @@ def check_lines(
     rate: float = DEFAULT_RATE,
     tol: float = DEFAULT_TOL,
     max_chars: int = MAX_CHARS,
+    line_warn_chars: int | None = None,
+    pacing: str | None = None,
 ) -> dict[str, Any]:
     fails: list[str] = []
     warns: list[str] = []
@@ -120,6 +127,8 @@ def check_lines(
             fails.append(f"{lid}: function={fn!r} (need one of {'|'.join(FUNCTIONS)})")
         if n > max_chars:
             fails.append(f"{lid}: {n}字 > {max_chars}字 — split the sentence")
+        elif line_warn_chars and n > line_warn_chars:
+            warns.append(f"{lid}: {n}字 > {line_warn_chars}字 (pacing {pacing or ''} line max) — consider splitting")
         if ln.get("say") and ln.get("text"):
             a, b = _cjk(str(ln["text"])), _cjk(str(ln["say"]))
             if a and b and len(b) < 0.8 * len(a):
@@ -150,14 +159,16 @@ def check_lines(
         warns.append(f"last line ends with an exclamation (flourish?): 「{last}」")
 
     est = total / rate
-    dur: dict[str, Any] = {"totalChars": total, "rate": rate, "estSec": round(est, 2), "tolerance": tol}
+    dur: dict[str, Any] = {"totalChars": total, "rate": rate, "estSec": round(est, 2), "tolerance": tol,
+                           "pacing": pacing, "policy": "ceiling"}
     if target:
-        lo, hi = target * (1 - tol), target * (1 + tol)
-        dur.update({"targetSec": target, "minSec": round(lo, 2), "maxSec": round(hi, 2),
-                    "minChars": int(-(-lo * rate // 1)), "maxChars": int(hi * rate)})
-        if not (lo <= est <= hi):
-            fails.append(f"VO estimate {est:.1f}s ({total}字 @ {rate}字/s) outside ±{tol:.0%} of target {target:g}s "
-                         f"[{lo:.1f}, {hi:.1f}] ≈ {dur['minChars']}–{dur['maxChars']}字")
+        hi = target * (1 + tol)
+        # Ceiling only: no lower fill (minChars 0). Duration follows content.
+        dur.update({"targetSec": target, "minSec": 0.0, "maxSec": round(hi, 2),
+                    "minChars": 0, "maxChars": int(hi * rate), "underTarget": est < target * (1 - tol)})
+        if est > hi:
+            fails.append(f"VO estimate {est:.1f}s ({total}字 @ {rate}字/s) over ceiling target {target:g}s +{tol:.0%} "
+                         f"= {hi:.1f}s (≤ {dur['maxChars']}字) — cut copy")
     else:
         fails.append("no target duration (pass --target or set content/plan.json targetDurationSec)")
 
@@ -166,8 +177,12 @@ def check_lines(
 
 
 def run(project: Path, *, lines_path: Path | None = None, target: float | None = None,
-        rate: float = DEFAULT_RATE, tol: float = DEFAULT_TOL, write: bool = True) -> dict[str, Any]:
+        rate: float | None = None, tol: float = DEFAULT_TOL, write: bool = True,
+        pacing: str | None = None) -> dict[str, Any]:
     project = project.resolve()
+    prof = pp.profile(project, pacing)
+    if not rate:
+        rate = float(prof["cps"])
     lp = find_lines(project, lines_path)
     data = json.loads(lp.read_text(encoding="utf-8"))
     if isinstance(data, dict):
@@ -175,8 +190,9 @@ def run(project: Path, *, lines_path: Path | None = None, target: float | None =
     if not isinstance(data, list):
         raise ValueError(f"{lp}: expected a list of lines")
     tgt = target if target else plan_target(project)
-    rep = check_lines(data, tgt, rate=rate, tol=tol)
-    rep.update({"schemaVersion": 1, "project": str(project), "linesPath": str(lp),
+    rep = check_lines(data, tgt, rate=rate, tol=tol, line_warn_chars=int(prof["lineMaxChars"]),
+                      pacing=prof["name"])
+    rep.update({"pacing": prof["name"], "pacingSource": prof["source"], "schemaVersion": 1, "project": str(project), "linesPath": str(lp),
                 "checkedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "spec": "DIALOGUE.md §4–§5"})
     if write:
@@ -190,8 +206,9 @@ def format_report(rep: dict[str, Any]) -> str:
     out = [f"dialogue-check: {rep['status']}  ({rep.get('linesPath', '')})"]
     d = rep.get("duration") or {}
     if d:
-        rng = f" window {d.get('minChars')}–{d.get('maxChars')}字" if "minChars" in d else ""
-        out.append(f"  VO {d.get('totalChars')}字 ≈ {d.get('estSec')}s @ {d.get('rate')}字/s; target {d.get('targetSec')}s{rng}")
+        rng = f" ceiling ≤{d.get('maxChars')}字" if "maxChars" in d else ""
+        out.append(f"  VO {d.get('totalChars')}字 ≈ {d.get('estSec')}s @ {d.get('rate')}字/s "
+                   f"(pacing {rep.get('pacing') or d.get('pacing')}); target ≤{d.get('targetSec')}s{rng}")
     for f in rep.get("fails", []):
         out.append(f"  FAIL {f}")
     for w in rep.get("warns", []):
@@ -204,14 +221,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--project", required=True)
     ap.add_argument("--lines", default=None)
     ap.add_argument("--target", type=float, default=None)
-    ap.add_argument("--rate", type=float, default=DEFAULT_RATE)
+    ap.add_argument("--rate", type=float, default=None, help="字/秒 (default: pacing profile cps)")
+    ap.add_argument("--pacing", default=None, help="fast|standard|calm (default plan.json pacing / content_type)")
     ap.add_argument("--tolerance", type=float, default=DEFAULT_TOL)
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--no-write", action="store_true")
     a = ap.parse_args(argv)
     try:
         rep = run(Path(a.project), lines_path=Path(a.lines) if a.lines else None, target=a.target,
-                  rate=a.rate, tol=a.tolerance, write=not a.no_write)
+                  rate=a.rate, tol=a.tolerance, write=not a.no_write, pacing=a.pacing)
     except (OSError, ValueError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 2

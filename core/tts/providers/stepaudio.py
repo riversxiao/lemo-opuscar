@@ -37,10 +37,14 @@ SR = 24000
 GEN_MODEL = "stepaudio-3-gen-preview"
 MUSIC_MODEL = "stepaudio-3-music-preview"
 FREE_MODELS = {GEN_MODEL, MUSIC_MODEL}
-DEFAULT_ROLE = ("三十五岁左右的普通话男声，中低音，财经新闻解说，沉稳清晰、语速中等、吐字干净，"
-                "音高平稳、整片始终是同一个人同一种语气，不夸张不煽情，像纪录片旁白")
-DEFAULT_TONE = "（平稳讲解）"
-DEFAULT_INSTRUCTION = "安静录音棚，纯人声旁白，无背景音乐，无音效"
+# Brisk short-video narration (pacing P0): the old prompt asked for 语速中等 / 每句停顿约半秒 /
+# 音高平稳 / 不夸张 and produced flat, slow reads. Keep ONE consistent voice (speaker gate
+# still applies); ask for pace, emphasis on key words and natural rise/fall instead.
+DEFAULT_ROLE = ("三十五岁左右的普通话男声，中低音，财经知识短视频讲解，语速偏快、干脆利落、吐字清楚，"
+                "关键词和数字咬字加重，句尾不拖音，语调有自然起伏和轻重对比，像在跟朋友讲清一件事；"
+                "整片始终是同一个人同一个音色")
+DEFAULT_TONE = "（干脆利落地讲）"
+DEFAULT_INSTRUCTION = "安静录音棚，纯人声口播，节奏紧凑、不拖沓，无背景音乐，无音效"
 MAX_CONCURRENT = 4
 MIN_INTERVAL = 0.7
 
@@ -184,8 +188,8 @@ def _st(a: float | None, b: float) -> float:
     return 99.0 if not a else abs(12 * np.log2(a / b))
 
 
-SESSION_INSTRUCTION = ("安静录音棚，同一位男声旁白从头到尾连续念完整篇解说词，每句之间停顿约半秒，"
-                       "纯人声，无背景音乐，无音效")
+SESSION_INSTRUCTION = ("安静录音棚，同一位男声从头到尾一口气连续讲完整篇口播，节奏紧凑：句与句之间只留短暂换气，"
+                       "不要长停顿，关键词加重，句尾不拖音；纯人声，无背景音乐，无音效")
 
 
 def _asr_words(a: np.ndarray, sr: int, texts: list[str]) -> list[tuple[float, float, str]]:

@@ -83,6 +83,12 @@ def cmd_schedule(args: argparse.Namespace) -> int:
         argv.append("--require-vo")
     if getattr(args, "no_pad", False):
         argv.append("--no-pad")
+    if getattr(args, "pad_under_target", False):
+        argv.append("--pad-under-target")
+    if getattr(args, "pacing", None):
+        argv += ["--pacing", args.pacing]
+    if getattr(args, "outro", None) is not None:
+        argv += ["--outro", str(args.outro)]
     if args.output:
         argv += ["-o", args.output]
     return schedule_main(argv)
@@ -189,11 +195,17 @@ def cmd_tts(args: argparse.Namespace) -> int:
             pitch=args.pitch,
             post_words=not args.no_post_words,
             content_type=getattr(args, "content_type", None),
+            pacing=getattr(args, "pacing", None),
+            speed=getattr(args, "speed", None),
+            trim_pauses=not getattr(args, "no_trim", False),
         )
     except (FileNotFoundError, SystemExit) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
-    print(f"OK tts provider={meta['provider']} → {meta['voices']}")
+    print(f"OK tts provider={meta['provider']} pacing={meta.get('pacing')} ({meta.get('pacingSource')}) "
+          f"rate={meta.get('rate')} speed={meta.get('speed')} → {meta['voices']}")
+    if meta.get("pauseTrim"):
+        print(f"  pause_trim removed {meta['pauseTrim']['removedSec']}s (max pause {meta['pauseTrim']['maxPauseSec']}s)")
     for lid, sec in (meta.get('dur') or {}).items():
         print(f"  {lid}: {sec}s")
     if meta.get('wordsRel'):
@@ -216,7 +228,11 @@ def cmd_dialogue_loop(args: argparse.Namespace) -> int:
 
 def cmd_dialogue_check(args: argparse.Namespace) -> int:
     import dialogue_check
-    argv = ["--project", args.project, "--rate", str(args.rate), "--tolerance", str(args.tolerance)]
+    argv = ["--project", args.project, "--tolerance", str(args.tolerance)]
+    if args.rate:
+        argv += ["--rate", str(args.rate)]
+    if getattr(args, "pacing", None):
+        argv += ["--pacing", args.pacing]
     if args.lines:
         argv += ["--lines", args.lines]
     if args.target:
@@ -242,6 +258,8 @@ def cmd_quality(args: argparse.Namespace) -> int:
         argv.append("--delivery")
     if getattr(args, "asr_mode", None):
         argv += ["--asr-mode", args.asr_mode]
+    if getattr(args, "pacing_enforce", False):
+        argv.append("--pacing-enforce")
     if args.output:
         argv += ["-o", args.output]
     return quality_main(argv)
@@ -475,8 +493,12 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--no-pad",
         action="store_true",
-        help="do not hold-last-beat pad when content < target",
+        help="(default) no hold-last-beat pad; kept for old scripts",
     )
+    s.add_argument("--pad-under-target", action="store_true",
+                   help="LEGACY hold-last-beat pad to target (quality FAILs padding > 1.5s)")
+    s.add_argument("--pacing", help="fast|standard|calm (default plan.json pacing / content_type)")
+    s.add_argument("--outro", type=float, default=None, help="outro/brand card seconds (≤1.5)")
     s.add_argument("-o", "--output")
     s.set_defaults(func=cmd_schedule)
 
@@ -499,7 +521,11 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--lines", help="override lines.json path")
     t.add_argument("--out", help="voices dir (default: <project>/voices)")
     t.add_argument("--voice", default=None)
-    t.add_argument("--rate", default="+0%")
+    t.add_argument("--rate", default=None, help="edge rate (default: pacing profile edgeRate, standard +10%%)")
+    t.add_argument("--speed", type=float, default=None,
+                   help="stepaudio speed (default: env LEMO_TTS_STEPAUDIO_SPEED, else pacing profile)")
+    t.add_argument("--pacing", default=None, help="fast|standard|calm (default plan.json pacing / content_type)")
+    t.add_argument("--no-trim", action="store_true", help="skip pause_trim after synthesis")
     t.add_argument("--pitch", default="+0Hz")
     t.add_argument(
         "--content-type",
@@ -522,7 +548,8 @@ def build_parser() -> argparse.ArgumentParser:
     dc.add_argument("--project", required=True)
     dc.add_argument("--lines")
     dc.add_argument("--target", type=float, default=None, help="seconds (default content/plan.json)")
-    dc.add_argument("--rate", type=float, default=4.5, help="字/秒 estimate (default 4.5)")
+    dc.add_argument("--rate", type=float, default=None, help="字/秒 estimate (default: pacing profile, standard 5.3)")
+    dc.add_argument("--pacing", default=None, help="fast|standard|calm (default plan.json pacing / content_type)")
     dc.add_argument("--tolerance", type=float, default=0.15)
     dc.add_argument("--json", action="store_true")
     dc.set_defaults(func=cmd_dialogue_check)
@@ -565,6 +592,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="recommended delivery path: --require-vo + zh plan → zh-homophone-tolerant "
         "(English stays strict unless --asr-mode set)",
     )
+    q.add_argument("--pacing-enforce", action="store_true",
+                   help="pacing gate FAIL blocks delivery (P1); default report-only WARN under --delivery")
     q.add_argument("-o", "--output")
     q.set_defaults(func=cmd_quality)
 

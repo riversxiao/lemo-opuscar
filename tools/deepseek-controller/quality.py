@@ -15,7 +15,9 @@ from typing import Any
 from common import ROOT, dump_json, load_json
 
 
-STATUSES = ("PASS", "FAIL", "NOT_CHECKED", "NOT_APPLICABLE")
+from pacing_profile import OUTRO_MAX_SEC
+
+STATUSES = ("PASS", "FAIL", "NOT_CHECKED", "NOT_APPLICABLE", "WARN")  # WARN never blocks
 
 _DIGITS = str.maketrans("零〇一二三四五六七八九", "00123456789")
 
@@ -758,9 +760,19 @@ def _schedule_check(
     detail = f"{tl.get('scheduledDurationSec')}s <= {tl.get('targetDurationSec')}s"
     if need_vo:
         detail += " (require-vo OK)"
-    if tl.get("padSec"):
+    pad = float(tl.get("padSec") or 0.0)
+    if pad > OUTRO_MAX_SEC + 1e-6:
+        # Duration follows content: padding the film up to the target is dead air.
+        return check(
+            "schedule_fits_target",
+            "FAIL",
+            f"padded {pad}s {tl.get('padMode') or 'hold-last-beat'} > {OUTRO_MAX_SEC}s outro allowance "
+            f"(contentDurationSec={tl.get('contentDurationSec')}, target {tl.get('targetDurationSec')}s is a ceiling) "
+            "— re-run `schedule` without --pad-under-target",
+        )
+    if pad:
         detail += (
-            f"; padded {tl.get('padSec')}s {tl.get('padMode') or 'hold-last-beat'}"
+            f"; padded {pad}s {tl.get('padMode') or 'hold-last-beat'} (≤{OUTRO_MAX_SEC}s allowance)"
             f" (contentDurationSec={tl.get('contentDurationSec')})"
         )
     elif tl.get("underTargetBeforePad"):
@@ -935,6 +947,25 @@ def run_speaker_check(project: Path, has_vo: bool) -> dict[str, Any]:
     return check("speaker_consistency", d["status"], detail, required=True)
 
 
+def run_pacing_gate(project: Path, media: Path | None, *, enforce: bool = False,
+                    skip_visual: bool = False) -> dict[str, Any]:
+    """Pacing gate (pacing_check.py). P0 report-only → WARN (never blocks);
+    enforce=True (P1) → FAIL-level misses block (required)."""
+    if not (project / "timeline.parsed.json").is_file():
+        return check("pacing", "NOT_APPLICABLE", "no timeline.parsed.json", required=False)
+    try:
+        import pacing_check
+        rep = pacing_check.run(project, media, visual=not skip_visual)
+    except Exception as e:  # report-only gate must never crash quality
+        return check("pacing", "NOT_CHECKED", f"pacing_check failed: {e}", required=enforce)
+    detail = pacing_check.summary(rep) + " → evidence/pacing-check.json"
+    if rep["status"] == "PASS":
+        return check("pacing", "PASS", detail, required=enforce)
+    if enforce and rep["status"] == "FAIL":
+        return check("pacing", "FAIL", detail, required=True)
+    return check("pacing", "WARN", ("report-only: " if not enforce else "") + detail, required=False)
+
+
 def gate(
     project: Path,
     *,
@@ -944,6 +975,7 @@ def gate(
     require_vo: bool = False,
     asr_mode: str | None = None,
     delivery: bool = False,
+    pacing_enforce: bool = False,
 ) -> dict[str, Any]:
     project = Path(project).resolve()
     checks: list[dict[str, Any]] = []
@@ -1126,6 +1158,9 @@ def gate(
         checks.append(run_speaker_check(project, has_vo))
 
     checks.append(run_visual_check_gate(project, media, delivery))
+    if delivery or pacing_enforce:
+        checks.append(run_pacing_gate(project, media_path if media_path.is_file() else None,
+                                      enforce=pacing_enforce, skip_visual=skip_heavy))
 
     for name in force_fail:
         checks.append(check(name, "FAIL", "forced by fixture / --force-fail"))
@@ -1202,6 +1237,11 @@ def main(argv: list[str] | None = None) -> int:
         "use zh-homophone-tolerant unless --asr-mode is set explicitly. "
         "English plans stay strict. Does not silently weaken strict ASR.",
     )
+    ap.add_argument(
+        "--pacing-enforce",
+        action="store_true",
+        help="pacing gate FAIL blocks delivery (P1). Default with --delivery: report-only WARN",
+    )
     ap.add_argument("-o", "--output", help="quality.json path")
     args = ap.parse_args(argv)
 
@@ -1215,6 +1255,7 @@ def main(argv: list[str] | None = None) -> int:
         require_vo=args.require_vo,
         asr_mode=args.asr_mode,  # None | strict | zh-homophone-tolerant | auto
         delivery=args.delivery,
+        pacing_enforce=args.pacing_enforce,
     )
     if args.allow_unchecked:
         report["blocking"] = [

@@ -207,7 +207,7 @@ REVISER_SYS = """[REVISER] 你是中文讲解片台词改写手（台词教父�
 硬规则：不新增事实（只用 FACTS 里的事实）；每句 ≤35 字（不计标点）；保留每句的 id、function 与镜头归属；
 text 与 say 同句（若原句有 say，say 必须与 text 同义同关键字，只可标点不同）；禁止金句升华与投资建议；
 口语自然、一口气能念完；若原句有 cap（屏幕短字幕，格式如「降息|{失灵}」，| 分行，{} 为强调），改句后 cap 要与新句一致，长度与原 cap 相近。
-总字数必须落在给定区间内（尽量接近原总字数）。
+总字数不得超过给定上限（不要为凑时长加字；同样意思更短更好）。
 输出严格 JSON：{"lines":[{"id":"L22","text":"…","say":"…(可省略)","cap":"…(原有才给)","want":"…"}],"notes":"一句话说明改了什么"}"""
 
 
@@ -314,6 +314,8 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
     lp = dc.find_lines(project, lines_path)
     brief = brief or (project / "BRIEF.md")
     tgt = target or dc.plan_target(project)
+    prof = dc.pp.profile(project)
+    det_kw = {"rate": float(prof["cps"]), "line_warn_chars": int(prof["lineMaxChars"]), "pacing": prof["name"]}
     orig = load_lines(lp)
     ids = [str(ln.get("id")) for ln in orig]
     ev_dir = project / "evidence" / "dialogue-loop"
@@ -341,7 +343,7 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
     t_start = time.time()
     try:
         for n in range(1, max_rounds + 1):
-            det = dc.check_lines(lines, tgt)
+            det = dc.check_lines(lines, tgt, **det_kw)
             guard()
             user = (f"{ground}\n\n# 目标时长 {tgt}s；确定性门禁结果\n" + json.dumps(
                 {k: det.get(k) for k in ("status", "fails", "warns", "duration")}, ensure_ascii=False)
@@ -374,8 +376,9 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
             d = det.get("duration") or {}
             ruser = (f"{ground}\n\n# 全部台词（只改 flagged）\n" + json.dumps(lines, ensure_ascii=False, indent=1)
                      + "\n\n# flagged（id → 问题）\n" + json.dumps(flagged, ensure_ascii=False, indent=1)
-                     + f"\n\n# 字数约束：当前总字数 {d.get('totalChars')}；总字数必须在 "
-                     f"{d.get('minChars')}–{d.get('maxChars')} 字之间；单句 ≤ {dc.MAX_CHARS} 字。")
+                     + f"\n\n# 字数约束：当前总字数 {d.get('totalChars')}；总字数上限 {d.get('maxChars')} 字"
+                     f"（目标时长是上限，不要为凑时长加字，更短更紧凑可以）；单句 ≤ {dc.MAX_CHARS} 字，"
+                     f"建议 ≤ {prof['lineMaxChars']} 字（节奏 {prof['name']}）。")
             rev = client.chat_json(REVISER_SYS, ruser)
             new, changes = apply_revision(lines, rev, set(flagged))
             rec["flagged"] = flagged
@@ -398,7 +401,7 @@ def run_loop(project: Path, *, lines_path: Path | None = None, brief: Path | Non
     if status == "PASS":
         best = rounds[-1]
     chosen = best["lines"] if best else orig
-    det_final = dc.check_lines(chosen, tgt)
+    det_final = dc.check_lines(chosen, tgt, **det_kw)
     if status != "PASS" and status != "PROVIDER_ERROR":
         status = "BEST_EFFORT"
     if client and b0 is not None and getattr(client, "usage", {}).get("calls"):

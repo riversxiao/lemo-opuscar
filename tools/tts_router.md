@@ -209,3 +209,12 @@ Skipping ASR **word** alignment for Chinese does **not** skip VO content checks.
 3. On-screen / subtitle Chinese must match spoken content (allow punctuation); no silent shortenings.
 
 See `AGENTS.deepseek.md` · VO / TTS notes.
+
+## Pacing (P0)
+`cli.py tts` options:
+- `--pacing fast|standard|calm`: defaults to plan `pacing`, then `content_type`.
+- `--rate`: edge. Defaults to the profile value, `+10%` for standard.
+- `--speed`: StepAudio. Defaults to `LEMO_TTS_STEPAUDIO_SPEED`, then the profile value.
+- `--no-trim`: skips the post-synthesis pause trim.
+
+The router passes `speed` only to providers in `SPEED_PROVIDERS` (currently stepaudio). See `docs/PACING.md`.

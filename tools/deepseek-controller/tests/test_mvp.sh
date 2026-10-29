@@ -1254,21 +1254,25 @@ mk_case nofn "del L[1]['function']"
 mk_case long "L[1]['text']='利率已经低到几乎为零了，可是家家户户还是宁愿把现金攥在手里，既不去花也不去投资更不去借钱。'"
 mk_case latehook "L[0]['function']='evidence'; L[4]['function']='hook'"
 mk_case short "L[:]=L[:3]+[dict(L[4])]"
+mk_case toolong "L[:]=L+[dict(x, id=x['id']+'b') for x in L[1:-1]]+[L[-1]]"
 mk_case jinju "L[5]['text']='让我们一起记住这个流动性陷阱。'"
 mk_case nopayoff "L[4]['function']='evidence'"
 mk_case advice "L[5]['text']='别急着抄底，先看懂流动性陷阱。'"
 dlg_ok=1
-for c in nofn long latehook short jinju nopayoff; do
+for c in nofn long latehook toolong jinju nopayoff; do
   if "${CLI[@]}" dialogue-check --project "$DT/$c" >"$DT/$c.out" 2>&1; then dlg_ok=0; echo "  case $c unexpectedly PASS"; fi
 done
 grep -q "function=None" "$DT/nofn.out" || dlg_ok=0
 grep -q "> 35字" "$DT/long.out" || dlg_ok=0
 grep -q "first 3 VO beats" "$DT/latehook.out" || dlg_ok=0
-grep -q "outside ±15%" "$DT/short.out" || dlg_ok=0
+grep -q "over ceiling" "$DT/toolong.out" || dlg_ok=0
+# target is a ceiling: a short script is NOT padded / failed for being short
+"${CLI[@]}" dialogue-check --project "$DT/short" >"$DT/short.out" 2>&1 || dlg_ok=0
+grep -q "over ceiling\|outside" "$DT/short.out" && dlg_ok=0
 grep -q "金句升华" "$DT/jinju.out" || dlg_ok=0
 grep -q "coverage" "$DT/nopayoff.out" || dlg_ok=0
 if [ "$dlg_ok" = 1 ]; then
-  ok "dialogue-check FAILs: missing function / >35字 / late hook / ±15% / 金句 / coverage"
+  ok "dialogue-check FAILs: missing function / >35字 / late hook / over ceiling (+15%) / 金句 / coverage; short script PASSes (ceiling only)"
 else
   bad "dialogue-check fail cases: $(cat $DT/*.out)"
 fi
@@ -1455,6 +1459,13 @@ if env -u OPENROUTER_API_KEY python3 "$CTL/tests/visual_check_mock.py" >/tmp/dc_
   ok "visual-check: wrong caption chars / corrupt frame / clipped text / subtitle≠VO → high; no false positive on correct text; :free-only + billing-delta stop; hook-subs rework; quality gate; speaker metric"
 else
   bad "visual-check mock (see /tmp/dc_visual_check_mock.log)"
+fi
+
+# pacing P0: profile by content_type, ceiling-only duration, no pad, pause trim, speed, report-only gate
+if env -u STEP_API_KEY -u LEMO_PACING python3 "$CTL/tests/pacing_mock.py" >/tmp/dc_pacing_mock.log 2>&1; then
+  ok "pacing: market→fast / others→standard + overrides; ceiling-only dialogue; no pad + 1.5s outro; pause trim keeps beat; edge rate + stepaudio speed; pad FAIL; pacing gate report-only"
+else
+  bad "pacing mock (see /tmp/dc_pacing_mock.log)"
 fi
 
 # budget ledger: tests write to \$DC_BUDGET_LEDGER, never the real fixtures ledger

@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -45,12 +47,26 @@ def run_tts(
     lines_path: Path | None = None,
     out_dir: Path | None = None,
     voice: str | None = None,
-    rate: str = "+0%",
+    rate: str | None = None,
     pitch: str = "+0Hz",
     post_words: bool = True,
     content_type: str | None = None,
+    pacing: str | None = None,
+    speed: float | None = None,
+    trim_pauses: bool = True,
 ) -> dict[str, Any]:
+    """rate/speed default to the pacing profile (edgeRate / stepaudioSpeed); explicit
+    args win, then env LEMO_TTS_STEPAUDIO_SPEED for speed. After synthesis, pause_trim
+    shrinks intra-line silences per profile (beat-marked lines keep theirs)."""
+    import pacing_profile as pp
+
     project = project.resolve()
+    prof = pp.profile(project, pacing)
+    if not rate:
+        rate = str(prof["edgeRate"])
+    if speed is None:
+        env_speed = os.environ.get("LEMO_TTS_STEPAUDIO_SPEED")
+        speed = float(env_speed) if env_speed else float(prof["stepaudioSpeed"])
     if content_type is None:
         # config field: plan.json {"content_type": "market|concept|personal|english"}
         plan = project / "plan.json"
@@ -62,6 +78,12 @@ def run_tts(
     lines_file = find_lines(project, lines_path)
     voices = (out_dir or (project / "voices")).resolve()
     voices.mkdir(parents=True, exist_ok=True)
+    # previous take's word timings / trim backups no longer describe the new audio
+    for stale in ("words.json", "pause_trim.json"):
+        if (voices / stale).is_file():
+            (voices / stale).unlink()
+    if (voices / "_pretrim").is_dir():
+        shutil.rmtree(voices / "_pretrim")
     lines = json.loads(lines_file.read_text(encoding="utf-8"))
     fb = [p.strip() for p in fallback.split(",") if p.strip()] if fallback else []
     used, dur = router_synthesize(
@@ -73,13 +95,26 @@ def run_tts(
         rate=rate,
         pitch=pitch,
         content_type=content_type,
+        speed=speed,
     )
+    trim = None
+    if trim_pauses:
+        import pause_trim
+
+        trim = pause_trim.trim_project(project, pacing=prof["name"], voices_dir=voices)
+        dur = json.loads((voices / "dur.json").read_text(encoding="utf-8"))
     meta = {
         "provider": used,
         "lines": str(lines_file),
         "voices": str(voices),
         "dur": dur,
         "contentType": content_type,
+        "pacing": prof["name"],
+        "pacingSource": prof["source"],
+        "rate": rate,
+        "speed": speed if used in ("stepaudio",) else None,
+        "pauseTrim": ({"removedSec": trim["removedSec"], "maxPauseSec": trim["maxPauseSec"]}
+                      if trim else None),
         "statuses": [s.as_dict() for s in list_statuses()],
     }
     meta_path = voices / "tts_router.json"

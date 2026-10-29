@@ -1,24 +1,30 @@
 {
   "targetDurationSec": 32.0,
-  "scheduledDurationSec": 57.0,
-  "contentDurationSec": 57.0,
+  "scheduledDurationSec": 53.75,
+  "contentDurationSec": 53.75,
   "padSec": 0.0,
   "padMode": "none",
+  "outroSec": 0.0,
+  "durationPolicy": "ceiling",
+  "pacing": "standard",
+  "pacingSource": "default",
+  "shotOverheadSec": 0.4,
+  "lineGapSec": 0.25,
   "underTargetBeforePad": false,
   "beatGridSec": 0.25,
   "fitsTarget": false,
   "requireVo": true,
   "ok": false,
   "errors": [
-    "scheduled duration 57.00s exceeds target 32.00s — cut copy / drop a shot (controller will not silent K-scale as final)"
+    "scheduled duration 53.75s exceeds target 32.00s — cut copy / drop a shot (controller will not silent K-scale as final)"
   ],
   "warnings": [],
   "shots": [
     {
       "id": "s1",
       "t0": 0.0,
-      "t1": 11.0,
-      "dur": 11.0,
+      "t1": 10.5,
+      "dur": 10.5,
       "voIds": [
         "l1"
       ],
@@ -33,9 +39,9 @@
     },
     {
       "id": "s2",
-      "t0": 11.0,
-      "t1": 22.0,
-      "dur": 11.0,
+      "t0": 10.5,
+      "t1": 21.0,
+      "dur": 10.5,
       "voIds": [
         "l2"
       ],
@@ -50,9 +56,9 @@
     },
     {
       "id": "s3",
-      "t0": 22.0,
-      "t1": 33.0,
-      "dur": 11.0,
+      "t0": 21.0,
+      "t1": 31.5,
+      "dur": 10.5,
       "voIds": [
         "l3"
       ],
@@ -67,9 +73,9 @@
     },
     {
       "id": "s4",
-      "t0": 33.0,
-      "t1": 44.0,
-      "dur": 11.0,
+      "t0": 31.5,
+      "t1": 42.0,
+      "dur": 10.5,
       "voIds": [
         "l4"
       ],
@@ -84,9 +90,9 @@
     },
     {
       "id": "s5",
-      "t0": 44.0,
-      "t1": 55.0,
-      "dur": 11.0,
+      "t0": 42.0,
+      "t1": 52.5,
+      "dur": 10.5,
       "voIds": [
         "l5"
       ],
@@ -101,9 +107,9 @@
     },
     {
       "id": "s6",
-      "t0": 55.0,
-      "t1": 57.0,
-      "dur": 2.0,
+      "t0": 52.5,
+      "t1": 53.75,
+      "dur": 1.25,
       "voIds": [],
       "voOffsets": [],
       "voDur": 0.0,
@@ -118,31 +124,31 @@
       "type": "voice",
       "id": "l1",
       "shotId": "s1",
-      "t": 0.35
+      "t": 0.15
     },
     {
       "type": "voice",
       "id": "l2",
       "shotId": "s2",
-      "t": 11.35
+      "t": 10.65
     },
     {
       "type": "voice",
       "id": "l3",
       "shotId": "s3",
-      "t": 22.35
+      "t": 21.15
     },
     {
       "type": "voice",
       "id": "l4",
       "shotId": "s4",
-      "t": 33.35
+      "t": 31.65
     },
     {
       "type": "voice",
       "id": "l5",
       "shotId": "s5",
-      "t": 44.35
+      "t": 42.15
     }
   ]
 }
