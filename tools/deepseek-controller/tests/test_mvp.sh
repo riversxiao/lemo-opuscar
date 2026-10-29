@@ -2036,6 +2036,27 @@ else
   skip "swiss-motion 9:16 fit" "node missing"
 fi
 
+# styleboard/build.py must stay valid on Python 3.10/3.11 (CI builds Pages on 3.12, people run 3.11+):
+# no backslashes inside f-string expressions. Compile with every such interpreter on PATH.
+SB_PYS=""
+for py in python3 python3.10 python3.11; do
+  if command -v "$py" >/dev/null 2>&1 && "$py" -c 'pass' >/dev/null 2>&1; then
+    v="$("$py" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
+    if "$py" -c 'import sys; compile(open(sys.argv[1], encoding="utf-8").read(), sys.argv[1], "exec")' \
+        "$ROOT/styleboard/build.py" >$WORK/dc-sb-compile.out 2>&1; then
+      SB_PYS="$SB_PYS $v"
+    else
+      bad "styleboard/build.py does not compile on Python $v: $(tail -3 $WORK/dc-sb-compile.out)"
+      SB_PYS="$SB_PYS FAIL"
+    fi
+  fi
+done
+case "$SB_PYS" in
+  *FAIL*) ;;
+  "") skip "styleboard/build.py compile" "no python3 on PATH" ;;
+  *) ok "styleboard/build.py compiles on Python$(echo "$SB_PYS" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 's/ $//')" ;;
+esac
+
 # handoff pytest suite (frame size / fps); one command covers everything
 if python3 -c "import pytest" 2>/dev/null; then
   if (cd "$ROOT" && python3 -m pytest tools/handoff/tests -q -p no:cacheprovider >$WORK/dc-pytest.out 2>&1); then
