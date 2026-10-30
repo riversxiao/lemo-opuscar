@@ -55,7 +55,7 @@ for fid, (vis, want) in FILMS.items():
     B8 += want
 ok(len(B8) == 60 and len(set(B8)) == 60, "60 batch-8 scenes, unique across the 5 films")
 ok(all(f"VIZ.{s} =" in sj and re.search(rf"\b{s}: '", sj) for s in B8), "every batch-8 scene drawn + palette in finance-v003 scenes.js")
-b8 = sj[sj.index("finance-v003 scene library, batch 8"):sj.index("finance-v003 scene library, batch 4")]
+b8 = sj[sj.index("finance-v003 scene library, batch 8"):sj.index("finance-v003 scene library, batch 9")]
 code = "\n".join(l.split("//")[0] for l in b8.split("\n"))  # drawn strings only, not comments
 ok(not re.search(r"基金|ETF|筹码|赌|骰|扑克|轮盘|σ|Σ|÷|√|公式|值得买|稳赚|机会大|K线", code), "batch-8 scene text: no formulas, σ, funds, gambling, K-lines or buy-signals")
 ok(code.count("β") == 1 and "b8txt(ctx, 'β'" in code, "β drawn exactly once, as the reg_beta label")

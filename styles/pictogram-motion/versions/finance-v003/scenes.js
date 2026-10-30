@@ -3411,6 +3411,504 @@
     tag(ctx, '检验的是什么假设？', 1360, 960, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: G.INK, fg: G.CREAM });
     vizCaption(ctx, s, lt, C);
   };
+  // ───────── finance-v003 scene library, batch 9 (quant models: Monte Carlo / EWMA / GARCH / stationarity / skewness, 2026-10-30) ─────────
+  // #21 蒙特卡洛模拟 · #22 EWMA · #23 GARCH · #24 平稳性 · #25 偏度 — 58 scenes, one per line.
+  // 金融专家 rules: Monte Carlo = many forking paths (never casinos or dice), a map of possibilities, not a forecast; EWMA's λ = 0.94
+  // appears only as the small on-screen corner note; GARCH is named on screen only; prices wander, returns stay in a range;
+  // negative skew = the tail sits on the LOSS side (left / down), never "skew = losing money"; losses go DOWN, no formulas.
+  Object.assign(VPAL, {
+    mc_fork: 'ink', mc_title: 'purple', mc_screen: 'cream', mc_onepath: 'cream', mc_fan: 'ink', mc_hill: 'green', mc_worst: 'ink',
+    mc_map: 'gold', mc_crystal: 'purple', mc_note: 'ochre', mc_wrong: 'cream', mc_signpost: 'green',
+    ewma_steps: 'cream', ewma_title: 'green', ewma_meter: 'ink', ewma_equal: 'gold', ewma_grow: 'purple', ewma_fade: 'cream',
+    ewma_ratio: 'ink', ewma_press: 'ochre', ewma_wave: 'red', ewma_settle: 'green', ewma_steps_end: 'purple',
+    garch_pond: 'ink', garch_title: 'red', garch_gear: 'cream', garch_boxes: 'purple', garch_box1: 'gold', garch_box2: 'ink',
+    garch_box3: 'ochre', garch_carry: 'cream', garch_cluster: 'ink', garch_revert: 'green', garch_ledger: 'ochre', garch_pond_end: 'purple',
+    stat_map: 'gold', stat_title: 'ink', stat_mean: 'cream', stat_band: 'purple', stat_halves: 'green', stat_calc: 'ochre',
+    stat_price: 'ink', stat_convert: 'cream', stat_bars: 'cream', stat_range: 'purple', stat_map_end: 'gold',
+    skew_hill: 'purple', skew_title: 'ink', skew_sym: 'cream', skew_equal: 'gold', skew_left: 'cream', skew_bulk: 'green',
+    skew_drop: 'cream', skew_bars: 'ink', skew_shadow: 'ochre', skew_fat: 'cream', skew_ruler: 'gold', skew_end: 'ink',
+  });
+  const B9LOSS = PAL.red.t[2];
+  const b9walk = (n, seed, vol) => { let y = 0; const ys = [0]; for (let i = 1; i < n; i++) { y += vol * 1.4 * (b6rnd(i, seed) + b6rnd(i, seed + 0.31) + b6rnd(i, seed + 0.67) - 1.5); ys.push(y); } return ys; };
+  const B9P = Array.from({ length: 360 }, (_, k) => b9walk(34, k * 1.37 + 3.1, 21));
+  const B9END = B9P.map((ys) => ys[ys.length - 1]);
+  const B9MIX = B9P.findIndex((ys) => Math.max(...ys) > 110 && Math.min(...ys) < -110 && Math.abs(ys[ys.length - 1]) < 80); // a path with clear ups AND downs
+  function b9fan(ctx, n, x0, x1, yc, p, col, a, w = 3, sc = 1, from = 0) { // n random-walk paths from one root (x0, yc); + = up
+    ctx.save(); ctx.globalAlpha = a; for (let k = from; k < Math.min(B9P.length, from + n); k++) b8plot(ctx, sc === 1 ? B9P[k] : B9P[k].map((v) => v * sc), x0, x1, yc, col, w, p); ctx.restore();
+  }
+  function b9hist(ctx, x0, x1, yb, hmax, p, col, o = {}) { // ends of B9P binned; LEFT = worse outcome; returns the worst-bin x
+    const nb = o.bins || 22, lo = Math.min(...B9END), hi = Math.max(...B9END), cnt = new Array(nb).fill(0);
+    B9END.forEach((v) => { cnt[Math.min(nb - 1, Math.floor((v - lo) / (hi - lo) * nb))]++; });
+    const mx = Math.max(...cnt), bw = (x1 - x0) / nb, sk = o.skew || 0;
+    for (let b = 0; b < nb; b++) { const h = hmax * cnt[b] / mx * E.o3(clamp(p * 1.4 - b * 0.02)); if (h <= 0) continue;
+      const hh = sk ? h * (1 + sk * (b / nb - 0.5)) : h; ctx.fillStyle = (o.red && b < o.red) ? B9LOSS : col; ctx.fillRect(x0 + b * bw + 3, yb - hh, bw - 6, hh); }
+    return x0 + bw * 0.5;
+  }
+  function b9screen(ctx, x, y, w, h, body, scr) { // monitor, (x,y) = screen centre
+    ctx.fillStyle = body; ctx.beginPath(); ctx.roundRect(x - w / 2 - 26, y - h / 2 - 26, w + 52, h + 52, 26); ctx.fill();
+    ctx.fillRect(x - 30, y + h / 2 + 26, 60, 90); ctx.fillRect(x - 170, y + h / 2 + 108, 340, 22);
+    ctx.fillStyle = scr; ctx.fillRect(x - w / 2, y - h / 2, w, h);
+  }
+  function b9paper(ctx, x, y, w, h, col, fold) { // folded map sheet, (x,y) = centre
+    ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, 12); ctx.fill();
+    ctx.fillStyle = fold; for (let i = 1; i < 4; i++) ctx.fillRect(x - w / 2 + i * w / 4 - 2, y - h / 2, 4, h);
+  }
+  function b9weight(ctx, x, yb, s, col, a = 1) { // weight standing on yb, size s
+    if (s < 2) return; ctx.save(); ctx.globalAlpha = a;
+    G.poly(ctx, [[x - s * 0.5, yb], [x + s * 0.5, yb], [x + s * 0.36, yb - s * 0.8], [x - s * 0.36, yb - s * 0.8]], col);
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(3, s * 0.1); ctx.beginPath(); ctx.arc(x, yb - s * 0.92, s * 0.16, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+  }
+  function b9beam(ctx, x0, x1, yb, n, size, col, p = 1, o = {}) { // n weights on a bar; size(i) where i = n-1 is today (right)
+    ctx.fillStyle = o.bar || col; ctx.fillRect(x0 - 40, yb, x1 - x0 + 80, 14);
+    for (let i = 0; i < n; i++) { const x = lerp(x0, x1, i / (n - 1)), g = E.oBack(clamp(p * 1.5 - (n - 1 - i) * 0.04)); b9weight(ctx, x, yb, size(i) * g, col, o.alpha ? o.alpha(i) : 1); }
+  }
+  function b9meter(ctx, x, yb, h, v, col, track) { // vertical scale bar, filled to v (0..1)
+    ctx.fillStyle = track; ctx.fillRect(x - 40, yb - h, 80, h); ctx.fillStyle = col; ctx.fillRect(x - 40, yb - h * clamp(v), 80, h * clamp(v));
+    for (let j = 1; j < 10; j++) ctx.fillRect(x + 48, yb - j * h / 10, j % 5 ? 18 : 34, 5);
+  }
+  function b9foot(ctx, x, y, s, col, a, right) { // one footprint, s = length
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(x, y); ctx.rotate(right ? 0.12 : -0.12); ctx.fillStyle = col;
+    ctx.beginPath(); ctx.ellipse(0, 0, s * 0.2, s * 0.36, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.ellipse(0, s * 0.5, s * 0.16, s * 0.16, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+  function b9prints(ctx, lt, C, p, zoom = 0) { // a row of footprints: far = small + faint, near = big + clear
+    const z = 1 + zoom * 0.7; ctx.save(); ctx.translate(960, 990); ctx.scale(z, z); ctx.translate(-960, -990);
+    for (let i = 0; i < 9; i++) { const f = i / 8, y = lerp(420, 930, f * f), s = lerp(34, 150, f), a = lerp(0.12, 1, f) * clamp(p * 1.6 - (1 - f) * 0.6);
+      b9foot(ctx, 960 + (i % 2 ? 1 : -1) * lerp(18, 80, f), y, s, C.fg, a, i % 2); }
+    ctx.restore();
+  }
+  function b9pond(ctx, x, y, rx, ry, col, ring, lt, amp, n = 5, sp = 0.35) { // pond with expanding ripples, amp 0..1
+    ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); if (amp <= 0) return;
+    ctx.save(); ctx.strokeStyle = ring; ctx.lineWidth = 7;
+    for (let i = 0; i < n; i++) { const f = b6fr(lt * sp + i / n); ctx.globalAlpha = (1 - f) * clamp(amp); ctx.beginPath(); ctx.ellipse(x, y, rx * 0.9 * f + 10, ry * 0.9 * f + 4, 0, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.restore();
+  }
+  function b9stone(ctx, x, y, r, col) { G.poly(ctx, [[x - r, y + r * 0.3], [x - r * 0.6, y - r * 0.7], [x + r * 0.5, y - r * 0.8], [x + r, y + r * 0.1], [x + r * 0.4, y + r * 0.8], [x - r * 0.5, y + r * 0.7]], col); }
+  const b9wave = (n, seed, env) => Array.from({ length: n }, (_, i) => env(i / (n - 1)) * (0.65 * Math.sin(i * 0.9 + seed) + 0.35 * Math.sin(i * 2.3 + seed * 1.7)));
+  function b9cells(ctx, C, lit, lt, o = {}) { // three input boxes for today's volatility; lit[i] 0..1
+    const xs = [520, 960, 1400], y = o.y || 640, w = 360, h = 300, lab = ['长期水平', '昨天的冲击', '昨天的晃动'];
+    xs.forEach((x, i) => { const L = clamp(lit[i] || 0);
+      ctx.save(); ctx.strokeStyle = C.fg; ctx.lineWidth = 7; ctx.setLineDash([20, 14]); ctx.globalAlpha = 1 - L * 0.7; ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, 26); ctx.stroke(); ctx.restore();
+      if (L <= 0) return; ctx.save(); ctx.globalAlpha = L; ctx.fillStyle = C.fg; ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, 26); ctx.fill();
+      if (i === 0) { ctx.fillStyle = C.bg; ctx.fillRect(x - 130, y - 6, 260, 12); }
+      if (i === 1) { b9pond(ctx, x, y + 50, 130, 40, rgba(C.bg, 0.35), C.bg, lt, 1, 3, 0.5); b9stone(ctx, x, y - 60 + 30 * Math.sin(lt * 3), 26, C.bg); }
+      if (i === 2) b8plot(ctx, b9wave(20, 0.7, () => 80), x - 140, x + 140, y, C.bg, 9, 1);
+      b8txt(ctx, lab[i], x, y + h / 2 + 50, 38, C.fg); ctx.restore(); });
+  }
+  const b9erf = (x) => { const s = Math.sign(x), a = Math.abs(x), t = 1 / (1 + 0.3275911 * a);
+    return s * (1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-a * a)); };
+  const b9snRaw = (u) => Math.exp(-u * u / 2) * (1 + b9erf(-4 * u / Math.SQRT2));
+  const B9SKM = Math.max(...Array.from({ length: 400 }, (_, i) => b9snRaw(-4 + i / 50)));
+  const b9S = (u) => b9snRaw((u - 2.0) / 1.7) / B9SKM; // negative skew, peak right of centre, long tail to the LEFT (loss side)
+  const B9X0 = 300, B9X1 = 1620, B9YB = 900;
+  function b9axis(ctx, C, col) { // outcome axis: 亏 on the left, 赚 on the right
+    ctx.fillStyle = col; ctx.fillRect(B9X0 - 40, B9YB, B9X1 - B9X0 + 80, 6);
+    b8txt(ctx, '亏', B9X0 - 10, B9YB + 50, 40, col); b8txt(ctx, '赚', B9X1 + 10, B9YB + 50, 40, col);
+  }
+  // ── #21 蒙特卡洛模拟 ── (many forking paths from one crossroads; a map of possibilities, not a forecast; garbage in → garbage out)
+  VIZ.mc_fork = (ctx, s, lt, C) => { // 一个路口分出成千上万条细细的岔路
+    const D = s.vizDur; b9fan(ctx, 360, 360, 1640, 640, inv(D * 0.05, D * 0.8, lt), C.fg, 0.16, 3);
+    G.disc(ctx, 360, 640, 26, C.acc);
+    tag(ctx, '成千上万条岔路', 1440, 400, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mc_title = (ctx, s, lt, C) => { // 屏幕标题「Monte Carlo Simulation」，下方一张岔路地图
+    const D = s.vizDur; b6title(ctx, 'Monte Carlo Simulation', W / 2, 420, 104, C.fg, inv(0.05, D * 0.5, lt));
+    b9paper(ctx, 960, 790, 900, 300, rgba(G.CREAM, 0.9), rgba(G.INK, 0.12));
+    ctx.save(); ctx.beginPath(); ctx.rect(510, 640, 900, 300); ctx.clip(); b9fan(ctx, 120, 560, 1360, 790, inv(D * 0.2, D * 0.9, lt), G.INK, 0.3, 3, 0.45); ctx.restore();
+  };
+  VIZ.mc_screen = (ctx, s, lt, C) => { // 一台电脑屏幕上，一个小点沿岔路随机前进
+    const D = s.vizDur; b9screen(ctx, 960, 620, 1000, 520, G.INK, G.CREAM);
+    ctx.save(); ctx.beginPath(); ctx.rect(460, 360, 1000, 520); ctx.clip();
+    b9fan(ctx, 40, 520, 1400, 620, 1, G.INK, 0.12, 3, 0.8);
+    const [hx, hy] = b8plot(ctx, B9P[7].map((v) => v * 0.8), 520, 1400, 620, C.acc, 9, inv(D * 0.1, D * 0.9, lt)); G.disc(ctx, hx, hy, 18, C.acc); ctx.restore();
+    tag(ctx, '随机走', 1600, 300, C, inv(D * 0.4, D * 0.7, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+  };
+  VIZ.mc_onepath = (ctx, s, lt, C) => { // 一条岔路被点亮，有上有下，往下的部分往下画
+    const D = s.vizDur, yc = 640, ys = B9P[Math.max(0, B9MIX)].map((v) => v * 1.25), p = inv(D * 0.1, D * 0.8, lt);
+    b9fan(ctx, 60, 300, 1620, yc, 1, G.INK, 0.08, 3);
+    b8dash(ctx, 300, yc, 1640, yc, rgba(G.INK, 0.4), 4);
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, yc); ctx.clip(); b8plot(ctx, ys, 300, 1620, yc, PAL.green.t[3], 12, p); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(0, yc, W, H - yc); ctx.clip(); b8plot(ctx, ys, 300, 1620, yc, B9LOSS, 12, p); ctx.restore();
+    G.disc(ctx, 300, yc, 20, G.INK);
+    tag(ctx, '一种可能', 1500, 380, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mc_fan = (ctx, s, lt, C) => { // 成千上万条岔路一起亮起，像一把散开的扇子
+    const D = s.vizDur, k = E.io(inv(D * 0.05, D * 0.7, lt));
+    b9fan(ctx, 360, 360, 1640, 620, 1, C.acc, 0.05 + 0.2 * k, 3, lerp(0.15, 1.15, k));
+    tag(ctx, '密密麻麻', 1460, 380, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mc_hill = (ctx, s, lt, C) => { // 所有岔路的终点落进下方的格子，堆成一座小山
+    const D = s.vizDur; b9fan(ctx, 120, 400, 1520, 450, 1, C.fg, 0.1, 3, 0.5);
+    ctx.fillStyle = C.fg; ctx.fillRect(360, 900, 1200, 8);
+    b9hist(ctx, 380, 1540, 896, 280, inv(D * 0.15, D * 0.85, lt), G.CREAM);
+    b8txt(ctx, '更差', 380, 950, 36, C.fg); b8txt(ctx, '更好', 1540, 950, 36, C.fg);
+    tag(ctx, '怎么分布', 1640, 420, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: G.CREAM, fg: G.INK });
+  };
+  VIZ.mc_worst = (ctx, s, lt, C) => { // 小山最左下角那一小块被标红，标「最坏的 1%」
+    const D = s.vizDur; ctx.fillStyle = C.fg; ctx.fillRect(360, 900, 1200, 8);
+    const wx = b9hist(ctx, 380, 1540, 896, 380, 1, rgba(G.CREAM, 0.7), { red: inv(D * 0.2, D * 0.4, lt) > 0 ? 2 : 0 });
+    b8txt(ctx, '更差', 380, 950, 36, C.fg); b8txt(ctx, '更好', 1540, 950, 36, C.fg);
+    b6down(ctx, wx + 20, 620, 840, B9LOSS, 10, inv(D * 0.3, D * 0.6, lt));
+    tag(ctx, '最坏的 1%', wx + 180, 560, C, inv(D * 0.4, D * 0.75, lt), { px: 40, bg: B9LOSS, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mc_map = (ctx, s, lt, C) => { // 整张岔路图缩成一张地图，标「可能性」
+    const D = s.vizDur, k = E.io(inv(D * 0.1, D * 0.6, lt)), w = lerp(1500, 900, k), h = lerp(700, 460, k);
+    b9paper(ctx, 960, 640, w, h, G.CREAM, rgba(G.INK, 0.12 * k));
+    ctx.save(); ctx.beginPath(); ctx.rect(960 - w / 2, 640 - h / 2, w, h); ctx.clip(); b9fan(ctx, 200, 960 - w / 2 + 50, 960 + w / 2 - 50, 640, 1, G.INK, 0.14, 3, lerp(1, 0.6, k)); ctx.restore();
+    tag(ctx, '可能性', 960, 640 + h / 2 + 70, C, inv(D * 0.55, D * 0.85, lt), { px: 42, bg: G.INK, fg: C.bg });
+  };
+  VIZ.mc_crystal = (ctx, s, lt, C) => { // 地图旁边一个水晶球被打了个叉
+    const D = s.vizDur; b9paper(ctx, 640, 640, 640, 420, G.CREAM, rgba(G.INK, 0.12));
+    ctx.save(); ctx.beginPath(); ctx.rect(320, 430, 640, 420); ctx.clip(); b9fan(ctx, 120, 360, 920, 640, 1, G.INK, 0.15, 3, 0.5); ctx.restore();
+    G.poly(ctx, [[1240, 860], [1500, 860], [1450, 790], [1290, 790]], G.INK);
+    G.disc(ctx, 1370, 640, 170, rgba(G.CREAM, 0.85)); G.disc(ctx, 1310, 580, 40, rgba(G.CREAM, 0.95));
+    b8cross(ctx, 1370, 640, 300, B9LOSS, inv(D * 0.35, D * 0.7, lt));
+    tag(ctx, '不是预测', 1370, 950, C, inv(D * 0.6, D * 0.9, lt), { px: 40, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mc_note = (ctx, s, lt, C) => { // 电脑入口塞进一张纸条，写「假设」
+    const D = s.vizDur, k = E.io(inv(D * 0.1, D * 0.6, lt)); b9screen(ctx, 1120, 600, 760, 420, G.INK, rgba(G.CREAM, 0.9));
+    ctx.save(); ctx.beginPath(); ctx.rect(740, 390, 760, 420); ctx.clip(); b9fan(ctx, 60, 790, 1450, 600, 1, G.INK, 0.15, 3, 0.6); ctx.restore();
+    ctx.fillStyle = G.INK; ctx.fillRect(690, 540, 30, 120);
+    b8card(ctx, lerp(380, 640, k), 600, 240, 130, G.CREAM, G.INK, '假设', 56, { rot: lerp(-0.12, 0, k) });
+    tag(ctx, '输入', 500, 760, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: G.INK, fg: G.CREAM });
+  };
+  VIZ.mc_wrong = (ctx, s, lt, C) => { // 纸条上的字是错的，出口那座小山整个歪掉
+    const D = s.vizDur, k = E.io(inv(D * 0.3, D * 0.75, lt));
+    b8card(ctx, 520, 600, 300, 160, G.INK, G.CREAM, '假设', 64, { rot: -0.06 });
+    b8cross(ctx, 520, 600, 170, B9LOSS, inv(D * 0.1, D * 0.4, lt));
+    ctx.save(); ctx.strokeStyle = G.INK; ctx.lineWidth = 8; ctx.setLineDash([16, 12]); ctx.beginPath(); ctx.moveTo(700, 600); ctx.lineTo(980, 600); ctx.stroke(); ctx.restore();
+    G.poly(ctx, [[1010, 600], [980, 584], [980, 616]], G.INK);
+    ctx.save(); ctx.translate(1340, 860); ctx.rotate(-0.35 * k); ctx.fillStyle = G.INK; ctx.fillRect(-300, 0, 600, 8);
+    b9hist(ctx, -290, 290, 0, 300, 1, rgba(G.INK, 0.7), { bins: 14, skew: 1.4 * k }); ctx.restore();
+    tag(ctx, '没用', 1340, 400, C, inv(D * 0.6, D * 0.9, lt), { px: 42, bg: B9LOSS, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mc_signpost = (ctx, s, lt, C) => { // 回到开头的路口，路牌上写「假设？」
+    const D = s.vizDur; b9fan(ctx, 200, 760, 1700, 760, 1, C.fg, 0.14, 3, 0.9);
+    ctx.fillStyle = G.INK; ctx.fillRect(744, 470, 32, 300);
+    b8card(ctx, 760, 450, 340, 130, G.CREAM, G.INK, '假设？', 60, { sc: E.oBack(inv(D * 0.2, D * 0.55, lt)) });
+    G.disc(ctx, 760, 770, 22, G.CREAM);
+    vizCaption(ctx, s, lt, C);
+  };
+  // ── #22 EWMA ── (recent days weigh more, shrinking by a fixed ratio; λ = 0.94 only as the corner note)
+  VIZ.ewma_steps = (ctx, s, lt, C) => { // 一排脚印，越靠近镜头的越清楚，越远的越淡
+    const D = s.vizDur; b9prints(ctx, lt, C, inv(D * 0.05, D * 0.7, lt));
+    tag(ctx, '越近越清楚', 1460, 760, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.ewma_title = (ctx, s, lt, C) => { // 屏幕标题「EWMA」
+    const D = s.vizDur; b6title(ctx, 'EWMA', W / 2, 460, 200, C.fg, inv(0.05, D * 0.5, lt));
+    b9beam(ctx, 560, 1360, 880, 9, (i) => 30 + 90 * Math.pow(0.8, 8 - i), rgba(C.fg, 0.8), inv(D * 0.3, D * 0.9, lt));
+  };
+  VIZ.ewma_meter = (ctx, s, lt, C) => { // 一条起伏的收益线，上方一个刻度条在跳
+    const D = s.vizDur, ys = b8ser(40, 1.7, 130, 1.2);
+    ctx.fillStyle = rgba(C.fg, 0.3); ctx.fillRect(300, 760, 1100, 4);
+    b8plot(ctx, ys, 300, 1400, 760, C.fg, 10, inv(D * 0.05, D * 0.85, lt));
+    b9meter(ctx, 1600, 900, 520, 0.45 + 0.18 * Math.sin(lt * 3.1) * Math.sin(lt * 1.3), C.acc, rgba(C.fg, 0.15));
+    tag(ctx, '最近的波动率', 1600, 300, C, inv(D * 0.45, D * 0.8, lt), { px: 36, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.ewma_equal = (ctx, s, lt, C) => { // 一排砝码大小完全一样，放在一根横杆上
+    const D = s.vizDur; b9beam(ctx, 380, 1540, 820, 9, () => 110, G.INK, inv(D * 0.05, D * 0.6, lt));
+    tag(ctx, '一样重', 1460, 460, C, inv(D * 0.5, D * 0.8, lt), { px: 40, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.ewma_grow = (ctx, s, lt, C) => { // 砝码从右到左变小，最右边今天的那个最大
+    const D = s.vizDur, k = E.io(inv(D * 0.1, D * 0.6, lt));
+    b9beam(ctx, 380, 1540, 840, 9, (i) => lerp(110, 40 + 150 * Math.pow(0.82, 8 - i), k), C.fg, 1);
+    tag(ctx, '今天', 1540, 920, C, inv(D * 0.4, D * 0.7, lt), { px: 38, bg: C.acc, fg: G.INK });
+    tag(ctx, '权重越大', 1400, 420, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.ewma_fade = (ctx, s, lt, C) => { // 左边的砝码越来越小，最后几乎看不见
+    const D = s.vizDur, k = E.io(inv(D * 0.1, D * 0.7, lt));
+    b9beam(ctx, 300, 1620, 840, 12, (i) => 12 + 170 * Math.pow(lerp(0.85, 0.72, k), 11 - i), G.INK, 1, { alpha: (i) => lerp(1, 0.15 + 0.85 * i / 11, k) });
+    tag(ctx, '越久越轻', 520, 620, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.ewma_ratio = (ctx, s, lt, C) => { // 砝码大小按同一个比例缩小，角落小字「λ = 0.94（日数据）」
+    const D = s.vizDur, n = 10;
+    b9beam(ctx, 380, 1540, 820, n, (i) => 190 * Math.pow(0.84, n - 1 - i), C.fg, inv(D * 0.05, D * 0.6, lt));
+    for (let i = 1; i < n; i++) { const p = inv(D * 0.3 + (n - i) * 0.05, D * 0.5 + (n - i) * 0.05, lt); if (p <= 0) continue; const x0 = lerp(380, 1540, i / (n - 1)), x1 = lerp(380, 1540, (i - 1) / (n - 1));
+      ctx.save(); ctx.globalAlpha = clamp(p); ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(x0 - 20, 930); ctx.quadraticCurveTo((x0 + x1) / 2, 980, x1 + 20, 930); ctx.stroke(); ctx.restore(); }
+    tag(ctx, '同一个比例', 1400, 420, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: C.acc, fg: G.INK });
+    b8txt(ctx, 'λ = 0.94（日数据）', 1620, 1000, 30, C.dim, { a: inv(D * 0.4, D * 0.7, lt) });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.ewma_press = (ctx, s, lt, C) => { // 最右边的大砝码压得刻度条往上一跳
+    const D = s.vizDur, drop = E.oBack(inv(D * 0.15, D * 0.4, lt)), jump = E.oBack(inv(D * 0.35, D * 0.6, lt));
+    b9beam(ctx, 340, 1100, 860, 8, (i) => 26 + 70 * Math.pow(0.8, 7 - i), rgba(G.INK, 0.6), 1);
+    b9weight(ctx, 1300, lerp(480, 860, drop), 210, G.INK); ctx.fillStyle = G.INK; ctx.fillRect(1160, 860, 300, 14);
+    b9meter(ctx, 1640, 900, 560, lerp(0.3, 0.8, jump), C.fg, rgba(G.INK, 0.15));
+    b6upArrow(ctx, 1760, 820, 420, G.INK, 9, jump);
+    tag(ctx, '更算数', 1300, 380, C, inv(D * 0.55, D * 0.85, lt), { px: 40, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.ewma_wave = (ctx, s, lt, C) => { // 一道大浪打来，刻度条立刻拉高
+    const D = s.vizDur, k = E.io(inv(D * 0.1, D * 0.45, lt));
+    b6sea(ctx, 820, 40 + 150 * k, lt, rgba(G.CREAM, 0.5), 0.4, 0.006, 0, 1420);
+    b6sea(ctx, 860, 30 + 110 * k, lt, G.CREAM, 0, 0.007, 0, 1420);
+    b9meter(ctx, 1640, 900, 560, lerp(0.25, 0.9, E.oBack(inv(D * 0.2, D * 0.45, lt))), G.CREAM, rgba(G.INK, 0.2));
+    tag(ctx, '反应更快', 1640, 270, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.ewma_settle = (ctx, s, lt, C) => { // 浪过去，刻度条跟着降下来
+    const D = s.vizDur, k = E.io(inv(D * 0.1, D * 0.7, lt));
+    b6sea(ctx, 840, lerp(140, 18, k), lt, rgba(G.CREAM, 0.5), 0.4, 0.006, 0, 1420);
+    b6sea(ctx, 870, lerp(100, 12, k), lt, G.CREAM, 0, 0.007, 0, 1420);
+    b9meter(ctx, 1640, 900, 560, lerp(0.9, 0.3, k), G.CREAM, rgba(G.INK, 0.2));
+    b6down(ctx, 1770, 420, 780, G.INK, 9, k);
+    tag(ctx, '很快回落', 1500, 300, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.ewma_steps_end = (ctx, s, lt, C) => { // 回到那排脚印，镜头停在最近、最清楚的那一个
+    const D = s.vizDur; b9prints(ctx, lt, C, 1, E.io(inv(0, D * 0.7, lt)));
+    tag(ctx, '最近', 1460, 560, C, inv(D * 0.5, D * 0.8, lt), { px: 40, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  // ── #23 GARCH ── (named on screen only; long-run level + yesterday's shock + yesterday's swing; clustering, slow reversion)
+  VIZ.garch_pond = (ctx, s, lt, C) => { // 一池水里落下一块石头，波纹一圈接一圈
+    const D = s.vizDur, fall = inv(0, D * 0.25, lt);
+    b9pond(ctx, 960, 760, 640, 190, rgba(C.fg, 0.12), C.fg, lt, inv(D * 0.2, D * 0.35, lt), 6, 0.3);
+    if (fall < 1) b9stone(ctx, 960, lerp(320, 750, fall * fall), 40, C.acc);
+    tag(ctx, '一圈接一圈', 1500, 420, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.garch_title = (ctx, s, lt, C) => { // 屏幕标题「GARCH」，不念全称
+    const D = s.vizDur; b6title(ctx, 'GARCH', W / 2, 460, 200, C.fg, inv(0.05, D * 0.5, lt));
+    b8plot(ctx, b9wave(50, 0.3, (f) => 30 + 120 * Math.exp(-Math.pow((f - 0.3) * 6, 2)) + 90 * Math.exp(-Math.pow((f - 0.75) * 7, 2))), 300, 1620, 800, G.CREAM, 9, inv(D * 0.2, D * 0.9, lt));
+  };
+  VIZ.garch_gear = (ctx, s, lt, C) => { // 上一条的砝码横杆旁边，又多出一个齿轮
+    const D = s.vizDur, g = E.oBack(inv(D * 0.25, D * 0.55, lt));
+    b9beam(ctx, 320, 1000, 820, 7, (i) => 30 + 120 * Math.pow(0.8, 6 - i), rgba(G.INK, 0.7), 1);
+    if (g > 0) { ctx.save(); ctx.translate(1380, 680); ctx.scale(g, g); b6gear(ctx, 0, 0, 150, 10, lt * 0.8, C.acc, C.bg); ctx.restore(); }
+    tag(ctx, '多走一步', 1380, 940, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.garch_boxes = (ctx, s, lt, C) => { // 三个格子排开，等着被点亮
+    const D = s.vizDur; b9cells(ctx, C, [0, 0, 0], lt);
+    tag(ctx, '今天的波动率', 960, 380, C, inv(D * 0.3, D * 0.7, lt), { px: 38, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.garch_box1 = (ctx, s, lt, C) => { const D = s.vizDur; b9cells(ctx, C, [inv(D * 0.1, D * 0.4, lt), 0, 0], lt); vizCaption(ctx, s, lt, C); }; // 第一个格子亮起：一条水平的长线
+  VIZ.garch_box2 = (ctx, s, lt, C) => { const D = s.vizDur; b9cells(ctx, C, [0.35, inv(D * 0.1, D * 0.4, lt), 0], lt); vizCaption(ctx, s, lt, C); }; // 第二个格子亮起：一块石头砸进水里
+  VIZ.garch_box3 = (ctx, s, lt, C) => { const D = s.vizDur; b9cells(ctx, C, [0.35, 0.35, inv(D * 0.1, D * 0.4, lt)], lt); vizCaption(ctx, s, lt, C); }; // 第三个格子亮起：一段剧烈起伏的波纹
+  VIZ.garch_carry = (ctx, s, lt, C) => { // 波纹从昨天的格子延伸到今天的格子
+    const D = s.vizDur, p = inv(D * 0.1, D * 0.75, lt);
+    [[560, '昨天'], [1360, '今天']].forEach(([x, t]) => { ctx.save(); ctx.strokeStyle = G.INK; ctx.lineWidth = 7; ctx.beginPath(); ctx.roundRect(x - 220, 480, 440, 320, 26); ctx.stroke(); ctx.restore(); b8txt(ctx, t, x, 860, 42, G.INK); });
+    b8plot(ctx, b9wave(60, 1.1, (f) => lerp(120, 90, f)), 380, 1540, 640, C.acc, 10, p);
+    tag(ctx, '接着晃', 960, 400, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.garch_cluster = (ctx, s, lt, C) => { // 一条时间线上，大波纹一簇一簇挤在一起，中间夹着平静段
+    const D = s.vizDur, env = (f) => 14 + 150 * Math.exp(-Math.pow((f - 0.2) * 9, 2)) + 170 * Math.exp(-Math.pow((f - 0.62) * 8, 2)) + 60 * Math.exp(-Math.pow((f - 0.9) * 12, 2));
+    ctx.fillStyle = rgba(C.fg, 0.3); ctx.fillRect(260, 660, 1400, 4);
+    b8plot(ctx, b9wave(110, 0.4, env), 260, 1660, 660, C.fg, 7, inv(D * 0.05, D * 0.8, lt));
+    tag(ctx, '扎堆', 540, 430, C, inv(D * 0.4, D * 0.7, lt), { px: 38, bg: C.acc, fg: G.INK }); tag(ctx, '扎堆', 1130, 410, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: C.acc, fg: G.INK });
+    tag(ctx, '平静', 830, 900, C, inv(D * 0.6, D * 0.9, lt), { px: 34, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.garch_revert = (ctx, s, lt, C) => { // 波纹逐渐变小，落回那条水平的长线
+    const D = s.vizDur; b8dash(ctx, 260, 680, 1660, 680, G.INK, 6);
+    b8plot(ctx, b9wave(80, 2.2, (f) => 10 + 200 * Math.exp(-f * 3.2)), 260, 1660, 680, G.CREAM, 9, inv(D * 0.05, D * 0.8, lt));
+    tag(ctx, '长期水平', 1500, 780, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.garch_ledger = (ctx, s, lt, C) => { // 三个格子的背面是一本旧账本
+    const D = s.vizDur, k = E.io(inv(D * 0.1, D * 0.55, lt));
+    [520, 960, 1400].forEach((x, i) => { const sx = Math.cos(k * Math.PI); ctx.save(); ctx.translate(x, 560); ctx.scale(Math.abs(sx) * 0.6 + 0.001, 0.6);
+      ctx.fillStyle = sx > 0 ? G.INK : rgba(G.INK, 0.4); ctx.beginPath(); ctx.roundRect(-180, -150, 360, 300, 26); ctx.fill(); ctx.restore(); });
+    const bk = inv(D * 0.4, D * 0.75, lt); if (bk > 0) { ctx.save(); ctx.globalAlpha = clamp(bk); b6doc(ctx, 820, 820, 300, 200, G.CREAM, rgba(G.INK, 0.4), 1); b6doc(ctx, 1100, 820, 300, 200, G.CREAM, rgba(G.INK, 0.4), 1); ctx.fillStyle = G.INK; ctx.fillRect(955, 720, 10, 200); ctx.restore(); }
+    tag(ctx, '过去的数据', 1500, 900, C, inv(D * 0.6, D * 0.9, lt), { px: 36, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.garch_pond_end = (ctx, s, lt, C) => { // 回到水池：先平静，再起波纹，再慢慢平静
+    const D = s.vizDur, a = inv(D * 0.25, D * 0.4, lt) * (1 - inv(D * 0.6, D * 0.95, lt));
+    b9pond(ctx, 960, 760, 640, 190, rgba(C.fg, 0.12), C.fg, lt, a, 6, 0.3);
+    tag(ctx, '平静', 600, 480, C, inv(0, D * 0.2, lt), { px: 36, bg: C.fg, fg: C.bg }); tag(ctx, '起波纹', 960, 430, C, inv(D * 0.3, D * 0.5, lt), { px: 36, bg: C.acc, fg: G.INK });
+    tag(ctx, '又平静', 1320, 480, C, inv(D * 0.7, D * 0.9, lt), { px: 36, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  // ── #24 平稳性 ── (steady mean + steady swing size; prices wander, so model returns; unstable patterns → weaker inference)
+  function b9route(ctx, x, y, col, dx, dy, p = 1) { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 12; ctx.lineCap = 'round'; ctx.setLineDash([26, 18]); ctx.beginPath();
+    const pts = [[-360, 120], [-200, -40], [0, 60], [180, -90], [360, -20]]; pts.slice(0, 1 + Math.round(4 * clamp(p))).forEach(([a, b], i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, x + a + dx, y + b + dy)); ctx.stroke(); ctx.restore(); }
+  VIZ.stat_map = (ctx, s, lt, C) => { // 一张地图上的路线在纸上慢慢漂移
+    const D = s.vizDur, k = E.io(inv(D * 0.1, D * 0.9, lt));
+    b9paper(ctx, 960, 640, 1100, 560, G.CREAM, rgba(G.INK, 0.1));
+    b9route(ctx, 960, 640, rgba(G.INK, 0.2), 0, 0); b9route(ctx, 960, 640, PAL.red.t[2], 120 * k, 70 * k);
+    tag(ctx, '路线在漂', 1500, 340, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.stat_title = (ctx, s, lt, C) => { // 屏幕标题「Stationarity」
+    const D = s.vizDur; b6title(ctx, 'Stationarity', W / 2, 460, 150, C.fg, inv(0.05, D * 0.5, lt));
+    b8dash(ctx, 360, 790, 1560, 790, rgba(C.fg, 0.5), 4); b8plot(ctx, b8ser(44, 2.6, 80, 1.3), 360, 1560, 790, C.acc, 9, inv(D * 0.2, D * 0.9, lt));
+  };
+  VIZ.stat_mean = (ctx, s, lt, C) => { // 一条线围着一根水平中线上下晃，中线不动
+    const D = s.vizDur; ctx.fillStyle = G.INK; ctx.fillRect(260, 676, 1400, 8);
+    b8plot(ctx, b8ser(50, 0.8, 150, 1.2), 260, 1660, 680, C.acc, 10, inv(D * 0.05, D * 0.8, lt));
+    tag(ctx, '平均值不动', 1500, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.stat_band = (ctx, s, lt, C) => { // 线的上下包络是两条平行的虚线
+    const D = s.vizDur, bp = inv(D * 0.35, D * 0.7, lt);
+    b8plot(ctx, b8ser(50, 0.8, 150, 1.2), 260, 1660, 680, G.CREAM, 10, inv(D * 0.05, D * 0.5, lt));
+    if (bp > 0) { ctx.save(); ctx.globalAlpha = clamp(bp); b8dash(ctx, 240, 520, 1680, 520, C.acc, 7); b8dash(ctx, 240, 840, 1680, 840, C.acc, 7); ctx.restore(); }
+    tag(ctx, '幅度差不多', 1500, 930, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.stat_halves = (ctx, s, lt, C) => { // 前半段和后半段的线，形状看起来差不多
+    const D = s.vizDur, k = E.io(inv(D * 0.4, D * 0.8, lt)), ys = b8ser(24, 0.5, 130, 1.3);
+    b8plot(ctx, ys, 260, 900, 680, G.INK, 10, inv(D * 0.05, D * 0.35, lt));
+    b8plot(ctx, b8ser(24, 0.62, 125, 1.3), 1020, 1660, lerp(680, 680, k), G.INK, 10, inv(D * 0.2, D * 0.5, lt));
+    b8dash(ctx, 960, 440, 960, 920, rgba(G.INK, 0.5), 5);
+    tag(ctx, '前半段', 580, 950, C, inv(D * 0.3, D * 0.6, lt), { px: 34, bg: G.INK, fg: C.bg }); tag(ctx, '后半段', 1340, 950, C, inv(D * 0.4, D * 0.7, lt), { px: 34, bg: G.INK, fg: C.bg });
+    tag(ctx, '差不多', 960, 400, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.stat_calc = (ctx, s, lt, C) => { // 一台计算器的入口写着「请放平稳的数据」
+    const D = s.vizDur; b7calc(ctx, 1160, 660, 440, 580, G.INK, G.CREAM, rgba(G.CREAM, 0.4));
+    ctx.fillStyle = G.INK; ctx.fillRect(880, 420, 60, 140);
+    b8card(ctx, 600, 470, 460, 110, G.CREAM, G.INK, '请放平稳的数据', 42, { sc: E.oBack(inv(D * 0.15, D * 0.5, lt)) });
+    b8plot(ctx, b8ser(16, 0.8, 30, 1.4), 420, 780, 640, G.CREAM, 7, inv(D * 0.4, D * 0.8, lt));
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.stat_price = (ctx, s, lt, C) => { // 一条价格线没有中线，有时漂高有时漂低，越走越远
+    const D = s.vizDur, ys = B9P[23].map((v, i) => v * 1.6 + 120 * Math.sin(i * 0.16));
+    ctx.save(); ctx.globalAlpha = 0.16; G.poly(ctx, [[300, 660], [1640, 330], [1640, 990]], G.CREAM); ctx.restore();
+    const [hx, hy] = b8plot(ctx, ys, 300, 1640, 660, G.CREAM, 10, inv(D * 0.05, D * 0.85, lt)); G.disc(ctx, hx, hy, 18, C.acc);
+    tag(ctx, '一路漂', 1460, 330, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.stat_convert = (ctx, s, lt, C) => { // 价格线被转换成一条围着零上下晃的线
+    const D = s.vizDur, ys = B9P[23].map((v, i) => v * 0.8 + 60 * Math.sin(i * 0.16)), rs = ys.map((v, i) => (i ? v - ys[i - 1] : 0) * 4);
+    b8plot(ctx, ys, 340, 1000, 520, rgba(G.INK, 0.8), 8, inv(D * 0.05, D * 0.35, lt));
+    const p = inv(D * 0.35, D * 0.85, lt); ctx.fillStyle = rgba(G.INK, 0.4); ctx.fillRect(1100, 846, 560, 4);
+    b8plot(ctx, rs, 1100, 1660, 848, C.acc, 8, p); b8txt(ctx, '0', 1060, 848, 40, G.INK, { en: 1, a: p });
+    ctx.save(); ctx.strokeStyle = G.INK; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(1010, 600); ctx.quadraticCurveTo(1080, 700, 1090, 790); ctx.stroke(); ctx.restore();
+    tag(ctx, '价格', 670, 740, C, inv(D * 0.2, D * 0.5, lt), { px: 34, bg: G.INK, fg: G.CREAM }); tag(ctx, '收益率', 1380, 640, C, inv(D * 0.5, D * 0.8, lt), { px: 34, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  const B9BARS = Array.from({ length: 24 }, (_, i) => 150 * (b6rnd(i, 41) + b6rnd(i, 42) - 1));
+  function b9bars(ctx, x0, x1, yc, p, o = {}) { // daily return bars: up = gain (green), DOWN = loss (red)
+    const n = B9BARS.length, bw = (x1 - x0) / n;
+    B9BARS.forEach((v, i) => { const g = E.o3(clamp(p * 1.5 - i * 0.02)); if (g <= 0) return; const h = (o.v ? o.v(v, i) : v) * g;
+      ctx.fillStyle = h >= 0 ? (o.up || PAL.green.t[3]) : (o.down || B9LOSS); ctx.fillRect(x0 + i * bw + 6, h >= 0 ? yc - h : yc, bw - 12, Math.abs(h)); });
+  }
+  VIZ.stat_bars = (ctx, s, lt, C) => { // 每天一根小柱，向上是涨、向下是跌
+    const D = s.vizDur; ctx.fillStyle = G.INK; ctx.fillRect(280, 677, 1360, 6);
+    b9bars(ctx, 300, 1620, 680, inv(D * 0.05, D * 0.7, lt));
+    tag(ctx, '涨', 1700, 540, C, inv(D * 0.4, D * 0.7, lt), { px: 38, bg: PAL.green.t[3], fg: G.INK }); tag(ctx, '跌', 1700, 820, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: B9LOSS, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.stat_range = (ctx, s, lt, C) => { // 小柱基本落在上下两条虚线之间
+    const D = s.vizDur; ctx.fillStyle = G.CREAM; ctx.fillRect(280, 677, 1360, 6);
+    b9bars(ctx, 300, 1620, 680, 1, { up: G.CREAM, down: PAL.red.t[1] });
+    const bp = inv(D * 0.2, D * 0.55, lt); if (bp > 0) { ctx.save(); ctx.globalAlpha = clamp(bp); b8dash(ctx, 260, 520, 1660, 520, C.acc, 7); b8dash(ctx, 260, 840, 1660, 840, C.acc, 7); ctx.restore(); }
+    tag(ctx, '来回晃', 1500, 400, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.stat_map_end = (ctx, s, lt, C) => { // 回到漂移的地图，旧路线和新路面对不上
+    const D = s.vizDur, k = E.io(inv(D * 0.1, D * 0.6, lt));
+    b9paper(ctx, 960, 640, 1100, 560, G.CREAM, rgba(G.INK, 0.1));
+    ctx.save(); ctx.strokeStyle = rgba(G.INK, 0.5); ctx.lineWidth = 40; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(560, 820); ctx.bezierCurveTo(800, 520, 1100, 820, 1360, 560); ctx.stroke(); ctx.restore();
+    b9route(ctx, 960, 640, PAL.red.t[2], -60 * k, -110 * k);
+    b8cross(ctx, 1500, 360, 90, G.INK, inv(D * 0.5, D * 0.8, lt));
+    tag(ctx, '对不上', 1500, 960, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  // ── #25 偏度 ── (lopsided distributions; negative skew = long tail on the LOSS side, drawn LEFT and DOWN; shape, not "losing money")
+  VIZ.skew_hill = (ctx, s, lt, C) => { // 一座小山的山顶偏向右边，左边拖出长长的斜坡
+    const D = s.vizDur; b9axis(ctx, C, rgba(C.fg, 0.6));
+    b7curve(ctx, B9X0, B9X1, B9YB, 480, b9S, inv(D * 0.05, D * 0.7, lt), C.fg, 10, rgba(C.fg, 0.25));
+    tag(ctx, '歪向一边', 1500, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.skew_title = (ctx, s, lt, C) => { // 屏幕标题「Skewness」
+    const D = s.vizDur; b6title(ctx, 'Skewness', W / 2, 420, 160, C.fg, inv(0.05, D * 0.5, lt));
+    b7curve(ctx, 520, 1400, 950, 300, b9S, inv(D * 0.2, D * 0.9, lt), C.acc, 9, rgba(C.acc, 0.2));
+  };
+  VIZ.skew_sym = (ctx, s, lt, C) => { // 一座对称的钟形小山，中间一条竖线
+    const D = s.vizDur; b9axis(ctx, C, rgba(G.INK, 0.6));
+    b7curve(ctx, B9X0, B9X1, B9YB, 480, b7N, inv(D * 0.05, D * 0.6, lt), G.INK, 10, rgba(G.INK, 0.12), 3.6, 'mid');
+    b8dash(ctx, 960, 360, 960, B9YB, C.acc, 7, [18, 14]);
+    tag(ctx, '对称吗？', 1460, 420, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.skew_equal = (ctx, s, lt, C) => { // 竖线两边的尾巴长度相同
+    const D = s.vizDur, p = E.io(inv(D * 0.2, D * 0.6, lt)); b9axis(ctx, C, rgba(G.INK, 0.6));
+    b7curve(ctx, B9X0, B9X1, B9YB, 480, b7N, 1, G.INK, 10, rgba(G.INK, 0.12));
+    b8dash(ctx, 960, 360, 960, B9YB, rgba(G.INK, 0.5), 5);
+    ctx.fillStyle = G.INK; ctx.fillRect(960 - 600 * p, B9YB + 100, 600 * p, 10); ctx.fillRect(960, B9YB + 100, 600 * p, 10);
+    tag(ctx, '左右一样长', 1460, 420, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.skew_left = (ctx, s, lt, C) => { // 小山向右歪，左边亏损一侧的尾巴拖得又细又长
+    const D = s.vizDur, k = E.io(inv(D * 0.1, D * 0.6, lt)), f = (u) => lerp(b7N(u), b9S(u), k); b9axis(ctx, C, rgba(G.INK, 0.6));
+    b7area(ctx, B9X0, B9X1, B9YB, 480, f, B9X0, 760, rgba(B9LOSS, 0.55 * k));
+    b7curve(ctx, B9X0, B9X1, B9YB, 480, f, 1, G.INK, 10, null);
+    tag(ctx, '亏损一侧', 520, 560, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: B9LOSS, fg: G.CREAM });
+    tag(ctx, '尾巴又细又长', 600, 1000, C, inv(D * 0.6, D * 0.9, lt), { px: 34, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.skew_bulk = (ctx, s, lt, C) => { // 小山右侧那一大堆，标「多数时候小赚」
+    const D = s.vizDur, k = inv(D * 0.15, D * 0.5, lt); b9axis(ctx, C, rgba(G.INK, 0.6));
+    b7curve(ctx, B9X0, B9X1, B9YB, 480, b9S, 1, G.INK, 10, rgba(G.INK, 0.12));
+    if (k > 0) { ctx.save(); ctx.globalAlpha = clamp(k); b7area(ctx, B9X0, B9X1, B9YB, 480, b9S, 1080, 1500, G.CREAM); ctx.restore(); }
+    tag(ctx, '多数时候小赚', 1320, 330, C, inv(D * 0.45, D * 0.8, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.skew_drop = (ctx, s, lt, C) => { // 左边长尾末端一个红点往下落
+    const D = s.vizDur, f = Math.pow(inv(D * 0.3, D * 0.7, lt), 2); b9axis(ctx, C, rgba(G.INK, 0.6));
+    b7curve(ctx, B9X0, B9X1, B9YB, 420, b9S, 1, G.INK, 10, rgba(G.INK, 0.1));
+    G.disc(ctx, 420, lerp(B9YB - 30, 1010, f), 26, B9LOSS); b6down(ctx, 520, 640, 860, B9LOSS, 9, inv(D * 0.3, D * 0.6, lt));
+    tag(ctx, '偶尔大亏', 640, 560, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: B9LOSS, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.skew_bars = (ctx, s, lt, C) => { // 一排小小的向上柱，中间突然一根很长的向下柱，角标「假设」
+    const D = s.vizDur, yc = 560, n = 18, bw = 1240 / n; ctx.fillStyle = rgba(G.CREAM, 0.5); ctx.fillRect(320, yc - 2, 1280, 4);
+    for (let i = 0; i < n; i++) { const g = E.o3(clamp(inv(D * 0.05, D * 0.7, lt) * 1.5 - i * 0.03)); if (g <= 0) continue; const big = i === 11, h = (big ? 400 : 40 + 24 * b6rnd(i, 7)) * g;
+      ctx.fillStyle = big ? B9LOSS : PAL.green.t[2]; ctx.fillRect(340 + i * bw + 8, big ? yc : yc - h, bw - 16, h); }
+    b8corner(ctx, '假设', C, inv(0.2, 0.7, lt));
+    tag(ctx, '一下亏掉一大块', 1340, 900, C, inv(D * 0.6, D * 0.9, lt), { px: 36, bg: B9LOSS, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.skew_shadow = (ctx, s, lt, C) => { // 一条平均线看着平稳，下方拖着一条长影子
+    const D = s.vizDur, k = E.io(inv(D * 0.25, D * 0.8, lt));
+    ctx.save(); const gr = ctx.createLinearGradient(0, 600, 0, 600 + 420 * k + 1); gr.addColorStop(0, rgba(G.INK, 0.55)); gr.addColorStop(1, rgba(G.INK, 0));
+    ctx.fillStyle = gr; G.poly(ctx, [[360, 600], [1560, 600], [1420, 600 + 420 * k], [500, 600 + 420 * k]], gr); ctx.restore();
+    ctx.fillStyle = G.CREAM; ctx.fillRect(320, 592, 1280 * E.o3(inv(D * 0.05, D * 0.3, lt)), 16);
+    tag(ctx, '平均', 1680, 600, C, inv(D * 0.2, D * 0.5, lt), { px: 36, bg: G.CREAM, fg: G.INK }); tag(ctx, '尾巴很长', 960, 940, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.skew_fat = (ctx, s, lt, C) => { // 左边的长尾巴同时也变粗了，旁边小字「Fat Tails」
+    const D = s.vizDur, k = E.io(inv(D * 0.15, D * 0.6, lt)), f = (u) => b9S(u) + k * 0.14 * Math.exp(-Math.pow(u + 2.2, 2) / 1.4); b9axis(ctx, C, rgba(G.INK, 0.6));
+    b7area(ctx, B9X0, B9X1, B9YB, 460, f, B9X0, 820, rgba(B9LOSS, 0.5));
+    b7curve(ctx, B9X0, B9X1, B9YB, 460, f, 1, G.INK, 10, null);
+    b8txt(ctx, 'Fat Tails', 560, 640, 40, G.INK, { en: 1, a: inv(D * 0.45, D * 0.75, lt) });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.skew_ruler = (ctx, s, lt, C) => { // 一把尺子量的是小山的轮廓，不是钱包
+    const D = s.vizDur, rx = lerp(B9X0, 1360, inv(D * 0.1, D * 0.7, lt)); b9axis(ctx, C, rgba(G.INK, 0.6));
+    const pts = b7curve(ctx, B9X0, 1360, B9YB, 420, b9S, 1, G.INK, 10, null);
+    ctx.fillStyle = rgba(G.INK, 0.85); ctx.fillRect(rx - 24, 380, 48, B9YB - 380); ctx.fillStyle = C.bg; for (let j = 0; j < 16; j++) ctx.fillRect(rx - 24, 400 + j * 32, j % 4 ? 14 : 28, 4);
+    ctx.fillStyle = G.INK; ctx.beginPath(); ctx.roundRect(1480, 560, 220, 150, 20); ctx.fill(); ctx.fillStyle = C.bg; ctx.fillRect(1620, 615, 60, 40);
+    b8cross(ctx, 1590, 635, 200, B9LOSS, inv(D * 0.45, D * 0.75, lt));
+    tag(ctx, '量的是形状', 1100, 330, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.skew_end = (ctx, s, lt, C) => { // 回到那座歪向一边的小山，镜头顺着左边尾巴往下移
+    const D = s.vizDur, k = E.io(inv(D * 0.1, D * 0.85, lt)), z = lerp(1, 1.5, k);
+    ctx.save(); ctx.translate(lerp(960, 640, k), lerp(640, 560, k)); ctx.scale(z, z); ctx.translate(-960, -640);
+    ctx.fillStyle = rgba(C.fg, 0.6); ctx.fillRect(B9X0 - 40, B9YB, B9X1 - B9X0 + 80, 6); b7curve(ctx, B9X0, B9X1, B9YB, 480, b9S, 1, C.fg, 10, rgba(C.fg, 0.2));
+    b7area(ctx, B9X0, B9X1, B9YB, 480, b9S, B9X0, 760, rgba(B9LOSS, 0.6 * k)); ctx.restore();
+    b6down(ctx, 300, 640, 960, B9LOSS, 10, inv(D * 0.4, D * 0.8, lt));
+    tag(ctx, '尾巴往哪拖？', 1440, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 40, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
   // ───────── finance-v003 scene library, batch 4 (CAPM long, 13 lines, 2026-10-30) ─────────
   // Metaphor (金融专家): companies = unnamed small buildings, the market = the ground they stand on.
   // Company trouble = smoke on one roof (diluted by owning many); market risk = the whole ground sinks.
