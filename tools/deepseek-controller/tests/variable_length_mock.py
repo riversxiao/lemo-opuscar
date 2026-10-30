@@ -169,6 +169,18 @@ beta = json.loads((CTL / "templates" / "finance-term" / "examples" / "004-beta-v
 bl = beta if isinstance(beta, list) else beta["lines"]
 OLD.update(zip([x["visual"] for x in bl], ["plunge", "swing_label", "step_blocks", "waves", "boat", "mirror_updown", "coaster"]))
 ok(all(VP.pick_scene(v) == sc for v, sc in OLD.items()), "var-plain-v004 + beta scene mappings unchanged")
+# 8) batch-4 scenes: 13 CAPM-long visuals → 13 distinct scenes; capm-v001 keeps its scenes
+CV = ["一架天平：一边放「风险」，一边放「回报」，天平只翘起一半", "一把尺子：一头刻「风险」，一头刻「该要的回报」，尺子上标「CAPM」",
+      "画面一分为二：左边一栋不写名字的小楼冒烟，右边先空着", "一栋冒烟的小楼旁边排出一整排小楼，烟被稀释得几乎看不见",
+      "右边整片地面一起下沉，上面所有小楼一起往下走", "小楼再多，地面下沉时全都跟着沉，一栋也没躲开",
+      "左边的烟旁边放着一个空的奖励盒，盖子是开的，里面什么都没有", "一根回报柱子分成上下两段，先亮出分界线",
+      "柱子底下那段亮起，标「起步价（如国债）」", "柱子上面那段随着一条晃动的曲线变高：晃得越猛，这段越高",
+      "柱子变成虚线的「预期」，旁边实际的柱子有的矮一截、有的掉到零线以下", "那把 CAPM 尺子放在桌上，旁边一个水晶球被打叉",
+      "画面回到整片下沉的地面，天平这次稳稳地翘向「躲不掉的风险」一侧"]
+B4 = ["balance_half", "ruler_capm", "split_smoke", "row_dilute", "ground_sink", "all_sink", "empty_box", "pillar_split",
+      "pillar_base", "pillar_wiggle", "expect_dashed", "ruler_crystal", "balance_settle"]
+ok([VP.pick_scene(v) for v in CV] == B4 and all(f"VIZ.{s} =" in sj and f" {s}: '" in sj for s in B4), "CAPM long visuals → 13 drawn batch-4 scenes")
+ok(VP.pick_scene("一架天平：一边放「冒险」，一边放「回报」，天平只翘起一半") == "scale_half", "capm-v001 天平 still scale_half")
 import apply_pictogram_edl as APE  # noqa: E402
 ok("'门槛 100万'" not in sj and sj.count("LOSS_TH") >= 3 and "'亏损门槛 ' + brandStr('thresholdAmount', '100万')" in sj
    and {"thresholdLabel", "thresholdAmount"} <= set(APE.BRAND_KEYS), "threshold label 「亏损门槛 <金额>」 (brand thresholdAmount/thresholdLabel)")

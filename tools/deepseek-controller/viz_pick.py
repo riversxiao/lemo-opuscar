@@ -31,6 +31,20 @@ from typing import Any
 # ───────── scene library (keyword rules, first match wins; most specific first) ─────────
 # Each rule: (scene id, all-of keyword groups). A group matches when any of its words occurs.
 RULES: list[tuple[str, list[list[str]]]] = [
+    # batch 4 (CAPM long, 13 lines, 2026-10-30): before batch 3 (预期/实际) and batch 2 (天平/尺子/冒烟)
+    ("balance_settle", [["天平"], ["稳稳", "躲不掉"]]),
+    ("balance_half",   [["天平"], ["翘起一半", "只翘起"], ["「风险」"]]),  # capm-v001 says 「冒险」 → scale_half
+    ("ruler_crystal",  [["尺子"], ["水晶球"]]),
+    ("ruler_capm",     [["尺子"], ["一头刻"]]),
+    ("split_smoke",    [["一分为二"], ["冒烟"]]),
+    ("row_dilute",     [["一整排", "一排小楼"], ["稀释"]]),
+    ("all_sink",       [["小楼再多", "全都跟着沉", "一栋也没躲开"]]),
+    ("ground_sink",    [["整片地面", "地面一起下沉"], ["下沉"]]),
+    ("empty_box",      [["奖励盒", "空的盒"]]),
+    ("expect_dashed",  [["柱子"], ["虚线"]]),
+    ("pillar_wiggle",  [["柱子"], ["晃动的曲线", "晃得越猛"]]),
+    ("pillar_base",    [["柱子"], ["底下那段", "起步价"]]),
+    ("pillar_split",   [["柱子"], ["上下两段", "分界线"]]),
     # batch 3 (VaR long, 14 lines, 2026-10-30): most specific first — before 账本/门槛线/格子/平均 below
     ("bank_on_line",   [["银行大楼"], ["门槛线"]]),
     ("bank_report",    [["银行大楼", "银行"], ["报告卡", "报告"]]),
