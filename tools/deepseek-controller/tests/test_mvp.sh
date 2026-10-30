@@ -1506,6 +1506,12 @@ else
   bad "finance-v003 batch-5 Sharpe scenes mock (see /tmp/dc_sharpe_mock.log)"
 fi
 
+if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY -u STEP_API_KEY -u ELEVENLABS_API_KEY -u DEEPSEEK_API_KEY python3 "$CTL/tests/batch6_scenes_mock.py" >/tmp/dc_batch6_mock.log 2>&1; then
+  ok "finance-v003 batch-6 risk scenes (systematic/unsystematic/APT long/moral hazard/adverse selection): 53 distinct, lint clean, older + Sharpe mappings unchanged ($(tail -1 /tmp/dc_batch6_mock.log))"
+else
+  bad "finance-v003 batch-6 risk scenes mock (see /tmp/dc_batch6_mock.log)"
+fi
+
 # budget ledger: tests write to \$DC_BUDGET_LEDGER, never the real fixtures ledger
 if PYTHONPATH="$CTL" python3 -c "
 import budget,os

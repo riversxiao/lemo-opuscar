@@ -1544,6 +1544,738 @@
     vizCaption(ctx, s, lt, C, { y: 230 });
   };
 
+  // ───────── finance-v003 scene library, batch 6 (risk family, 2026-10-30) ─────────
+  // #6 系统性风险 · #7 非系统性风险 · #8 套利定价理论 APT · #9 道德风险 · #10 逆向选择 — 53 scenes, one per line.
+  // 金融专家 rules: losses/falls always drawn DOWNWARD, no real company / fund / institution names, no formulas
+  // (APT readings stack into a column — no sum sign, no factor algebra), no rising-only return curves, no casino props.
+  // Each scene has its own layout so the series visual-dupe gate (dHash + layout corr) stays clean;
+  // the "回到开头" finales mirror / recolour their hook scene instead of repeating it.
+  Object.assign(VPAL, {
+    umbrella_holes: 'ink', sea_title: 'purple', boats_sink: 'cream', street_dim: 'ochre', gears_dial: 'green', lines_offset: 'cream',
+    lines_bundle: 'red', net_holes: 'purple', boats_split: 'gold', umbrella_look: 'ochre',
+    rock_split: 'ink', shop_street: 'green', tea_sign: 'cream', shutter_down: 'purple', basket_break: 'red', ten_baskets: 'gold',
+    hooks_colors: 'ochre', wind_baskets: 'ink', pits_fill: 'cream',
+    dial_needles: 'ink', mixer_title: 'purple', mixer_one: 'cream', mixer_faders: 'green', receipt_jar: 'ochre', rope_strain: 'red',
+    cars_road: 'gold', springs: 'purple', faders_sum: 'cream', apple_stalls: 'green', tags_converge: 'ink', mover_slip: 'red',
+    ruler_fog: 'ochre', dial_all: 'gold',
+    net_step: 'ink', policy_title: 'gold', car_lane: 'cream', care_bar: 'green', airbag_tower: 'purple', coins_bricks: 'red',
+    deductible: 'ochre', timeline_after: 'ink', footprints_edge: 'cream',
+    door_queue: 'ink', door_title: 'gold', counter_cough: 'cream', price_jump: 'red', queue_leave: 'green', two_keys: 'purple',
+    magnifier_mid: 'ochre', cars_leave: 'ink', table_light: 'purple', timeline_before: 'gold', queue_front: 'red',
+  });
+  const b6fr = (v) => v - Math.floor(v);
+  const b6rnd = (i, s = 0) => b6fr(Math.sin(i * 12.9898 + s * 78.233) * 43758.5453);
+  function b6title(ctx, txt, x, y, px, col, p, maxW = 1500) { // big on-screen term title (acronyms keep case)
+    const t = upKeep(txt), z = G.fitFont(ctx, t, 'en', 900, px, maxW, 0.01);
+    G.maskText(ctx, t, x, y, F.en(900, z), col, p, { align: 'center', ls: '4px' });
+  }
+  function b6down(ctx, x, y0, y1, col, w = 10, p = 1) { // single arrow pointing DOWN (losses go down)
+    if (p <= 0) return; const y = lerp(y0, y1, clamp(p));
+    ctx.save(); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y - w * 2); ctx.stroke();
+    G.poly(ctx, [[x, y + w], [x - w * 2.6, y - w * 2.4], [x + w * 2.6, y - w * 2.4]], col); ctx.restore();
+  }
+  function b6upArrow(ctx, x, y0, y1, col, w = 10, p = 1) {
+    if (p <= 0) return; const y = lerp(y0, y1, clamp(p));
+    ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y + w * 2); ctx.stroke();
+    G.poly(ctx, [[x, y - w], [x - w * 2.6, y + w * 2.4], [x + w * 2.6, y + w * 2.4]], col); ctx.restore();
+  }
+  function b6sea(ctx, y, amp, lt, col, ph = 0, k = 0.006, x0 = 0, x1 = W) {
+    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x0, H);
+    for (let x = x0; x <= x1; x += 16) ctx.lineTo(x, y + amp * Math.sin(x * k + lt * 2 + ph));
+    ctx.lineTo(x1, H); ctx.closePath(); ctx.fill();
+  }
+  function b6boat(ctx, x, y, w, col, tilt = 0) { // y = waterline, hull below, sail above
+    ctx.save(); ctx.translate(x, y); ctx.rotate(tilt);
+    G.poly(ctx, [[-w / 2, -w * 0.06], [w / 2, -w * 0.06], [w * 0.34, w * 0.24], [-w * 0.34, w * 0.24]], col);
+    ctx.fillStyle = col; ctx.fillRect(-4, -w * 0.62, 8, w * 0.58);
+    G.poly(ctx, [[8, -w * 0.6], [w * 0.36, -w * 0.12], [8, -w * 0.12]], col); ctx.restore();
+  }
+  function b6rain(ctx, x0, x1, y0, y1, lt, col, n = 40, seed = 1) {
+    ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    for (let i = 0; i < n; i++) {
+      const x = lerp(x0, x1, b6rnd(i, seed)), y = y0 + b6fr(lt * 1.1 + b6rnd(i, seed + 3)) * (y1 - y0);
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 6, y + 34); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function b6canopy(ctx, x, y, r) { // umbrella canopy path (y = rim)
+    ctx.beginPath(); ctx.moveTo(x - r, y); ctx.quadraticCurveTo(x - r, y - r * 0.95, x, y - r * 0.95); ctx.quadraticCurveTo(x + r, y - r * 0.95, x + r, y);
+    for (let i = 0; i < 4; i++) { const a = x + r - i * r / 2, b = a - r / 2; ctx.quadraticCurveTo((a + b) / 2, y - r * 0.16, b, y); }
+    ctx.closePath();
+  }
+  function b6umbrella(ctx, x, y, r, col, holes, bg) {
+    ctx.fillStyle = col; b6canopy(ctx, x, y, r); ctx.fill();
+    ctx.fillRect(x - 5, y - r * 0.95, 10, r * 0.95 + r * 0.55);
+    ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(x - 26, y + r * 0.55, 26, 0, Math.PI); ctx.stroke(); ctx.restore();
+    holes.forEach(([hx, hy, hr]) => { if (hr > 0) G.disc(ctx, x + hx * r, y + hy * r, hr * r, bg); });
+  }
+  function b6shop(ctx, x, y, w, h, col, awn, win, sign) { // y = ground
+    ctx.fillStyle = col; ctx.fillRect(x - w / 2, y - h, w, h);
+    for (let i = 0; i < 6; i++) { const c = i % 2 ? G.CREAM : awn, a = x - w / 2 - 10 + i * (w + 20) / 6, b = a + (w + 20) / 6; G.poly(ctx, [[a, y - h * 0.62], [b, y - h * 0.62], [b, y - h * 0.5], [a, y - h * 0.5]], c); }
+    ctx.fillStyle = win; ctx.fillRect(x - w * 0.36, y - h * 0.42, w * 0.42, h * 0.3); ctx.fillRect(x + w * 0.12, y - h * 0.42, w * 0.22, h * 0.42);
+    if (sign) { ctx.fillStyle = sign; ctx.fillRect(x - w * 0.38, y - h * 0.92, w * 0.76, h * 0.2); }
+  }
+  function b6cart(ctx, x, y, s, col) { // y = wheels
+    ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 8; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x - s * 0.7, y - s * 0.95); ctx.lineTo(x - s * 0.5, y - s * 0.95); ctx.lineTo(x - s * 0.3, y - s * 0.3); ctx.lineTo(x + s * 0.55, y - s * 0.3); ctx.lineTo(x + s * 0.7, y - s * 0.8); ctx.lineTo(x - s * 0.42, y - s * 0.8); ctx.stroke();
+    for (let i = 1; i < 4; i++) { ctx.beginPath(); ctx.moveTo(x - s * 0.42 + i * s * 0.28, y - s * 0.8); ctx.lineTo(x - s * 0.36 + i * s * 0.25, y - s * 0.3); ctx.stroke(); }
+    ctx.restore(); G.disc(ctx, x - s * 0.2, y - s * 0.08, s * 0.09, col); G.disc(ctx, x + s * 0.45, y - s * 0.08, s * 0.09, col);
+  }
+  function b6gear(ctx, x, y, r, teeth, rot, col, hole) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.fillStyle = col; ctx.beginPath();
+    for (let i = 0; i < teeth * 2; i++) { const a = i / (teeth * 2) * Math.PI * 2, rr = i % 2 ? r : r * 1.22; ctx.lineTo(Math.cos(a - 0.12) * rr, Math.sin(a - 0.12) * rr); ctx.lineTo(Math.cos(a + 0.12) * rr, Math.sin(a + 0.12) * rr); }
+    ctx.closePath(); ctx.fill(); G.disc(ctx, 0, 0, r * 0.35, hole); ctx.restore();
+  }
+  function b6car(ctx, x, y, w, col, win, wheel) { // side view, y = road
+    ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x - w / 2, y - w * 0.36, w, w * 0.24, w * 0.06); ctx.fill();
+    G.poly(ctx, [[x - w * 0.28, y - w * 0.36], [x + w * 0.18, y - w * 0.36], [x + w * 0.06, y - w * 0.56], [x - w * 0.2, y - w * 0.56]], col);
+    G.poly(ctx, [[x - w * 0.18, y - w * 0.4], [x + w * 0.1, y - w * 0.4], [x + w * 0.03, y - w * 0.52], [x - w * 0.14, y - w * 0.52]], win);
+    G.disc(ctx, x - w * 0.3, y - w * 0.1, w * 0.1, wheel || G.INK); G.disc(ctx, x + w * 0.3, y - w * 0.1, w * 0.1, wheel || G.INK);
+  }
+  function b6doc(ctx, x, y, w, h, col, line, p = 1) { // paper with text lines, (x,y) = centre
+    ctx.save(); ctx.translate(x, y); ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, 14); ctx.fill();
+    ctx.fillStyle = line; for (let i = 0; i < 6; i++) { const lw = (w - 90) * (i % 3 === 2 ? 0.6 : 0.92) * clamp(p * 6 - i); if (lw > 0) ctx.fillRect(-w / 2 + 45, -h / 2 + 70 + i * (h - 130) / 6, lw, 12); }
+    ctx.restore();
+  }
+  function b6person(ctx, x, y, sc, col, o = {}) { figAt(ctx, x, y, sc, Object.assign({ torso: 0 }, o), col, o.far || (col[0] === '#' ? rgba(col, 0.6) : col)); }
+  function b6spring(ctx, x0, y0, x1, y1, n, amp, w, col) {
+    const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+    ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(x0, y0);
+    for (let i = 1; i < n * 2; i++) { const f = i / (n * 2), sg = i % 2 ? 1 : -1; ctx.lineTo(x0 + dx * f + nx * amp * sg, y0 + dy * f + ny * amp * sg); }
+    ctx.lineTo(x1, y1); ctx.stroke(); ctx.restore();
+  }
+  function b6key(ctx, x, y, s, col, rust) {
+    ctx.save(); ctx.translate(x, y); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(-s * 0.55, 0, s * 0.32, 0, Math.PI * 2); ctx.fill();
+    ctx.fillRect(-s * 0.3, -s * 0.07, s * 1.1, s * 0.14); ctx.fillRect(s * 0.55, 0, s * 0.1, s * 0.22); ctx.fillRect(s * 0.7, 0, s * 0.1, s * 0.16);
+    G.disc(ctx, -s * 0.55, 0, s * 0.13, rust ? rgba(G.INK, 0.6) : rgba(G.INK, 0.35));
+    if (rust) for (let i = 0; i < 9; i++) G.disc(ctx, -s * 0.7 + b6rnd(i, 4) * s * 1.5, (b6rnd(i, 5) - 0.5) * s * 0.4, s * (0.03 + 0.04 * b6rnd(i, 6)), '#5a3a1a');
+    ctx.restore();
+  }
+  function b6crate(ctx, x, y, s, col, line) {
+    ctx.fillStyle = col; ctx.fillRect(x - s / 2, y - s / 2, s, s); ctx.strokeStyle = line; ctx.lineWidth = 6; ctx.strokeRect(x - s / 2 + 8, y - s / 2 + 8, s - 16, s - 16);
+    ctx.beginPath(); ctx.moveTo(x - s / 2 + 8, y - s / 2 + 8); ctx.lineTo(x + s / 2 - 8, y + s / 2 - 8); ctx.stroke();
+  }
+  function b6wheel(ctx, x, y, r, col, rot, hands, handCol) { // steering wheel + 1 or 2 hands
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.strokeStyle = col; ctx.lineWidth = r * 0.16; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = r * 0.12; ctx.beginPath(); ctx.moveTo(-r, 0); ctx.lineTo(r, 0); ctx.moveTo(0, 0); ctx.lineTo(0, r); ctx.stroke(); G.disc(ctx, 0, 0, r * 0.22, col);
+    const hp = hands === 2 ? [[-r, -r * 0.05], [r, -r * 0.05]] : [[r * 0.5, -r * 0.87]];
+    hp.forEach(([hx, hy]) => { ctx.fillStyle = handCol; ctx.beginPath(); ctx.ellipse(hx, hy, r * 0.2, r * 0.27, 0, 0, Math.PI * 2); ctx.fill(); });
+    ctx.restore();
+  }
+  function b6timeline(ctx, x0, x1, y, p, col) { ctx.fillStyle = col; ctx.fillRect(x0, y - 4, (x1 - x0) * clamp(p), 8); if (p > 0.98) G.poly(ctx, [[x1 + 34, y], [x1, y - 22], [x1, y + 22]], col); }
+  function b6sign(ctx, x, y, col, fg, p) { // signature mark on a timeline
+    if (p <= 0) return; G.disc(ctx, x, y, 26 * E.oBack(clamp(p)), col);
+    ctx.save(); ctx.strokeStyle = fg; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x - 12, y + 2); ctx.quadraticCurveTo(x - 4, y - 14, x + 2, y + 4); ctx.quadraticCurveTo(x + 8, y + 14, x + 14, y - 6); ctx.stroke(); ctx.restore();
+  }
+  function b6fader(ctx, x, y0, y1, v, col, knob, lab, C, p) { // vertical fader slot, v 0..1 (1 = top)
+    ctx.fillStyle = rgba(col, 0.35); ctx.fillRect(x - 6, y0, 12, y1 - y0);
+    const ky = lerp(y1, y0, v); ctx.fillStyle = knob; ctx.beginPath(); ctx.roundRect(x - 42, ky - 22, 84, 44, 10); ctx.fill();
+    ctx.fillStyle = rgba(G.INK, 0.5); ctx.fillRect(x - 32, ky - 3, 64, 6);
+    if (lab) tag(ctx, lab, x, y1 + 50, C, p, { px: 30, bg: knob, fg: G.INK });
+  }
+  function b6console(ctx, x0, y0, x1, y1, col, top) { ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x0, y0, x1 - x0, y1 - y0, 28); ctx.fill(); ctx.fillStyle = top; ctx.fillRect(x0 + 30, y0 + 24, x1 - x0 - 60, 14); }
+  function b6pit(ctx, x, w, d, y, col) { // a pit in the ground at y, drawn downward
+    if (w <= 1) return; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x - w / 2, y); ctx.quadraticCurveTo(x, y + d * 2, x + w / 2, y); ctx.closePath(); ctx.fill();
+  }
+  function b6piggy(ctx, x, y, r, col, eye) {
+    ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(x, y, r * 1.25, r, 0, 0, Math.PI * 2); ctx.fill();
+    G.poly(ctx, [[x - r * 0.5, y - r * 0.85], [x - r * 0.25, y - r * 1.3], [x - r * 0.05, y - r * 0.9]], col);
+    ctx.fillRect(x - r * 0.8, y + r * 0.6, r * 0.28, r * 0.55); ctx.fillRect(x + r * 0.5, y + r * 0.6, r * 0.28, r * 0.55);
+    ctx.beginPath(); ctx.ellipse(x + r * 1.3, y, r * 0.22, r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = eye; ctx.fillRect(x - r * 0.25, y - r * 0.98, r * 0.5, r * 0.1); G.disc(ctx, x + r * 0.7, y - r * 0.3, r * 0.08, eye);
+  }
+  function b6gaugeArc(ctx, x, y, r, col, w) {
+    ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.arc(x, y, r, Math.PI, 0); ctx.stroke();
+    for (let i = 0; i <= 10; i++) { const a = Math.PI + i / 10 * Math.PI; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * (r - 40), y + Math.sin(a) * (r - 40)); ctx.lineTo(x + Math.cos(a) * (r - 12), y + Math.sin(a) * (r - 12)); ctx.lineWidth = 6; ctx.stroke(); }
+    ctx.restore();
+  }
+  function b6needle(ctx, x, y, len, a, w, col) { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len); ctx.stroke(); ctx.restore(); }
+  function b6cough(ctx, x, y, lt, col) { for (let i = 0; i < 3; i++) { const u = b6fr(lt * 1.4 + i / 3); ctx.save(); ctx.globalAlpha = (1 - u) * 0.8; G.disc(ctx, x + u * 70, y - u * 20 + i * 6, 8 + u * 16, col); ctx.restore(); } }
+  function b6door(ctx, x, y, w, h, open, frame, panel, light) { // y = floor
+    ctx.fillStyle = light; ctx.fillRect(x - w / 2, y - h, w, h);
+    ctx.fillStyle = frame; ctx.fillRect(x - w / 2 - 22, y - h - 22, w + 44, 22); ctx.fillRect(x - w / 2 - 22, y - h, 22, h); ctx.fillRect(x + w / 2, y - h, 22, h);
+    const pw = w * (1 - 0.72 * open); G.poly(ctx, [[x - w / 2, y - h], [x - w / 2 + pw, y - h + 40 * open], [x - w / 2 + pw, y - 40 * open], [x - w / 2, y]], panel);
+    G.disc(ctx, x - w / 2 + pw - 22, y - h / 2, 10, frame);
+  }
+  function b6netBelow(ctx, x0, x1, y, sag, col, p) {
+    ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 5; ctx.globalAlpha = clamp(p);
+    for (let j = 0; j < 4; j++) { ctx.beginPath(); ctx.moveTo(x0, y + j * 30); ctx.quadraticCurveTo((x0 + x1) / 2, y + j * 30 + sag, x1, y + j * 30); ctx.stroke(); }
+    for (let i = 0; i <= 10; i++) { const x = lerp(x0, x1, i / 10), d = sag * (1 - Math.pow((i / 10) * 2 - 1, 2)) / 2; ctx.beginPath(); ctx.moveTo(x, y + d); ctx.lineTo(x, y + 90 + d); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  // ── #6 系统性风险 Systematic Risk ──
+  VIZ.umbrella_holes = (ctx, s, lt, C) => { // 一张撑开的大伞，伞面破洞，雨照样漏下来
+    const D = s.vizDur, x = 1180, y = 600, r = 400, hp = E.oBack(inv(0.3, D * 0.5, lt));
+    const holes = [[-0.5, -0.32, 0.09 * hp], [0.12, -0.6, 0.075 * hp], [0.55, -0.22, 0.085 * hp]];
+    b6rain(ctx, 560, 1800, 330, y - r * 0.6, lt, rgba(G.CREAM, 0.55), 46, 2);
+    ctx.save(); ctx.beginPath(); ctx.rect(0, y, x - r, H); ctx.rect(x + r, y, W - x - r, H);
+    holes.forEach(([hx, , hr]) => { if (hr > 0) ctx.rect(x + hx * r - hr * r, y, hr * r * 2, 400); }); ctx.clip();
+    b6rain(ctx, 300, 1800, y - 40, 990, lt, rgba(G.CREAM, 0.75), 120, 7); ctx.restore();
+    b6umbrella(ctx, x, y, r, PAL.red.t[2], holes, C.bg);
+    b6person(ctx, x + 70, 980, 300, G.CREAM, { aR1: 150, aR2: 160, head: 8 });
+    tag(ctx, '照样漏', 1560, 820, C, inv(D * 0.5, D * 0.8, lt), { px: 40, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.sea_title = (ctx, s, lt, C) => { // 屏幕标题「Systematic Risk」，下方一整片海面
+    const D = s.vizDur, k = E.io(inv(0.1, D * 0.5, lt));
+    b6title(ctx, 'Systematic Risk', W / 2, 560, 150, C.fg, inv(0.2, 0.9, lt));
+    b6sea(ctx, lerp(1000, 760, k), 26, lt, PAL.purple.t[4], 0, 0.005);
+    b6sea(ctx, lerp(1040, 820, k), 22, lt, PAL.purple.t[3], 1.6, 0.007);
+    b6sea(ctx, lerp(1080, 890, k), 18, lt, PAL.purple.t[0], 3.1, 0.009);
+    tag(ctx, '整片市场', W / 2, 680, C, inv(D * 0.5, D * 0.8, lt), { px: 40, bg: G.CREAM, fg: PAL.purple.t[1] });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.boats_sink = (ctx, s, lt, C) => { // 海面上一排小船，同一个浪打来，全部一起往下沉
+    const D = s.vizDur, d = 210 * E.io3(inv(D * 0.3, D * 0.85, lt)), wy = 620;
+    ctx.fillStyle = rgba(G.INK, 0.12); ctx.fillRect(160, wy - 6, 1600, 4);
+    for (let i = 0; i < 6; i++) b6boat(ctx, 330 + i * 250, wy + d + 8 * Math.sin(lt * 2 + i), 150, G.INK, 0.05 * Math.sin(lt * 2.2 + i));
+    ctx.save(); ctx.globalAlpha = 0.88; b6sea(ctx, wy + 10, 22 + 30 * inv(D * 0.2, D * 0.5, lt), lt, PAL.purple.t[2], 0, 0.004); ctx.restore();
+    b6down(ctx, 1760, 640, 900, G.CREAM, 10, inv(D * 0.35, D * 0.7, lt));
+    tag(ctx, '同一个浪', 1450, 400, C, inv(0.3, 0.9, lt), { px: 40, bg: PAL.purple.t[2], fg: G.CREAM });
+    tag(ctx, '一起往下沉', 700, 940, C, inv(D * 0.6, D * 0.85, lt), { px: 40, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.street_dim = (ctx, s, lt, C) => { // 商店街灯一盏盏暗下去，购物车空着
+    const D = s.vizDur, gy = 900;
+    ctx.fillStyle = rgba(G.INK, 0.25); ctx.fillRect(120, gy, 1680, 10);
+    for (let i = 0; i < 5; i++) {
+      const x = 300 + i * 290, lit = 1 - clamp(inv(D * (0.2 + i * 0.12), D * (0.3 + i * 0.12), lt));
+      b6shop(ctx, x, gy, 230, 330, G.INK, PAL.red.t[3], mix(G.INK, '#ffe9a8', lit));
+      ctx.fillStyle = G.INK; ctx.fillRect(x + 130, gy - 460, 8, 460);
+      if (lit > 0.02) { ctx.save(); ctx.globalAlpha = 0.5 * lit; G.disc(ctx, x + 134, gy - 470, 70, '#fff3c4'); ctx.restore(); }
+      G.disc(ctx, x + 134, gy - 470, 20, lit > 0.05 ? '#fff3c4' : rgba(G.INK, 0.7));
+    }
+    b6cart(ctx, 1640, 1000, 180, G.INK);
+    tag(ctx, '空的', 1640, 770, C, inv(D * 0.6, D * 0.85, lt), { px: 36, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.gears_dial = (ctx, s, lt, C) => { // 一个大旋钮被猛拧，旁边所有小齿轮跟着一起转
+    const D = s.vizDur, tw = E.oBack(inv(D * 0.2, D * 0.45, lt), 2.2), a = lerp(-2.2, 0.9, tw), kx = 520, ky = 650;
+    G.disc(ctx, kx, ky, 230, rgba(G.INK, 0.25)); G.disc(ctx, kx, ky, 190, G.CREAM);
+    for (let i = 0; i < 12; i++) { ctx.fillStyle = G.CREAM; ctx.save(); ctx.translate(kx, ky); ctx.rotate(-2.6 + i / 11 * 4.2); ctx.fillRect(210, -4, 30, 8); ctx.restore(); }
+    b6needle(ctx, kx, ky, 160, a, 22, PAL.red.t[2]); G.disc(ctx, kx, ky, 40, G.INK);
+    tag(ctx, '利率', kx, ky + 290, C, inv(0.2, 0.7, lt), { px: 40, bg: G.INK, fg: G.CREAM });
+    const spin = tw * 5 + lt * 0.3;
+    [[1000, 480, 80], [1230, 470, 64], [1450, 520, 90], [1660, 470, 60], [1080, 760, 70], [1330, 740, 96], [1600, 780, 76]].forEach(([x, y, r], i) =>
+      b6gear(ctx, x, y, r, 9, spin * (i % 2 ? -1 : 1) * (100 / r), i % 3 ? G.INK : PAL.green.t[0], C.bg));
+    tag(ctx, '借钱成本', 1330, 930, C, inv(D * 0.45, D * 0.75, lt), { px: 40, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.lines_offset = (ctx, s, lt, C) => { // 几条线有上有下，交错着，总线大致平稳
+    const D = s.vizDur, x0 = 200, x1 = 1720, yc = 640, rev = E.io(inv(0.1, D * 0.8, lt)), n = 80;
+    ctx.save(); ctx.setLineDash([14, 12]); ctx.strokeStyle = rgba(G.INK, 0.3); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x0, yc); ctx.lineTo(x1, yc); ctx.stroke(); ctx.restore();
+    const cols = [PAL.red.t[2], PAL.purple.t[3], PAL.green.t[2], PAL.gold.t[1]];
+    const f = (k, u) => 150 * Math.sin(u * 9 + k * Math.PI / 2) + 40 * Math.sin(u * 23 + k);
+    for (let k = 0; k < 4; k++) { ctx.save(); ctx.strokeStyle = cols[k]; ctx.lineWidth = 8; ctx.lineJoin = 'round'; ctx.beginPath();
+      for (let i = 0; i <= n * rev; i++) { const u = i / n, y = yc - f(k, u); i ? ctx.lineTo(lerp(x0, x1, u), y) : ctx.moveTo(x0, y); } ctx.stroke(); ctx.restore(); }
+    ctx.save(); ctx.strokeStyle = G.INK; ctx.lineWidth = 20; ctx.lineCap = 'round'; ctx.beginPath();
+    for (let i = 0; i <= n * rev; i++) { const u = i / n; let v = 0; for (let k = 0; k < 4; k++) v += f(k, u); const y = yc - v / 4 * 0.6; i ? ctx.lineTo(lerp(x0, x1, u), y) : ctx.moveTo(x0, y); }
+    ctx.stroke(); ctx.restore();
+    tag(ctx, '合起来大致平稳', 1400, 900, C, inv(D * 0.6, D * 0.85, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.lines_bundle = (ctx, s, lt, C) => { // 几条线同时掉头往下，挤成一束
+    const D = s.vizDur, x0 = 180, x1 = 1740, yc = 470, rev = E.io(inv(0.1, D * 0.8, lt)), n = 80, k0 = 0.5;
+    ctx.fillStyle = rgba(G.CREAM, 0.3); ctx.fillRect(x0, yc - 2, x1 - x0, 4);
+    for (let k = 0; k < 4; k++) { ctx.save(); ctx.strokeStyle = k ? rgba(G.CREAM, 0.55 + k * 0.12) : G.CREAM; ctx.lineWidth = 9; ctx.lineJoin = 'round'; ctx.beginPath();
+      for (let i = 0; i <= n * rev; i++) { const u = i / n, pre = 70 * Math.sin(u * 10 + k * 1.6), dn = u < k0 ? 0 : E.io(clamp((u - k0) / 0.4)); const y = yc - pre * (1 - dn) + dn * (400 + k * 14); i ? ctx.lineTo(lerp(x0, x1, u), y) : ctx.moveTo(x0, y); }
+      ctx.stroke(); ctx.restore(); }
+    ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle = G.INK; ctx.fillRect(lerp(x0, x1, k0), 340, 6, 620); ctx.restore();
+    tag(ctx, '危机', lerp(x0, x1, k0), 370, C, inv(D * 0.3, D * 0.5, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    tag(ctx, '挤成一束', 1450, 940, C, inv(D * 0.7, D * 0.9, lt), { px: 36, bg: G.CREAM, fg: PAL.red.t[1] });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.net_holes = (ctx, s, lt, C) => { // 一张安全网的网眼被撑大，接不住往下掉的东西
+    const D = s.vizDur, st = E.io(inv(D * 0.2, D * 0.6, lt)), cy = 700, cx = W / 2;
+    const gx = (i) => cx + (i - 6) * lerp(90, 90 + 70 * Math.exp(-Math.abs(i - 6) / 2), st);
+    ctx.save(); ctx.strokeStyle = G.CREAM; ctx.lineWidth = 6;
+    for (let i = 0; i <= 12; i++) { const x = gx(i); ctx.beginPath(); ctx.moveTo(x, cy - 110); ctx.quadraticCurveTo(x, cy + 30, x, cy + 110); ctx.stroke(); }
+    for (let j = -2; j <= 2; j++) { ctx.beginPath(); for (let i = 0; i <= 12; i++) { const x = gx(i), y = cy + j * lerp(52, 60, st) + 30 * Math.cos((i - 6) / 6 * Math.PI / 2); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); }
+    ctx.restore();
+    for (let i = 0; i < 5; i++) { const u = clamp((lt - D * (0.35 + i * 0.1)) / 1.4); if (u <= 0) continue; b6crate(ctx, cx + (i - 2) * 140, lerp(360, 1040, E.i3(u)), 60, i % 2 ? GOLD : PAL.red.t[3], rgba(G.INK, 0.4)); }
+    b6down(ctx, 1700, 420, 900, G.CREAM, 9, inv(D * 0.4, D * 0.7, lt));
+    tag(ctx, '网眼撑大', 1480, 420, C, inv(D * 0.3, D * 0.6, lt), { px: 38, bg: G.CREAM, fg: PAL.purple.t[1] });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.boats_split = (ctx, s, lt, C) => { // 左：一艘船漏水，其他船托住；右：大浪把所有船一起压下去
+    const D = s.vizDur, d = 180 * E.io3(inv(D * 0.35, D * 0.85, lt)), wy = 640;
+    ctx.fillStyle = rgba(G.INK, 0.35); ctx.fillRect(W / 2 - 3, 330, 6, 660);
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W / 2 - 3, H); ctx.clip();
+    b6sea(ctx, wy + 20, 10, lt, rgba(G.INK, 0.25), 0, 0.01, 0, W / 2);
+    [300, 520, 740].forEach((x, i) => b6boat(ctx, x, wy + (i === 1 ? 30 : 0), 150, i === 1 ? PAL.red.t[2] : G.INK, i === 1 ? 0.12 * Math.sin(lt * 2) : 0));
+    ctx.strokeStyle = G.INK; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(360, wy - 10); ctx.lineTo(460, wy + 10); ctx.moveTo(580, wy + 10); ctx.lineTo(680, wy - 10); ctx.stroke();
+    for (let i = 0; i < 3; i++) { const u = b6fr(lt + i / 3); G.disc(ctx, 520 + (i - 1) * 30, wy + 50 + u * 80, 8, rgba(PAL.purple.t[2], 1 - u)); }
+    ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(W / 2 + 3, 0, W, H); ctx.clip();
+    [1150, 1400, 1650].forEach((x, i) => b6boat(ctx, x, wy + d, 150, G.INK, 0.04 * Math.sin(lt * 2 + i)));
+    ctx.globalAlpha = 0.85; b6sea(ctx, wy + 10, 20 + 40 * inv(D * 0.2, D * 0.5, lt), lt, PAL.purple.t[2], 0.5, 0.005, W / 2, W); ctx.restore();
+    tag(ctx, '一家出事，托得住', 520, 900, C, inv(0.3, 0.9, lt), { px: 36, bg: G.INK, fg: G.CREAM });
+    tag(ctx, '一起跌，托不住', 1400, 940, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.umbrella_look = (ctx, s, lt, C) => { // 回到开头的破伞，伞下的人抬头看天 — umbrella left, sky + clouds right
+    const D = s.vizDur, x = 600, y = 640, r = 300, look = E.io(inv(0.3, D * 0.5, lt));
+    for (let i = 0; i < 3; i++) { const cx = 1200 + i * 220 + 20 * Math.sin(lt * 0.6 + i), cy = 430 + (i % 2) * 50; G.disc(ctx, cx, cy, 120, rgba(G.INK, 0.55)); G.disc(ctx, cx + 90, cy + 20, 90, rgba(G.INK, 0.55)); }
+    b6rain(ctx, 1050, 1800, 520, 990, lt, rgba(G.INK, 0.45), 60, 9);
+    b6umbrella(ctx, x, y, r, G.INK, [[-0.45, -0.35, 0.09], [0.15, -0.62, 0.075], [0.5, -0.2, 0.085]], C.bg);
+    b6person(ctx, x + 40, 990, 340, G.CREAM, { head: -32 * look, torso: -8 * look, aR1: 150, aR2: 160 });
+    G.maskText(ctx, '?', 1560, 820, F.en(900, 220), G.CREAM, inv(D * 0.4, D * 0.7, lt), { align: 'center' });
+    tag(ctx, '一起跌时扛得住吗', 1400, 940, C, inv(D * 0.55, D * 0.85, lt), { px: 36, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+
+  // ── #7 非系统性风险 Unsystematic Risk ──
+  VIZ.rock_split = (ctx, s, lt, C) => { // 一大块石头被敲成许多小碎块，散到很多篮子里
+    const D = s.vizDur, br = E.io(inv(D * 0.25, D * 0.75, lt)), rx = W / 2, ry = 520;
+    if (br < 0.05) G.poly(ctx, [[rx - 220, ry + 120], [rx - 260, ry - 30], [rx - 120, ry - 150], [rx + 90, ry - 160], [rx + 250, ry - 40], [rx + 220, ry + 120]], PAL.ochre.t[2]);
+    else for (let i = 0; i < 15; i++) {
+      const bx = 380 + (i % 5) * 290, sx = rx + (b6rnd(i, 1) - 0.5) * 380, sy = ry + (b6rnd(i, 2) - 0.5) * 220, z = 54;
+      const x = lerp(sx, bx + (Math.floor(i / 5) - 1) * 40, br), y = lerp(sy, 830 - Math.floor(i / 5) * 26, br) - Math.sin(br * Math.PI) * 120;
+      G.poly(ctx, [[x - z * 0.6, y + z * 0.4], [x - z * 0.5, y - z * 0.3], [x + z * 0.1, y - z * 0.5], [x + z * 0.6, y], [x + z * 0.3, y + z * 0.45]], PAL.ochre.t[2 + (i % 3)]);
+    }
+    if (lt < D * 0.3) { const hx = rx + 320, hy = 330 + 60 * Math.abs(Math.sin(lt * 6)); ctx.fillStyle = G.CREAM; ctx.fillRect(hx - 70, hy - 30, 140, 60); ctx.fillRect(hx - 8, hy, 16, 160); }
+    for (let i = 0; i < 5; i++) basket(ctx, 380 + i * 290, 860, 200, 110, G.CREAM);
+    tag(ctx, '散到很多篮子', 1500, 400, C, inv(D * 0.6, D * 0.85, lt), { px: 38, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.shop_street = (ctx, s, lt, C) => { // 屏幕标题「Unsystematic Risk」，下方一条街上的几家小店
+    const gy = 980, awn = [PAL.red.t[2], PAL.gold.t[2], PAL.purple.t[3], PAL.ochre.t[2], PAL.red.t[4]];
+    b6title(ctx, 'Unsystematic Risk', W / 2, 500, 140, C.fg, inv(0.2, 0.9, lt));
+    ctx.fillStyle = rgba(G.INK, 0.3); ctx.fillRect(120, gy - 4, 1680, 8);
+    for (let i = 0; i < 5; i++) { const p = pop(lt, 0.3 + i * 0.12, 0.8 + i * 0.12); if (p <= 0) continue; ctx.save(); ctx.translate(380 + i * 290, gy); ctx.scale(1, p); b6shop(ctx, 0, 0, 220, 300, G.CREAM, awn[i], '#fff3c4', rgba(G.INK, 0.8)); ctx.restore(); }
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.tea_sign = (ctx, s, lt, C) => { // 一家奶茶店招牌歪了，门口排队的人散开，其他店照常营业
+    const D = s.vizDur, gy = 920, tilt = 0.32 * E.oBack(inv(D * 0.2, D * 0.45, lt), 2), sc = E.io(inv(D * 0.35, D * 0.85, lt));
+    ctx.fillStyle = rgba(G.INK, 0.3); ctx.fillRect(120, gy - 4, 1680, 8);
+    [360, 1240, 1600].forEach((x) => b6shop(ctx, x, gy, 260, 380, PAL.green.t[2], PAL.gold.t[2], '#fff3c4'));
+    b6shop(ctx, 800, gy, 300, 420, PAL.purple.t[3], PAL.red.t[3], rgba(G.INK, 0.6));
+    ctx.save(); ctx.translate(680, gy - 440); ctx.rotate(tilt); ctx.fillStyle = G.INK; ctx.fillRect(0, -36, 240, 72);
+    G.poly(ctx, [[96, -24], [144, -24], [136, 26], [104, 26]], G.CREAM); ctx.fillStyle = G.CREAM; ctx.fillRect(116, -34, 6, 14); ctx.restore();
+    for (let i = 0; i < 5; i++) { const dir = i % 2 ? 1 : -1, x = 800 + (i - 2) * 60 + dir * sc * (200 + i * 60); ctx.save(); ctx.globalAlpha = 1 - 0.6 * sc; b6person(ctx, x, gy + 60, 150, G.INK, { lL1: 20 * Math.sin(lt * 8 + i) * sc, lR1: -20 * Math.sin(lt * 8 + i) * sc }); ctx.restore(); }
+    tag(ctx, '配方翻车', 800, 370, C, inv(D * 0.3, D * 0.55, lt), { px: 38, bg: PAL.red.t[2], fg: G.CREAM });
+    tag(ctx, '照常营业', 1420, 400, C, inv(D * 0.55, D * 0.8, lt), { px: 34, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.shutter_down = (ctx, s, lt, C) => { // 那家店门口拉下卷帘门，旁边的店灯还亮着
+    const D = s.vizDur, gy = 960, k = E.io(inv(D * 0.2, D * 0.7, lt));
+    [[440, 1], [W / 2, 0], [1480, 1]].forEach(([x, lit]) => {
+      ctx.fillStyle = rgba(G.CREAM, 0.15); ctx.fillRect(x - 230, gy - 560, 460, 560);
+      ctx.fillStyle = lit ? '#fff3c4' : rgba(G.INK, 0.6); ctx.fillRect(x - 190, gy - 440, 380, 440);
+      if (lit) { ctx.save(); ctx.globalAlpha = 0.25 + 0.05 * Math.sin(lt * 4 + x); G.disc(ctx, x, gy - 220, 260, '#fff3c4'); ctx.restore(); }
+    });
+    const sh = 440 * k; ctx.fillStyle = PAL.ochre.t[3]; ctx.fillRect(W / 2 - 200, gy - 450, 400, sh);
+    ctx.fillStyle = rgba(G.INK, 0.35); for (let y = gy - 450 + 22; y < gy - 450 + sh; y += 30) ctx.fillRect(W / 2 - 200, y, 400, 6);
+    ctx.fillStyle = G.INK; ctx.fillRect(W / 2 - 220, gy - 470, 440, 26);
+    tag(ctx, '只连累这一家', W / 2, 360, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: G.CREAM, fg: PAL.purple.t[1] });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.basket_break = (ctx, s, lt, C) => { // 一个人只提一个篮子，篮子破了，东西全掉到地上（往下落）
+    const D = s.vizDur, gy = 990, bt = D * 0.35, x = 1000, by = 560;
+    b6person(ctx, 760, gy, 520, G.CREAM, { aR1: 70, aR2: 60 });
+    ctx.strokeStyle = G.CREAM; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(900, 520); ctx.lineTo(x, by); ctx.stroke();
+    basket(ctx, x, by, 240, 150, G.CREAM, lt > bt ? 0.08 * Math.sin(lt * 9) * Math.exp(-(lt - bt)) : 0);
+    if (lt > bt) G.poly(ctx, [[x - 60, by + 152], [x + 70, by + 152], [x + 40, by + 110], [x, by + 135], [x - 30, by + 105]], C.bg);
+    for (let i = 0; i < 7; i++) { const u = clamp((lt - bt - i * 0.06) / 0.9), y0 = by + 70, y = u > 0 ? lerp(y0, gy - 26, E.i3(u)) : y0 - 40 + (i % 3) * 18; G.disc(ctx, x - 60 + (i % 4) * 40 + u * (i - 3) * 50, y, 26, [GOLD, PAL.green.t[3], G.CREAM][i % 3]); }
+    ctx.fillStyle = rgba(G.CREAM, 0.4); ctx.fillRect(500, gy, 1100, 6);
+    b6down(ctx, 1300, 620, 920, G.CREAM, 9, inv(bt, bt + 0.8, lt));
+    tag(ctx, '全落你身上', 1450, 420, C, inv(D * 0.5, D * 0.8, lt), { px: 40, bg: G.CREAM, fg: PAL.red.t[1] });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.ten_baskets = (ctx, s, lt, C) => { // 一个人提十个小篮子，其中一个漏了，只掉一点
+    const D = s.vizDur, gy = 990, by = 600, lx = 400 + 7 * 124;
+    b6person(ctx, W / 2, gy, 420, G.INK, { aL1: 100, aL2: 100, aR1: 100, aR2: 100 });
+    ctx.fillStyle = G.INK; ctx.fillRect(360, by - 12, 1200, 16);
+    for (let i = 0; i < 10; i++) { const x = 400 + i * 124; ctx.strokeStyle = G.INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(x, by + 50); ctx.stroke(); basket(ctx, x, by + 50, 90, 70, i === 7 ? PAL.red.t[2] : G.CREAM, 0.04 * Math.sin(lt * 2 + i)); }
+    for (let i = 0; i < 2; i++) { const u = clamp((lt - D * 0.4 - i * 0.5) / 0.8); if (u > 0) G.disc(ctx, lx + i * 14, lerp(by + 130, gy - 14, E.i3(u)), 14, G.INK); }
+    tag(ctx, '只掉一点', lx + 230, 900, C, inv(D * 0.55, D * 0.85, lt), { px: 36, bg: G.INK, fg: GOLD });
+    G.typeText(ctx, '× 10', 1650, 520, F.en(900, 64), G.INK, inv(0.3, 0.8, lt), { caret: false, align: 'right' });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.hooks_colors = (ctx, s, lt, C) => { // 十个篮子用不同颜色、挂在不同的钩子上，不是串在同一根绳上
+    const D = s.vizDur, cols = [PAL.red.t[2], PAL.purple.t[3], PAL.green.t[2], GOLD, G.CREAM, PAL.red.t[4], PAL.purple.t[1], PAL.green.t[4], G.INK, PAL.ochre.t[0]];
+    ctx.fillStyle = rgba(G.INK, 0.35); ctx.fillRect(170, 400, 470, 6);
+    ctx.strokeStyle = G.INK; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(200, 420); for (let i = 0; i < 4; i++) ctx.lineTo(260 + i * 110, 560); ctx.stroke();
+    for (let i = 0; i < 4; i++) basket(ctx, 260 + i * 110, 560, 80, 60, rgba(G.INK, 0.6));
+    crossOut(ctx, 405, 590, 120, inv(D * 0.4, D * 0.65, lt));
+    tag(ctx, '同一根绳', 405, 760, C, inv(D * 0.4, D * 0.65, lt), { px: 30, bg: G.INK, fg: G.CREAM });
+    ctx.fillStyle = G.INK; ctx.fillRect(760, 400, 1000, 14);
+    for (let i = 0; i < 10; i++) { const x = 800 + (i % 5) * 230, y = 470 + Math.floor(i / 5) * 260, p = pop(lt, 0.2 + i * 0.08, 0.6 + i * 0.08); if (p <= 0) continue;
+      ctx.strokeStyle = G.INK; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(x, 410); ctx.lineTo(x, y - 20); ctx.stroke(); ctx.beginPath(); ctx.arc(x, y - 6, 14, -Math.PI / 2, Math.PI * 0.8); ctx.stroke();
+      basket(ctx, x, y + 10, 120 * p, 80 * p, cols[i], 0.05 * Math.sin(lt * 1.6 + i * 1.3)); }
+    tag(ctx, '各挂各的钩', 1260, 940, C, inv(D * 0.55, D * 0.85, lt), { px: 34, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.wind_baskets = (ctx, s, lt, C) => { // 一阵大风把十个篮子同时吹得往下晃
+    const D = s.vizDur, gust = E.io(inv(D * 0.25, D * 0.6, lt)), cols = [PAL.red.t[2], PAL.purple.t[3], PAL.green.t[2], GOLD, G.CREAM];
+    for (let i = 0; i < 9; i++) { const u = b6fr(lt * 0.9 + i / 9); ctx.save(); ctx.globalAlpha = gust * (1 - u) * 0.6; ctx.fillStyle = G.CREAM; ctx.fillRect(lerp(120, 1700, u), 380 + i * 60, 220, 6); ctx.restore(); }
+    ctx.fillStyle = G.CREAM; ctx.fillRect(220, 360, 1480, 12);
+    for (let i = 0; i < 10; i++) { const x = 290 + i * 150, L = 120 + 140 * gust, a = 0.5 * gust + 0.06 * Math.sin(lt * 7 + i) * gust, bx = x + Math.sin(a) * L, by = 370 + Math.cos(a) * L;
+      ctx.strokeStyle = G.CREAM; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x, 372); ctx.lineTo(bx, by); ctx.stroke(); basket(ctx, bx, by, 100, 70, cols[i % 5], a * 0.6); }
+    b6down(ctx, 1780, 450, 880, G.CREAM, 9, inv(D * 0.35, D * 0.7, lt));
+    tag(ctx, '大盘一起跌', 960, 920, C, inv(D * 0.5, D * 0.8, lt), { px: 40, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C, { x: 1700, y: 250, align: 'right' });
+  };
+  VIZ.pits_fill = (ctx, s, lt, C) => { // 回到碎石块：一块大坑被填平成许多浅浅的小坑 — cross-section, pits go down
+    const D = s.vizDur, gy = 560, k = E.io(inv(D * 0.2, D * 0.75, lt));
+    ctx.fillStyle = PAL.ochre.t[3]; ctx.fillRect(140, gy, 1640, 400);
+    b6pit(ctx, 960, lerp(700, 120, k), lerp(170, 30, k), gy, C.bg);
+    for (let i = 0; i < 10; i++) { if (i === 4) continue; b6pit(ctx, 260 + i * 155, 110 * k, 26 * k, gy, C.bg); }
+    for (let i = 0; i < 10; i++) { const x = 260 + i * 155, z = 34; if (k > 0.02) G.poly(ctx, [[x - z, gy - 4], [x - z * 0.5, gy - z], [x + z * 0.6, gy - z * 0.8], [x + z, gy - 4]], rgba(G.INK, 0.6 * k)); }
+    tag(ctx, '一家的坑', 960, 880, C, inv(0.2, 0.7, lt) * (1 - k), { px: 38, bg: G.INK, fg: G.CREAM });
+    tag(ctx, '摊成许多浅坑', 960, 760, C, inv(D * 0.6, D * 0.85, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+
+  // ── #8 套利定价理论 APT ──
+  const APT_F = [['大盘', G.CREAM], ['通胀', PAL.red.t[3]], ['利率', PAL.purple.t[4]], ['增长', PAL.green.t[3]]];
+  VIZ.dial_needles = (ctx, s, lt, C) => { // 一个仪表盘上只有一根指针「大盘」，旁边又亮起几根新指针
+    const D = s.vizDur, x = 1100, y = 920, r = 480, angs = [-1.9, -1.35, -0.95, -0.5];
+    b6gaugeArc(ctx, x, y, r, rgba(G.CREAM, 0.5), 10);
+    APT_F.forEach(([lab, col], i) => { const p = i ? E.oBack(inv(D * (0.3 + i * 0.12), D * (0.45 + i * 0.12), lt)) : 1; if (p <= 0) return;
+      const a = angs[i] + 0.04 * Math.sin(lt * 2 + i); b6needle(ctx, x, y, (r - 60) * p, a, i ? 12 : 22, col);
+      tag(ctx, lab, x + Math.cos(a) * (r + 40), y + Math.sin(a) * (r + 40), C, p, { px: 34, bg: col, fg: G.INK }); });
+    G.disc(ctx, x, y, 40, G.CREAM);
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mixer_title = (ctx, s, lt, C) => { // 屏幕标题「APT」，下方一块多旋钮的调音台
+    b6title(ctx, 'APT', W / 2, 560, 240, C.fg, inv(0.2, 0.8, lt));
+    b6console(ctx, 360, 660, 1560, 960, G.INK, PAL.purple.t[3]);
+    for (let r = 0; r < 2; r++) for (let i = 0; i < 8; i++) { const x = 470 + i * 140, y = 750 + r * 120, q = r * 8 + i, p = pop(lt, 0.4 + q * 0.04, 0.8 + q * 0.04); if (p <= 0) continue;
+      G.disc(ctx, x, y, 40 * p, G.CREAM); b6needle(ctx, x, y, 34 * p, -1.6 + Math.sin(i * 1.7 + r + lt * 0.8) * 1.1, 8, G.INK); }
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mixer_one = (ctx, s, lt, C) => { // 一个调音台只有一个推子「大盘」
+    const D = s.vizDur, y0 = 420, y1 = 860;
+    b6console(ctx, 420, 360, 1500, 1000, G.INK, GOLD);
+    for (let i = 1; i < 5; i++) { const x = 560 + i * 200; ctx.save(); ctx.setLineDash([10, 10]); ctx.strokeStyle = rgba(G.CREAM, 0.25); ctx.lineWidth = 3; ctx.strokeRect(x - 40, y0, 80, y1 - y0); ctx.restore(); }
+    b6fader(ctx, 560, y0, y1, 0.5 + 0.3 * Math.sin(lt * 1.3), G.CREAM, GOLD, '大盘', C, inv(0.3, 0.8, lt));
+    tag(ctx, '只有一个', 1640, 520, C, inv(D * 0.45, D * 0.75, lt), { px: 36, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.mixer_faders = (ctx, s, lt, C) => { // 调音台上多出几个推子，标「通胀」「利率」「增长」
+    const D = s.vizDur, y0 = 420, y1 = 820;
+    b6console(ctx, 300, 360, 1620, 960, G.INK, PAL.green.t[4]);
+    APT_F.forEach(([lab, col], i) => { const p = i ? pop(lt, D * (0.2 + i * 0.12), D * (0.35 + i * 0.12)) : 1; if (p <= 0) return;
+      ctx.save(); ctx.globalAlpha = clamp(p); b6fader(ctx, 520 + i * 300, y0, y1, 0.5 + 0.35 * Math.sin(lt * (1 + i * 0.4) + i * 1.3), G.CREAM, col, lab, C, p); ctx.restore(); });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.receipt_jar = (ctx, s, lt, C) => { // 购物小票越拉越长，一个存钱罐的分量往下掉
+    const D = s.vizDur, L = lerp(80, 480, E.io(inv(0.2, D * 0.8, lt))), w = E.io(inv(D * 0.2, D * 0.85, lt));
+    ctx.fillStyle = G.INK; ctx.fillRect(300, 360, 360, 70);
+    ctx.fillStyle = G.CREAM; ctx.fillRect(350, 430, 260, L);
+    ctx.fillStyle = rgba(G.INK, 0.5); for (let y = 460; y < 430 + L - 20; y += 40) { ctx.fillRect(375, y, 140, 8); ctx.fillRect(545, y, 40, 8); }
+    for (let i = 0; i < 8; i++) G.poly(ctx, [[350 + i * 32.5, 430 + L], [366 + i * 32.5, 444 + L], [382 + i * 32.5, 430 + L]], G.CREAM);
+    b6piggy(ctx, 1150, 560 + 200 * w, 150, PAL.red.t[4], G.INK);
+    ctx.fillStyle = rgba(G.INK, 0.25); ctx.fillRect(1520, 380, 70, 560); ctx.fillStyle = G.INK; const hh = 560 * (1 - 0.6 * w); ctx.fillRect(1520, 940 - hh, 70, hh);
+    b6down(ctx, 1680, 420, 860, G.INK, 9, inv(D * 0.3, D * 0.7, lt));
+    tag(ctx, '物价涨得快', 480, 960, C, inv(0.3, 0.9, lt), { px: 34, bg: G.INK, fg: G.CREAM });
+    tag(ctx, '分量往下掉', 1150, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.rope_strain = (ctx, s, lt, C) => { // 一根借款绳越绷越紧，绳上挂的箱子往下坠
+    const D = s.vizDur, k = E.io(inv(D * 0.2, D * 0.8, lt)), ax = 760, ay = 360, cy = lerp(560, 840, k);
+    ctx.fillStyle = G.CREAM; ctx.fillRect(560, ay - 30, 400, 30);
+    ctx.save(); ctx.strokeStyle = mix(G.CREAM, G.INK, k * 0.6); ctx.lineWidth = lerp(16, 6, k); ctx.beginPath(); ctx.moveTo(ax, ay);
+    for (let i = 1; i <= 12; i++) ctx.lineTo(ax + Math.sin(i * 2.4) * 10 * (1 - k), lerp(ay, cy - 110, i / 12)); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.translate(ax, cy); ctx.rotate(0.03 * Math.sin(lt * 9) * k); b6crate(ctx, 0, 0, 220, PAL.ochre.t[2], rgba(G.INK, 0.5)); ctx.restore();
+    b6down(ctx, 1000, 560, 900, G.CREAM, 9, inv(D * 0.3, D * 0.7, lt));
+    tag(ctx, '借钱变贵', 1300, 420, C, inv(0.2, 0.8, lt), { px: 40, bg: G.CREAM, fg: PAL.red.t[1] });
+    tag(ctx, '压力大', 1300, 760, C, inv(D * 0.5, D * 0.8, lt), { px: 40, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.cars_road = (ctx, s, lt, C) => { // 几辆小车在同一条路上，路速变化时有的快有的慢
+    const D = s.vizDur, ys = [600, 760, 920], sp = [1.0, 0.55, 0.25];
+    ctx.fillStyle = rgba(G.INK, 0.85); ctx.fillRect(100, 470, 1720, 500);
+    ctx.fillStyle = GOLD; for (let j = 0; j < 2; j++) for (let x = 120 - (lt * 160) % 120; x < 1800; x += 120) if (x > 100) ctx.fillRect(x, 676 + j * 160, 60, 8);
+    const prog = (k) => 260 + lt * 160 * sp[k] + (lt > D * 0.4 ? (lt - D * 0.4) * 280 * (sp[k] - 0.5) : 0);
+    ys.forEach((y, k) => b6car(ctx, clamp(prog(k), 240, 1660), y, 200, [PAL.red.t[2], G.CREAM, PAL.green.t[3]][k], rgba(G.INK, 0.6), G.INK));
+    tag(ctx, lt > D * 0.4 ? '经济放慢' : '经济增长', 1500, 400, C, inv(0.2, 0.7, lt), { px: 36, bg: G.INK, fg: GOLD });
+    tag(ctx, '各家反应不同', 600, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.springs = (ctx, s, lt, C) => { // 一个组合连着几根弹簧，每根弹簧粗细不同
+    const D = s.vizDur, cx = W / 2 + 40 * Math.sin(lt * 2.2) * inv(D * 0.4, D * 0.6, lt), cy = 680 + 20 * Math.sin(lt * 3.1);
+    const A = [[300, 680, '通胀', 6, PAL.red.t[3]], [W / 2, 380, '利率', 14, PAL.gold.t[2]], [1620, 680, '增长', 24, PAL.green.t[3]]];
+    A.forEach(([x, y, lab, w, col], i) => { const p = E.io(inv(0.2 + i * 0.2, 0.8 + i * 0.2, lt));
+      b6spring(ctx, x, y, lerp(x, cx, p), lerp(y, cy, p), 9, 26, w, col); G.disc(ctx, x, y, 22, G.CREAM);
+      tag(ctx, lab, x + (i === 1 ? 160 : 0), y + (i === 1 ? 0 : 110), C, p, { px: 34, bg: col, fg: G.INK }); });
+    ctx.fillStyle = G.CREAM; ctx.beginPath(); ctx.roundRect(cx - 120, cy - 80, 240, 160, 22); ctx.fill();
+    ctx.fillStyle = G.INK; ctx.font = F.zh(900, 44); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('组合', cx, cy + 2);
+    tag(ctx, '粗细不同', W / 2, 930, C, inv(D * 0.6, D * 0.85, lt), { px: 36, bg: G.CREAM, fg: PAL.purple.t[1] });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.faders_sum = (ctx, s, lt, C) => { // 几根推子的读数汇成一个总数，标「该要的回报（假设）」 — blocks stack, no formula
+    const D = s.vizDur, hs = [90, 120, 70, 100], cols = [rgba(G.INK, 0.8), PAL.red.t[3], PAL.purple.t[4], PAL.green.t[3]], yb = 880;
+    ctx.fillStyle = rgba(G.INK, 0.3); ctx.fillRect(200, yb, 1520, 6);
+    let acc = 0;
+    hs.forEach((h, i) => { const x0 = 330 + i * 190, f = E.io3(inv(D * (0.2 + i * 0.12), D * (0.4 + i * 0.12), lt)), tx = 1380;
+      const x = lerp(x0, tx, f), y = lerp(yb - h, yb - acc - h, f) - Math.sin(f * Math.PI) * 120; ctx.fillStyle = cols[i]; ctx.fillRect(x - 70, y, 140, h);
+      if (f < 0.1) tag(ctx, APT_F[i][0], x0, yb + 50, C, inv(0.2, 0.6, lt), { px: 28, bg: G.INK, fg: G.CREAM }); acc += h; });
+    ctx.save(); ctx.strokeStyle = rgba(G.INK, 0.5); ctx.lineWidth = 4; ctx.setLineDash([12, 10]); ctx.strokeRect(1300, yb - acc - 10, 160, acc + 10); ctx.restore();
+    tag(ctx, '该要的回报（假设）', 1380, yb - acc - 70, C, inv(D * 0.7, D * 0.9, lt), { px: 34, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.apple_stalls = (ctx, s, lt, C) => { // 同样一个苹果，两个摊位标价不同，有人在中间搬运
+    const D = s.vizDur, gy = 960, u = 0.5 - 0.5 * Math.cos(lt * 1.6);
+    [[360, '¥3'], [1560, '¥5']].forEach(([x, pr], i) => { ctx.fillStyle = G.CREAM; ctx.fillRect(x - 200, gy - 260, 400, 260);
+      for (let k = 0; k < 6; k++) { ctx.fillStyle = k % 2 ? G.CREAM : PAL.red.t[2]; ctx.fillRect(x - 220 + k * 73, gy - 360, 73, 70); }
+      G.disc(ctx, x, gy - 160, 60, PAL.red.t[2]); ctx.fillStyle = PAL.green.t[0]; ctx.fillRect(x - 4, gy - 240, 8, 30);
+      tag(ctx, pr, x, gy - 450, C, inv(0.2 + i * 0.3, 0.7 + i * 0.3, lt), { px: 52, bg: G.INK, fg: G.CREAM, font: F.en(900, 52) }); });
+    const px = lerp(660, 1260, u); b6person(ctx, px, gy, 300, G.INK, { aR1: 100, aR2: 110, aL1: 90, aL2: 100, lL1: 18 * Math.sin(lt * 9), lR1: -18 * Math.sin(lt * 9) });
+    b6crate(ctx, px + 70, gy - 210, 90, PAL.ochre.t[2], rgba(G.INK, 0.5)); G.disc(ctx, px + 70, gy - 270, 22, PAL.red.t[2]);
+    tag(ctx, '赚差价', W / 2, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 40, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.tags_converge = (ctx, s, lt, C) => { // 两个摊位的价签慢慢靠拢到同一个数
+    const D = s.vizDur, k = E.io(inv(D * 0.2, D * 0.8, lt)), y = 640;
+    const lx = lerp(420, 760, k), rx = lerp(1500, 1160, k), lv = lerp(3, 4, k), rv = lerp(5, 4, k);
+    [[lx, lv, G.CREAM], [rx, rv, GOLD]].forEach(([x, v, col]) => { ctx.save(); ctx.translate(x, y); ctx.rotate(-0.06); G.poly(ctx, [[-170, -110], [140, -110], [210, 0], [140, 110], [-170, 110]], col); G.disc(ctx, 140, 0, 18, C.bg);
+      ctx.fillStyle = G.INK; ctx.font = F.en(900, 100); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('¥' + v.toFixed(1), -20, 6); ctx.restore(); });
+    ctx.save(); ctx.strokeStyle = rgba(G.CREAM, 0.5); ctx.lineWidth = 6; ctx.setLineDash([16, 12]); ctx.beginPath(); ctx.moveTo(W / 2, 420); ctx.lineTo(W / 2, 860); ctx.stroke(); ctx.restore();
+    tag(ctx, '拉回来', W / 2, 920, C, inv(D * 0.6, D * 0.85, lt), { px: 40, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mover_slip = (ctx, s, lt, C) => { // 搬运的人脚下一滑，箱子往下掉
+    const D = s.vizDur, t0 = D * 0.3, sl = E.io(inv(t0, t0 + 0.5, lt)), fl = E.i3(clamp((lt - t0 - 0.2) / 0.9)), gy = 700;
+    ctx.fillStyle = G.CREAM; ctx.fillRect(160, gy, 1600, 10);
+    ctx.fillStyle = rgba(G.CREAM, 0.35); ctx.beginPath(); ctx.ellipse(900, gy + 6, 140, 18, 0, 0, Math.PI * 2); ctx.fill();
+    b6person(ctx, 860 + 60 * sl, gy, 320, G.CREAM, { rot: -40 * sl, torso: -10 * sl, aR1: lerp(100, 160, sl), aL1: lerp(90, 170, sl), lR1: lerp(0, 70, sl), lL1: lerp(0, -30, sl) });
+    const cx = lerp(990, 1150, fl), cy = lerp(gy - 260, 910, fl); ctx.save(); ctx.translate(cx, cy); ctx.rotate(fl * 1.4); b6crate(ctx, 0, 0, 120, PAL.ochre.t[3], rgba(G.INK, 0.5)); ctx.restore();
+    b6down(ctx, 1400, 560, 940, G.CREAM, 9, inv(t0 + 0.2, t0 + 1.1, lt));
+    tag(ctx, '套利也可能亏', 1450, 420, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: G.CREAM, fg: PAL.red.t[1] });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.ruler_fog = (ctx, s, lt, C) => { // 一把尺子放在调音台上，旁边一团雾
+    const D = s.vizDur;
+    b6console(ctx, 220, 640, 1000, 940, G.INK, GOLD);
+    for (let i = 0; i < 4; i++) b6fader(ctx, 330 + i * 190, 700, 900, 0.4 + 0.1 * i, G.CREAM, APT_F[i][1], null, C, 0);
+    ctx.save(); ctx.translate(610, 610); ctx.rotate(-0.08); ctx.fillStyle = G.CREAM; ctx.fillRect(-380, -60, 760, 70); ctx.fillStyle = G.INK; for (let i = 0; i <= 30; i++) ctx.fillRect(-370 + i * 24.5, -60, 4, i % 5 ? 20 : 36); ctx.restore();
+    for (let i = 0; i < 9; i++) { ctx.save(); ctx.globalAlpha = 0.25 + 0.15 * Math.sin(lt + i); G.disc(ctx, 1380 + Math.sin(lt * 0.5 + i * 1.7) * 140, 620 + Math.cos(lt * 0.4 + i * 2.3) * 140, 150 + (i % 3) * 40, G.CREAM); ctx.restore(); }
+    G.maskText(ctx, '?', 1380, 700, F.en(900, 200), rgba(G.INK, 0.5), inv(D * 0.3, D * 0.6, lt), { align: 'center' });
+    tag(ctx, '不是预测', 1380, 940, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.dial_all = (ctx, s, lt, C) => { // 回到仪表盘，几根指针一起亮着 — smaller gauge left + legend right
+    const D = s.vizDur, x = 640, y = 900, r = 380, p = E.io(inv(0.2, D * 0.5, lt)), angs = [-2.3, -1.7, -1.15, -0.6];
+    b6gaugeArc(ctx, x, y, r, rgba(G.INK, 0.4), 10);
+    APT_F.forEach(([lab, col], i) => { const a = angs[i] + 0.05 * Math.sin(lt * 2 + i); b6needle(ctx, x, y, (r - 50) * p, a, 16, i ? col : G.INK);
+      const ly = 440 + i * 120, lp = inv(D * (0.2 + i * 0.1), D * (0.4 + i * 0.1), lt); G.disc(ctx, 1240, ly, 28 * clamp(lp * 2), i ? col : G.INK);
+      G.maskText(ctx, lab, 1300, ly + 20, F.zh(900, 60), G.INK, lp); });
+    G.disc(ctx, x, y, 34, G.INK);
+    tag(ctx, '怕哪几样', 1500, 940, C, inv(D * 0.6, D * 0.85, lt), { px: 38, bg: G.INK, fg: GOLD });
+    vizCaption(ctx, s, lt, C);
+  };
+
+  // ── #9 道德风险 Moral Hazard ──
+  VIZ.net_step = (ctx, s, lt, C) => { // 一个人站在高处，身后多了一张大网，他往前迈了一步
+    const D = s.vizDur, py = 560, np = E.o3(inv(D * 0.15, D * 0.45, lt)), st = E.io(inv(D * 0.5, D * 0.8, lt));
+    ctx.fillStyle = G.CREAM; ctx.fillRect(200, py, 720, 24); ctx.fillStyle = rgba(G.CREAM, 0.25); ctx.fillRect(260, py + 24, 40, 420); ctx.fillRect(820, py + 24, 40, 420);
+    b6netBelow(ctx, 900, 1700, 820, 90, GOLD, np);
+    b6person(ctx, 760 + 110 * st, py, 330, G.CREAM, { lR1: 40 * Math.sin(st * Math.PI), lR2: 10, torso: 6 * st, aR1: 20, aL1: -20 });
+    tag(ctx, '有人兜底', 1300, 760, C, np, { px: 38, bg: GOLD, fg: G.INK });
+    tag(ctx, '往前一步', 1000, 380, C, inv(D * 0.65, D * 0.9, lt), { px: 36, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.policy_title = (ctx, s, lt, C) => { // 屏幕标题「Moral Hazard」，下方一张保单
+    const D = s.vizDur, p = E.o3(inv(D * 0.2, D * 0.6, lt));
+    b6title(ctx, 'Moral Hazard', W / 2, 500, 150, C.fg, inv(0.2, 0.9, lt));
+    ctx.save(); ctx.translate(W / 2, lerp(1200, 790, p)); ctx.rotate(-0.04); b6doc(ctx, 0, 0, 560, 300, G.CREAM, rgba(G.INK, 0.35), inv(D * 0.4, D * 0.8, lt));
+    ctx.font = F.zh(900, 44); ctx.fillStyle = G.INK; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('保单', -235, -100); G.disc(ctx, 190, 80, 54, rgba(PAL.red.t[2], 0.85)); ctx.restore();
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.car_lane = (ctx, s, lt, C) => { // 一辆小车贴着车道线开，司机单手扶方向盘，角标「假设」 — top-down road + inset wheel
+    const D = s.vizDur, drift = 50 * Math.sin(lt * 1.4) + 60 * inv(0.3, D * 0.5, lt);
+    ctx.fillStyle = G.INK; ctx.fillRect(150, 470, 1150, 400);
+    ctx.fillStyle = G.CREAM; for (let x = 150 - (lt * 300) % 160; x < 1300; x += 160) if (x > 150) ctx.fillRect(x, 666, 80, 10);
+    ctx.save(); ctx.translate(700, 580 + drift); ctx.rotate(0.05 * Math.cos(lt * 1.4)); ctx.fillStyle = PAL.red.t[2]; ctx.beginPath(); ctx.roundRect(-130, -55, 260, 110, 30); ctx.fill(); ctx.fillStyle = rgba(G.INK, 0.6); ctx.fillRect(10, -42, 60, 84); ctx.restore();
+    G.disc(ctx, 1530, 680, 210, rgba(G.INK, 0.08));
+    b6wheel(ctx, 1530, 680, 150, G.INK, 0.15 * Math.sin(lt * 1.4), 1, PAL.ochre.t[3]);
+    tag(ctx, '假设', 1650, 400, C, inv(0.2, 0.6, lt), { px: 32, bg: G.INK, fg: G.CREAM });
+    tag(ctx, '单手', 1530, 940, C, inv(D * 0.45, D * 0.75, lt), { px: 34, bg: PAL.red.t[2], fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.care_bar = (ctx, s, lt, C) => { // 司机身边的「小心」进度条一点点往下降
+    const D = s.vizDur, k = E.io(inv(D * 0.15, D * 0.85, lt)), v = Math.round(lerp(100, 30, k));
+    b6person(ctx, 600, 990, 560, G.CREAM, { aR1: 70, aR2: 80, aL1: 60, aL2: 70, torso: 4 });
+    b6wheel(ctx, 840, 700, 90, G.INK, 0, 1, G.CREAM);
+    const x = 1240, y0 = 360, y1 = 940; ctx.fillStyle = rgba(G.INK, 0.25); ctx.beginPath(); ctx.roundRect(x - 70, y0, 140, y1 - y0, 20); ctx.fill();
+    const top = lerp(y0, y1, 1 - v / 100); ctx.fillStyle = G.CREAM; ctx.beginPath(); ctx.roundRect(x - 60, top + 10, 120, Math.max(0, y1 - top - 20), 14); ctx.fill();
+    b6down(ctx, x + 150, 420, lerp(440, 880, k), G.INK, 8, inv(D * 0.2, D * 0.4, lt));
+    G.maskText(ctx, '小心', x + 260, 520, F.zh(900, 64), G.INK, inv(0.2, 0.6, lt));
+    G.maskText(ctx, v + '%', x + 260, 640, F.en(900, 80), G.CREAM, inv(0.3, 0.7, lt));
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.airbag_tower = (ctx, s, lt, C) => { // 一座无名小楼下面垫着一个大气垫，楼越盖越歪
+    const D = s.vizDur, n = 1 + Math.floor(7 * E.io(inv(0.2, D * 0.85, lt))), cx = 1100, gy = 860;
+    ctx.fillStyle = PAL.gold.t[3]; ctx.beginPath(); ctx.roundRect(cx - 420, gy, 840, 120, 60); ctx.fill();
+    ctx.fillStyle = rgba(G.INK, 0.25); for (let i = 1; i < 5; i++) ctx.fillRect(cx - 420 + i * 168, gy + 20, 6, 80);
+    let y = gy; for (let i = 0; i < n; i++) { const w = 300 - i * 14, h = 64, lean = i * 18 + 4 * Math.sin(lt * 2) * i / 4; ctx.fillStyle = G.CREAM; ctx.fillRect(cx + lean - w / 2, y - h, w, h - 6);
+      ctx.fillStyle = PAL.purple.t[1]; for (let k = 0; k < 3; k++) ctx.fillRect(cx + lean - w / 2 + 30 + k * (w - 60) / 3, y - h + 14, (w - 60) / 3 - 20, 28); y -= h; }
+    tag(ctx, '出事有人救', 500, 600, C, inv(0.3, 0.8, lt), { px: 38, bg: PAL.gold.t[3], fg: G.INK });
+    tag(ctx, '越盖越歪', 500, 760, C, inv(D * 0.55, D * 0.85, lt), { px: 36, bg: G.CREAM, fg: PAL.purple.t[1] });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.coins_bricks = (ctx, s, lt, C) => { // 一个人抱走金币，另一群人在下面接住掉下来的砖
+    const D = s.vizDur, gy = 980, w = E.io(inv(D * 0.2, D * 0.8, lt)), ax = lerp(640, 330, w);
+    b6person(ctx, ax, gy, 380, G.CREAM, { aR1: 80, aR2: 120, aL1: 70, aL2: 110, lL1: 20 * Math.sin(lt * 7), lR1: -20 * Math.sin(lt * 7) });
+    for (let i = 0; i < 5; i++) { ctx.fillStyle = GOLD; ctx.beginPath(); ctx.ellipse(ax + 120, gy - 230 - i * 22, 52, 14, 0, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = rgba(G.CREAM, 0.4); ctx.fillRect(W / 2, 360, 6, 620);
+    [1150, 1350, 1550].forEach((x) => b6person(ctx, x, gy, 300, G.INK, { aR1: 170, aR2: 175, aL1: 165, aL2: 170, head: -10 }));
+    for (let i = 0; i < 6; i++) { const u = b6fr(lt * 0.5 + i / 6), x = 1150 + (i % 3) * 200, y = lerp(340, 640, E.i3(u)); ctx.fillStyle = PAL.ochre.t[2]; ctx.fillRect(x - 50, y - 24, 100, 48); ctx.strokeStyle = rgba(G.INK, 0.4); ctx.lineWidth = 4; ctx.strokeRect(x - 50, y - 24, 100, 48); }
+    tag(ctx, '好处自己拿', 480, 440, C, inv(0.3, 0.8, lt), { px: 36, bg: GOLD, fg: G.INK });
+    tag(ctx, '坏处别人扛', 1350, 700, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: G.CREAM, fg: PAL.red.t[1] });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.deductible = (ctx, s, lt, C) => { // 保单上一格写「自己先出一部分」，司机重新双手握方向盘
+    const D = s.vizDur, hi = inv(D * 0.2, D * 0.45, lt), g = E.io(inv(D * 0.5, D * 0.8, lt));
+    ctx.save(); ctx.translate(620, 650); ctx.rotate(-0.05); b6doc(ctx, 0, 0, 640, 520, G.CREAM, rgba(G.INK, 0.25), 1);
+    ctx.fillStyle = rgba(PAL.red.t[2], 0.9 * clamp(hi * 2)); ctx.fillRect(-270, 80, 540, 110);
+    G.maskText(ctx, '自己先出一部分', 0, 155, F.zh(900, 52), G.CREAM, hi, { align: 'center' }); ctx.restore();
+    b6wheel(ctx, 1400, 650, 200, G.INK, 0.12 * Math.sin(lt * 1.4) * (1 - g), g > 0.5 ? 2 : 1, G.CREAM);
+    tag(ctx, '双手握好', 1400, 940, C, inv(D * 0.6, D * 0.85, lt), { px: 36, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.timeline_after = (ctx, s, lt, C) => { // 一条时间线：先签字，之后才出现行为变化的标记
+    const D = s.vizDur, y = 660, x0 = 220, x1 = 1640, xs = lerp(x0, x1, 0.38), xb = lerp(x0, x1, 0.74), bp = inv(D * 0.55, D * 0.75, lt);
+    b6timeline(ctx, x0, x1, y, E.io(inv(0.1, D * 0.4, lt)), rgba(G.CREAM, 0.8));
+    if (bp > 0) { ctx.save(); ctx.globalAlpha = 0.25 * bp; ctx.fillStyle = PAL.red.t[2]; ctx.fillRect(xs + 30, y - 120, x1 - xs - 30, 240); ctx.restore(); G.disc(ctx, xb, y, 30 * E.oBack(bp), PAL.red.t[2]); }
+    b6sign(ctx, xs, y, GOLD, G.INK, inv(D * 0.3, D * 0.45, lt));
+    tag(ctx, '签字', xs, y + 100, C, inv(D * 0.3, D * 0.5, lt), { px: 36, bg: GOLD, fg: G.INK });
+    tag(ctx, '行为变了', xb, y - 110, C, bp, { px: 36, bg: PAL.red.t[2], fg: G.CREAM });
+    tag(ctx, '之后', lerp(xs, x1, 0.5), y + 180, C, inv(D * 0.65, D * 0.9, lt), { px: 34, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.footprints_edge = (ctx, s, lt, C) => { // 回到开头：网在身后，人的脚印越走越靠边 — top-down platform
+    const D = s.vizDur, k = inv(0.2, D * 0.85, lt), n = Math.floor(14 * k);
+    ctx.fillStyle = rgba(G.INK, 0.12); ctx.fillRect(200, 360, 1100, 620);
+    ctx.fillStyle = G.INK; ctx.fillRect(1296, 360, 10, 620);
+    ctx.save(); ctx.strokeStyle = GOLD; ctx.lineWidth = 4; for (let i = 0; i < 8; i++) { ctx.beginPath(); ctx.moveTo(1330 + i * 60, 360); ctx.lineTo(1330 + i * 60, 980); ctx.stroke(); } for (let j = 0; j < 11; j++) { ctx.beginPath(); ctx.moveTo(1330, 380 + j * 60); ctx.lineTo(1760, 380 + j * 60); ctx.stroke(); } ctx.restore();
+    for (let i = 0; i < n; i++) { const f = i / 13, x = lerp(420, 1250, f * f), y = lerp(920, 420, f) + (i % 2 ? -24 : 24); ctx.fillStyle = rgba(G.INK, 0.4 + 0.6 * f); ctx.beginPath(); ctx.ellipse(x, y, 20, 32, -0.9 + 0.5 * f, 0, Math.PI * 2); ctx.fill(); }
+    tag(ctx, '越走越靠边', 760, 930, C, inv(D * 0.55, D * 0.85, lt), { px: 36, bg: G.INK, fg: G.CREAM });
+    tag(ctx, '网', 1545, 420, C, inv(0.2, 0.6, lt), { px: 34, bg: GOLD, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+
+  // ── #10 逆向选择 Adverse Selection ──
+  VIZ.door_queue = (ctx, s, lt, C) => { // 一扇门口排队，最前面的人最着急
+    const D = s.vizDur, gy = 980;
+    b6door(ctx, 1560, gy, 230, 520, 0.2, G.CREAM, rgba(G.CREAM, 0.7), rgba(GOLD, 0.6));
+    for (let i = 0; i < 6; i++) { const x = 1340 - i * 190, front = i === 0, j = front ? 10 * Math.sin(lt * 18) : 0, p = pop(lt, 0.1 + i * 0.08, 0.5 + i * 0.08); if (p <= 0) continue;
+      b6person(ctx, x + j, gy, front ? 315 : 285, front ? G.CREAM : rgba(G.CREAM, 0.55), front ? { torso: 22, aR1: 110, aR2: 130, aL1: 60 } : {}); }
+    G.maskText(ctx, '!!', 1360, 600, F.en(900, 110), GOLD, inv(D * 0.3, D * 0.5, lt), { align: 'center' });
+    tag(ctx, '最着急', 1340, 400, C, inv(D * 0.45, D * 0.75, lt), { px: 38, bg: GOLD, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.door_title = (ctx, s, lt, C) => { // 屏幕标题「Adverse Selection」，下方一扇半开的门
+    const D = s.vizDur;
+    b6title(ctx, 'Adverse Selection', W / 2, 470, 140, C.fg, inv(0.2, 0.9, lt));
+    b6door(ctx, W / 2, 990, 260, 400, 0.5 * E.io(inv(D * 0.3, D * 0.7, lt)), G.INK, rgba(G.INK, 0.75), G.CREAM);
+    ctx.save(); ctx.globalAlpha = 0.35 * inv(D * 0.4, D * 0.8, lt); G.poly(ctx, [[W / 2 - 130, 990], [W / 2 + 130, 990], [W / 2 + 330, 1030], [W / 2 - 330, 1030]], G.CREAM); ctx.restore();
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.counter_cough = (ctx, s, lt, C) => { // 保险柜台前，咳嗽的人挤在最前面，角标「假设」
+    const D = s.vizDur, gy = 980;
+    ctx.fillStyle = G.INK; ctx.fillRect(1380, 720, 380, 260); ctx.fillStyle = PAL.green.t[2]; ctx.fillRect(1380, 700, 380, 30);
+    ctx.fillStyle = G.INK; ctx.fillRect(1440, 440, 260, 90); G.maskText(ctx, '保险', 1570, 485, F.zh(900, 56), G.CREAM, inv(0.1, 0.5, lt), { align: 'center' });
+    for (let i = 0; i < 5; i++) { const x = 1220 - i * 200 + (i < 2 ? 8 * Math.sin(lt * 10 + i) : 0), sick = i < 3, p = pop(lt, 0.1 + i * 0.08, 0.5 + i * 0.08); if (p <= 0) continue;
+      b6person(ctx, x, gy, 300, sick ? G.INK : PAL.green.t[2], sick ? { torso: 18, head: 14, aR1: 40, aR2: 110 } : {}); if (sick) b6cough(ctx, x + 50, gy - 250, lt + i * 0.3, rgba(G.INK, 0.4)); }
+    tag(ctx, '假设', 1330, 485, C, inv(0.2, 0.6, lt), { px: 32, bg: G.INK, fg: G.CREAM });
+    tag(ctx, '身体差的挤在最前', 700, 420, C, inv(D * 0.45, D * 0.75, lt), { px: 36, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.price_jump = (ctx, s, lt, C) => { // 柜台上的价签往上跳
+    const D = s.vizDur, steps = Math.min(3, Math.floor(4 * inv(D * 0.15, D * 0.8, lt))), v = [100, 120, 140, 160][steps], hop = Math.abs(Math.sin(lt * 5)) * 30 * (steps < 3 ? 1 : 0);
+    ctx.fillStyle = rgba(G.INK, 0.85); ctx.fillRect(300, 820, 1320, 160); ctx.fillStyle = G.CREAM; ctx.fillRect(300, 800, 1320, 24);
+    ctx.save(); ctx.translate(W / 2 - 60, 640 - steps * 70 - hop); ctx.rotate(-0.05); G.poly(ctx, [[-260, -120], [200, -120], [290, 0], [200, 120], [-260, 120]], G.CREAM); G.disc(ctx, 200, 0, 20, C.bg);
+    ctx.fillStyle = G.INK; ctx.font = F.en(900, 140); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('¥' + v, -40, 8); ctx.restore();
+    b6upArrow(ctx, 1500, 760, 380, G.CREAM, 10, inv(D * 0.2, D * 0.6, lt));
+    tag(ctx, '分不清，只好涨价', 600, 900, C, inv(D * 0.5, D * 0.8, lt), { px: 34, bg: G.CREAM, fg: PAL.red.t[1] });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.queue_leave = (ctx, s, lt, C) => { // 队伍里健康的人摇头离开，队伍变短
+    const D = s.vizDur, gy = 980, k = E.io(inv(D * 0.25, D * 0.8, lt)), q = [1, 0, 1, 0, 0, 1];
+    ctx.fillStyle = G.INK; ctx.fillRect(1560, 640, 220, 340);
+    let pos = 0;
+    q.forEach((sick, i) => { const x0 = 1440 - i * 180;
+      if (sick) { b6person(ctx, lerp(x0, 1440 - pos * 180, k), gy, 280, G.INK, { torso: 16, head: 12 }); pos++; }
+      else { ctx.save(); ctx.globalAlpha = 1 - 0.5 * k; b6person(ctx, x0 - k * (500 + i * 80), gy, 280, G.CREAM, { head: 14 * Math.sin(lt * 9) * k, lL1: 20 * Math.sin(lt * 7) * k, lR1: -20 * Math.sin(lt * 7) * k }); ctx.restore(); } });
+    tag(ctx, '不划算，走了', 520, 480, C, inv(D * 0.4, D * 0.7, lt), { px: 36, bg: G.CREAM, fg: G.INK });
+    tag(ctx, '队伍变短', 1300, 440, C, inv(D * 0.6, D * 0.85, lt), { px: 36, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.two_keys = (ctx, s, lt, C) => { // 卖家手里拿着两把钥匙，一把亮、一把锈
+    const D = s.vizDur, p = E.oBack(inv(0.2, D * 0.5, lt));
+    b6person(ctx, 620, 990, 560, G.CREAM, { aR1: 100, aR2: 120, aL1: 80, aL2: 110 });
+    if (p > 0) { ctx.save(); ctx.translate(1180, 560); ctx.rotate(-0.15 + 0.03 * Math.sin(lt * 2)); ctx.scale(p, p); b6key(ctx, 0, 0, 260, GOLD, false); ctx.restore();
+      ctx.save(); ctx.translate(1240, 820); ctx.rotate(0.12); ctx.scale(p, p); b6key(ctx, 0, 0, 260, '#8a5a2b', true); ctx.restore(); }
+    for (let i = 0; i < 4; i++) { const r = 20 + 12 * Math.sin(lt * 4 + i); ctx.save(); ctx.globalAlpha = 0.8 * clamp(p); ctx.fillStyle = G.CREAM; ctx.translate(1060 + i * 110, 430 + (i % 2) * 40); ctx.rotate(lt * 2 + i * 1.6); ctx.fillRect(-r, -3, r * 2, 6); ctx.fillRect(-3, -r, 6, r * 2); ctx.restore(); }
+    tag(ctx, '好车', 1600, 520, C, inv(D * 0.4, D * 0.6, lt), { px: 34, bg: GOLD, fg: G.INK });
+    tag(ctx, '坏车', 1620, 820, C, inv(D * 0.5, D * 0.7, lt), { px: 34, bg: '#8a5a2b', fg: G.CREAM });
+    tag(ctx, '卖家心里有数', 640, 370, C, inv(D * 0.6, D * 0.85, lt), { px: 34, bg: G.CREAM, fg: PAL.purple.t[1] });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.magnifier_mid = (ctx, s, lt, C) => { // 买家拿放大镜也看不清，报价牌停在中间
+    const D = s.vizDur, gy = 900, m = E.io(inv(D * 0.3, D * 0.8, lt)), mx = 760 + 90 * Math.sin(lt * 1.5), my = 700 + 30 * Math.cos(lt * 1.9);
+    ctx.save(); ctx.filter = 'blur(10px)'; b6car(ctx, 780, gy, 460, G.INK, rgba(G.CREAM, 0.4)); ctx.restore();
+    ctx.save(); ctx.strokeStyle = G.INK; ctx.lineWidth = 20; ctx.beginPath(); ctx.arc(mx, my, 110, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 30; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(mx + 80, my + 80); ctx.lineTo(mx + 190, my + 190); ctx.stroke(); ctx.restore();
+    G.maskText(ctx, '?', mx, my + 50, F.en(900, 140), rgba(G.INK, 0.7), inv(0.3, 0.7, lt), { align: 'center' });
+    const bx0 = 1220, bx1 = 1720, by = 560; ctx.fillStyle = G.INK; ctx.fillRect(bx0, by - 6, bx1 - bx0, 12);
+    ctx.font = F.zh(900, 32); ctx.fillStyle = G.INK; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('低', bx0, by + 50); ctx.fillText('高', bx1, by + 50);
+    const px = lerp(bx0 + 40, (bx0 + bx1) / 2, m) + (1 - m) * 160 * Math.sin(lt * 3); G.poly(ctx, [[px, by - 14], [px - 28, by - 64], [px + 28, by - 64]], PAL.red.t[2]);
+    tag(ctx, '中间价', (bx0 + bx1) / 2, by + 150, C, inv(D * 0.65, D * 0.9, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.cars_leave = (ctx, s, lt, C) => { // 亮车开出市场，场里剩下的锈车越来越多
+    const D = s.vizDur, k = inv(D * 0.15, D * 0.85, lt), rusty = 2 + Math.floor(6 * k);
+    ctx.save(); ctx.strokeStyle = rgba(G.CREAM, 0.5); ctx.lineWidth = 6; ctx.setLineDash([20, 14]); ctx.strokeRect(180, 380, 1180, 580); ctx.restore();
+    ctx.fillStyle = C.bg; ctx.fillRect(1350, 440, 20, 160);
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, 1830, H); ctx.clip();
+    for (let i = 0; i < 4; i++) { const u = clamp((k - i / 4) * 2.4), x = u > 0 ? lerp(420 + i * 230, 2000, E.i3(u)) : 420 + i * 230; b6car(ctx, x, 580, 200, GOLD, rgba(G.INK, 0.5), G.INK); }
+    ctx.restore();
+    for (let i = 0; i < rusty; i++) { const x = 330 + (i % 4) * 260, y = 760 + Math.floor(i / 4) * 160; b6car(ctx, x, y, 200, '#8a5a2b', rgba(G.INK, 0.6), G.INK); for (let j = 0; j < 4; j++) G.disc(ctx, x - 60 + b6rnd(i * 4 + j, 2) * 120, y - 50 - b6rnd(i * 4 + j, 3) * 20, 7, '#5a3a1a'); }
+    tag(ctx, '好车开走', 1600, 400, C, inv(D * 0.3, D * 0.6, lt), { px: 36, bg: GOLD, fg: G.INK });
+    tag(ctx, '剩下锈车', 1600, 880, C, inv(D * 0.6, D * 0.85, lt), { px: 36, bg: '#8a5a2b', fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.table_light = (ctx, s, lt, C) => { // 桌子一边灯很亮，另一边一片暗
+    const D = s.vizDur, k = E.io(inv(0.2, D * 0.5, lt));
+    ctx.save(); ctx.globalAlpha = 0.85 * k; G.poly(ctx, [[560, 340], [640, 340], [900, 820], [300, 820]], '#fff3c4'); ctx.restore();
+    ctx.fillStyle = G.CREAM; ctx.fillRect(560, 320, 80, 30);
+    ctx.fillStyle = rgba(G.INK, 0.7 * k); ctx.fillRect(W / 2, 330, 860, 650);
+    ctx.fillStyle = PAL.ochre.t[2]; ctx.fillRect(300, 820, 1320, 40); ctx.fillRect(340, 860, 30, 120); ctx.fillRect(1550, 860, 30, 120);
+    b6person(ctx, 420, 990, 360, G.CREAM, { aR1: 80, aR2: 90 }); b6doc(ctx, 700, 760, 200, 120, G.CREAM, rgba(G.INK, 0.4), 1);
+    ctx.save(); ctx.translate(1500, 0); ctx.scale(-1, 1); b6person(ctx, 0, 990, 360, G.INK, { aR1: 30, aR2: 20, head: 10 }); ctx.restore();
+    G.maskText(ctx, '?', 1500, 560, F.en(900, 140), rgba(G.CREAM, 0.6), inv(D * 0.4, D * 0.7, lt), { align: 'center' });
+    tag(ctx, '知道得多', 620, 420, C, inv(D * 0.3, D * 0.6, lt), { px: 34, bg: G.INK, fg: '#fff3c4' });
+    tag(ctx, '蒙在鼓里', 1300, 420, C, inv(D * 0.5, D * 0.8, lt), { px: 34, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.timeline_before = (ctx, s, lt, C) => { // 一条时间线：签字之前的位置亮起标记，签字之后那段是灰的 — vertical, top = earlier
+    const D = s.vizDur, x = 760, y0 = 360, y1 = 960, ys = lerp(y0, y1, 0.55), ym = lerp(y0, y1, 0.25), p = E.io(inv(0.1, D * 0.4, lt)), mp = inv(D * 0.45, D * 0.7, lt);
+    ctx.fillStyle = G.INK; ctx.fillRect(x - 5, y0, 10, (ys - y0) * clamp(p * 1.8));
+    if (p > 0.5) { ctx.fillStyle = rgba(G.INK, 0.25); ctx.fillRect(x - 5, ys, 10, (y1 - ys) * clamp(p * 2 - 1)); }
+    b6sign(ctx, x, ys, G.INK, GOLD, inv(D * 0.25, D * 0.4, lt));
+    tag(ctx, '签字', x + 160, ys, C, inv(D * 0.25, D * 0.45, lt), { px: 34, bg: G.INK, fg: GOLD });
+    if (mp > 0) { ctx.save(); ctx.globalAlpha = 0.25 * mp; G.disc(ctx, x, ym, 120, G.CREAM); ctx.restore(); G.disc(ctx, x, ym, 32 * E.oBack(mp), PAL.red.t[2]); }
+    tag(ctx, '签约之前', x + 230, ym, C, mp, { px: 38, bg: PAL.red.t[2], fg: G.CREAM });
+    ctx.save(); ctx.globalAlpha = 0.45; tag(ctx, '之后', x + 160, lerp(ys, y1, 0.6), C, inv(D * 0.6, D * 0.85, lt), { px: 30, bg: G.INK, fg: G.CREAM }); ctx.restore();
+    G.maskText(ctx, '逆向选择', 1450, 620, F.zh(900, 72), G.INK, inv(D * 0.55, D * 0.8, lt), { align: 'center' });
+    G.maskText(ctx, '道德风险在之后', 1450, 720, F.zh(700, 40), rgba(G.INK, 0.55), inv(D * 0.65, D * 0.9, lt), { align: 'center' });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.queue_front = (ctx, s, lt, C) => { // 回到开头的门口队伍，镜头停在最前面那个人身上 — zoomed, spotlight
+    const D = s.vizDur, z = E.io(inv(0.1, D * 0.6, lt)), fx = lerp(1300, 1350, z);
+    for (let i = 1; i < 5; i++) { ctx.save(); ctx.globalAlpha = 0.35 * (1 - z * 0.6); b6person(ctx, lerp(1100 - i * 200, 1500 - i * 260, z), 990, lerp(300, 380, z), G.INK); ctx.restore(); }
+    ctx.save(); ctx.globalAlpha = 0.35 * z; G.disc(ctx, fx, 640, 360, '#fff3c4'); ctx.restore();
+    b6person(ctx, fx, 1000, lerp(300, 620, z), G.CREAM, { torso: 20, aR1: 110, aR2: 130, aL1: 60 });
+    tag(ctx, '谁最想来？', 620, 560, C, inv(D * 0.5, D * 0.8, lt), { px: 48, bg: G.CREAM, fg: PAL.red.t[1] });
+    vizCaption(ctx, s, lt, C);
+  };
+
   // ───────── finance-v003 scene library, batch 4 (CAPM long, 13 lines, 2026-10-30) ─────────
   // Metaphor (金融专家): companies = unnamed small buildings, the market = the ground they stand on.
   // Company trouble = smoke on one roof (diluted by owning many); market risk = the whole ground sinks.
