@@ -3854,11 +3854,11 @@
     tag(ctx, '尾巴又细又长', 600, 1000, C, inv(D * 0.6, D * 0.9, lt), { px: 34, bg: G.INK, fg: G.CREAM });
     vizCaption(ctx, s, lt, C);
   };
-  VIZ.skew_bulk = (ctx, s, lt, C) => { // 小山右侧那一大堆，标「多数时候小赚」
+  VIZ.skew_bulk = (ctx, s, lt, C) => { // 小山右侧那一大堆，标「多数时候小有盈余」
     const D = s.vizDur, k = inv(D * 0.15, D * 0.5, lt); b9axis(ctx, C, rgba(G.INK, 0.6));
     b7curve(ctx, B9X0, B9X1, B9YB, 480, b9S, 1, G.INK, 10, rgba(G.INK, 0.12));
     if (k > 0) { ctx.save(); ctx.globalAlpha = clamp(k); b7area(ctx, B9X0, B9X1, B9YB, 480, b9S, 1080, 1500, G.CREAM); ctx.restore(); }
-    tag(ctx, '多数时候小赚', 1320, 330, C, inv(D * 0.45, D * 0.8, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    tag(ctx, '多数时候小有盈余', 1320, 330, C, inv(D * 0.45, D * 0.8, lt), { px: 38, bg: G.INK, fg: G.CREAM });
     vizCaption(ctx, s, lt, C);
   };
   VIZ.skew_drop = (ctx, s, lt, C) => { // 左边长尾末端一个红点往下落

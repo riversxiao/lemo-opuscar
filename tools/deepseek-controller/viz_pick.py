@@ -85,7 +85,7 @@ RULES: list[tuple[str, list[list[str]]]] = [
     ("skew_sym",         [["对称的钟形小山"]]),
     ("skew_equal",       [["尾巴长度相同"]]),
     ("skew_left",        [["又细又长"]]),
-    ("skew_bulk",        [["多数时候小赚"]]),
+    ("skew_bulk",        [["多数时候小赚", "多数时候小有盈余"]]),
     ("skew_drop",        [["长尾末端"], ["红点"]]),
     ("skew_bars",        [["很长的向下柱"]]),
     ("skew_shadow",      [["长影子"]]),

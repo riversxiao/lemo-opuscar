@@ -448,6 +448,22 @@
         "来的更"
       ],
       "short": []
+    },
+    {
+      "members": [
+        "权重",
+        "全众"
+      ],
+      "short": [],
+      "note": "quán zhòng identical pinyin incl. tone; EWMA L06 small heard 全众 on 2 takes, large-v3-turbo heard 权重"
+    },
+    {
+      "members": [
+        "平静",
+        "凭近"
+      ],
+      "short": [],
+      "note": "píng jìng vs píng jìn (ing/in, same rule as 零利率/林立律); EWMA L10 small heard 凭近 on 2 takes, large-v3-turbo heard 平静"
     }
   ]
 }

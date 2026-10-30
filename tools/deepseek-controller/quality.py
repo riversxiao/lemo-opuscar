@@ -171,6 +171,10 @@ def _homophone_tolerant_match(
     import difflib
 
     a = _homophone_tokenize(want, classes)
+    # Whisper writes spoken 负一到一 as "-1-1": before _norm_zh strips the punctuation, read a sign before a digit
+    # as 负 and a dash/tilde between digits as the spoken range word 到 (hypothesis side only).
+    got = re.sub(r"(?<=\d)\s*[-−~～]\s*(?=\d)", "到", got)
+    got = re.sub(r"(?<!\d)[-−](?=\d)", "负", got)
     b = _homophone_tokenize(got, classes)
     if not (a or b):
         return (True, a, b, 1.0)

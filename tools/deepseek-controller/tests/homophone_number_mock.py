@@ -31,4 +31,8 @@ ok(not Q._homophone_tolerant_match("在负一到一之间。", "在负一到二�
 ok(not Q._homophone_tolerant_match("换个时期可能不灵。", "换个时期可能不9。", cls)[0], "不灵 → 不9 still fails (only the lexicon pair absorbs a digit)")
 ok(Q._homophone_tolerant_match("用一个数来表示，在负一到一之间。", "用一个数来表示,在-1到1之间。", cls)[0], "same numbers in digits still pass")
 ok(Q._homophone_tolerant_match("这个原始数，叫协方差。", "这个原始数叫斜方差。", cls)[0], "existing class (协方差/斜方差) unaffected")
+ok(Q._homophone_tolerant_match("用一个数来表示，在负一到一之间。", "用一个数来表示,在-1-1之间。", cls)[0], "Whisper '-1-1' reads as 负1到1")
+ok(Q._homophone_tolerant_match("接近负一，基本一个往上、一个往下。", "接近-1,基本一个往上一个往下。", cls)[0], "Whisper '-1' reads as 负1")
+ok(not Q._homophone_tolerant_match("在负一到一之间。", "在-1-2之间。", cls)[0], "'-1-2' still fails against 负一到一")
+ok(not Q._homophone_tolerant_match("接近一。", "接近-1。", cls)[0], "a sign the narrator did not say still fails (一 vs -1)")
 print(f"{n} ok")
