@@ -82,7 +82,7 @@ for fid, (vis, want) in FILMS.items():
     B6 += want
 ok(len(B6) == 53 and len(set(B6)) == 53, "53 batch-6 scenes, unique across the 5 films")
 ok(all(f"VIZ.{s} =" in sj and re.search(rf"\b{s}: '", sj) for s in B6), "every batch-6 scene drawn + palette in finance-v003 scenes.js")
-b6 = sj[sj.index("batch 6 (risk family"):sj.index("finance-v003 scene library, batch 4")]
+b6 = sj[sj.index("batch 6 (risk family"):sj.index("finance-v003 scene library, batch 8")]
 ok(not re.search(r"基金|ETF|筹码|赌|骰|σ|β|Σ|÷|公式|值得买|稳赚", b6), "batch-6 scene text: no formulas, funds, gambling or buy-signals")
 ok(re.search(r"'APT'", b6) and "b6title(ctx, 'Systematic Risk'" in b6, "screen titles: 'APT' kept upper, terms via b6title")
 r = subprocess.run(["node", "-e", f"new Function(require('fs').readFileSync({json.dumps(str(REPO / 'styles/pictogram-motion/versions/finance-v003/scenes.js'))},'utf8'))"], capture_output=True)

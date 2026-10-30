@@ -1518,6 +1518,12 @@ else
   bad "finance-v003 batch-7 scenes mock (see /tmp/dc_batch7_mock.log)"
 fi
 
+if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY -u STEP_API_KEY -u ELEVENLABS_API_KEY -u DEEPSEEK_API_KEY python3 "$CTL/tests/batch8_scenes_mock.py" >/tmp/dc_batch8_mock.log 2>&1; then
+  ok "finance-v003 batch-8 scenes (volatility/correlation/covariance/regression/hypothesis test): 60 distinct, lint clean, no formulas, losses down, older + batch 5/6/7 mappings unchanged ($(tail -1 /tmp/dc_batch8_mock.log))"
+else
+  bad "finance-v003 batch-8 scenes mock (see /tmp/dc_batch8_mock.log)"
+fi
+
 # budget ledger: tests write to \$DC_BUDGET_LEDGER, never the real fixtures ledger
 if PYTHONPATH="$CTL" python3 -c "
 import budget,os

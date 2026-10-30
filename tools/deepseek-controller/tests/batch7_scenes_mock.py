@@ -72,7 +72,7 @@ for fid, (vis, want) in FILMS.items():
     B7 += want
 ok(len(B7) == 57 and len(set(B7)) == 57, "57 batch-7 scenes, unique across the 5 films")
 ok(all(f"VIZ.{s} =" in sj and re.search(rf"\b{s}: '", sj) for s in B7), "every batch-7 scene drawn + palette in finance-v003 scenes.js")
-b7 = sj[sj.index("batch 7 (governance cases"):sj.index("finance-v003 scene library, batch 4")]
+b7 = sj[sj.index("batch 7 (governance cases"):sj.index("finance-v003 scene library, batch 8")]
 ok(not re.search(r"基金|ETF|筹码|赌|骰|扑克|轮盘|σ|β|Σ|÷|公式|值得买|稳赚|伤亡", b7), "batch-7 scene text: no formulas, funds, gambling, casualties or buy-signals")
 ok("'88888'" in b7 and "'巴林银行 1995'" in b7 and "'神户 · 1995.1'" in b7, "Barings: 88888 drawer label, door plate, quake as a map label")
 ok("ING" not in b7, "no acquirer name or logo drawn")
