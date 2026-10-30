@@ -33,8 +33,8 @@ FILMS = {
         ["一艘小船在浪里大起大落，船上的人坐得稳稳的", "屏幕标题「Volatility」，下方一条上下起伏的线", "线的起伏被上下两条虚线框住，标「晃动幅度」", "一条平均线，各个点到平均线拉出长短不一的竖线", "两条线：甲贴着平线微动，乙上下大幅摆动，角标「假设」", "乙那条线旁的刻度条更长", "一个上下双箭头，上下两端一样长", "往上的点和往下的点都被同一把尺子量", "乙那条线晃得厉害，终点没有往下掉", "前方的路被一团雾盖住，雾的范围随晃动变大", "回到开头的小船，镜头停在船上的人身上"],
         ["vol_boat", "vol_title", "vol_band", "vol_devs", "vol_ab", "vol_scale", "vol_dblarrow", "vol_ruler", "vol_end", "vol_fog", "vol_boat_end"]),
     "correlation-v001": (
-        ["两个小人并排同步走路，中间画着一个问号", "屏幕标题「Correlation」，两条线并排起伏", "两条线同时上、同时下", "一根刻度尺，左端「-1」，中间「0」，右端「1」", "指针指向右端，两条线完全同步", "指针指向左端，两条线一上一下像跷跷板", "指针在中间，两条线各走各的", "冰淇淋柜和空调柜台前都排着长队，角标「假设」", "镜头上移，一个大太阳同时照着两个柜台", "两个柜台之间画一条虚线，被打了个叉", "刻度尺上的指针一下子往右端滑", "几条原本交错的线同时掉头往下，挤成一束", "回到并排走路的两个小人，脚下的路突然变成下坡"],
-        ["corr_walkers", "corr_title", "corr_together", "corr_ruler", "corr_plus1", "corr_minus1", "corr_zero", "corr_queues", "corr_sun", "corr_nocause", "corr_slide", "corr_bundle", "corr_downhill"]),
+        ["两个小人并排同步走路，中间画着一个问号", "屏幕标题「Correlation」，两条线并排起伏", "两条线同时上、同时下", "一根刻度尺，左端「-1」，中间「0」，右端「1」", "指针指向右端，两条线完全同步", "指针指向左端，两条线一上一下像跷跷板", "指针在中间，两条线各走各的", "冰淇淋柜和空调柜台前都排着长队，角标「假设」", "镜头上移，一个大太阳同时照着两个柜台", "两个柜台之间画一条虚线，被打了个叉", "刻度尺上的指针一下子往右端滑", "几只原本各自漂着的小气球，被同一阵下沉气流一起压低", "回到并排走路的两个小人，脚下的路突然变成下坡"],
+        ["corr_walkers", "corr_title", "corr_together", "corr_ruler", "corr_plus1", "corr_minus1", "corr_zero", "corr_queues", "corr_sun", "corr_nocause", "corr_slide", "corr_balloons", "corr_downhill"]),
     "covariance-v001": (
         ["一台机器：进口塞进一堆原料，出口吐出一张小卡片", "屏幕标题「Covariance」，机器进口那堆原料亮起来", "两条线同向起伏，被一个括号框住", "左边同向的两条线标「+」，右边反向的标「-」", "同一段数据，一把尺子刻「元」，另一把刻「分」，读出来的数差很多", "两张写着不同大数的卡片，大小差得很远", "两张卡片放上天平，天平乱晃，标「没法比」", "原料进机器，出口吐出一张卡片，写着刻度「-1 到 1」", "几张卡片整齐地排在同一根刻度尺上", "回到那台机器：左边原料，右边成品卡片"],
         ["cov_machine", "cov_title", "cov_bracket", "cov_signs", "cov_units", "cov_cards_big", "cov_wobble", "cov_card_out", "cov_cards_ruler", "cov_machine_end"]),
@@ -65,7 +65,7 @@ ok("'p', -90" in code and "'值', 90" in code, "「p 值」 drawn as a label, no
 ok("'虚构策略'" in code and "'假设'" in code, "fictional backtest labelled 虚构策略 with a 假设 corner badge")
 ok("r[n - 1] * i / (n - 1)" in code, "backtest line ends where it started (no profit implied)")
 ok("'有效', 46, { dash: o.dash }" in code and "else if (!o.hideR)" in code, "「有效」 stays a dashed box (rejecting ≠ proving)")
-ok("'相关 ≠ 因果'" in code and "b6down(ctx" in code, "correlation ≠ causation; crisis bunching drawn DOWN")
+ok("'相关 ≠ 因果'" in code and "b6down(ctx" in code, "correlation ≠ causation; crisis balloons pressed DOWN together")
 r = subprocess.run(["node", "-e", f"new Function(require('fs').readFileSync({json.dumps(str(REPO / 'styles/pictogram-motion/versions/finance-v003/scenes.js'))},'utf8'))"], capture_output=True)
 ok(r.returncode == 0, "finance-v003 scenes.js parses")
 helpers = re.findall(r"^  (?:function|const) ([A-Za-z0-9_]+)", sj, re.M)

@@ -55,7 +55,7 @@ RULES: list[tuple[str, list[list[str]]]] = [
     ("corr_sun",         [["大太阳"]]),
     ("corr_nocause",     [["柜台之间"], ["打了个叉"]]),
     ("corr_slide",       [["往右端滑"]]),
-    ("corr_bundle",      [["原本交错"], ["掉头往下"]]),
+    ("corr_balloons",    [["小气球"], ["下沉气流"]]),
     ("corr_downhill",    [["并排走路"], ["下坡"]]),
     ("cov_card_out",     [["吐出一张卡片"], ["-1 到 1"]]),
     ("cov_machine",      [["进口塞进"]]),

@@ -2886,7 +2886,7 @@
     vol_boat: 'ochre', vol_title: 'purple', vol_band: 'cream', vol_devs: 'ink', vol_ab: 'green', vol_scale: 'gold',
     vol_dblarrow: 'red', vol_ruler: 'cream', vol_end: 'purple', vol_fog: 'ink', vol_boat_end: 'green',
     corr_walkers: 'cream', corr_title: 'purple', corr_together: 'ink', corr_ruler: 'gold', corr_plus1: 'green', corr_minus1: 'red',
-    corr_zero: 'cream', corr_queues: 'ochre', corr_sun: 'gold', corr_nocause: 'ink', corr_slide: 'red', corr_bundle: 'purple', corr_downhill: 'green',
+    corr_zero: 'cream', corr_queues: 'ochre', corr_sun: 'gold', corr_nocause: 'ink', corr_slide: 'red', corr_balloons: 'purple', corr_downhill: 'green',
     cov_machine: 'ink', cov_title: 'gold', cov_bracket: 'cream', cov_signs: 'purple', cov_units: 'ochre', cov_cards_big: 'green',
     cov_wobble: 'red', cov_card_out: 'cream', cov_cards_ruler: 'ink', cov_machine_end: 'purple',
     reg_scatter: 'ink', reg_title: 'green', reg_candidates: 'cream', reg_xaxis: 'purple', reg_yaxis: 'ochre', reg_dots_fill: 'ink',
@@ -3126,13 +3126,19 @@
     tag(ctx, '危机一来', 600, 470, C, inv(D * 0.2, D * 0.4, lt), { px: 40, bg: G.INK, fg: C.fg }); tag(ctx, '相关性变高', 1360, 940, C, inv(D * 0.5, D * 0.8, lt), { px: 40, bg: C.fg, fg: C.bg });
     vizCaption(ctx, s, lt, C);
   };
-  VIZ.corr_bundle = (ctx, s, lt, C) => { // 几条原本交错的线同时掉头往下，挤成一束
-    const D = s.vizDur, p = inv(0.1, D * 0.8, lt), n = 44, k0 = 26, cols = [G.CREAM, PAL.gold.t[2], PAL.green.t[1], PAL.red.t[1]];
-    cols.forEach((col, j) => { const base = b8ser(n, j * 1.9 + 0.4, 70, 0.8 + j * 0.2).map((v) => v + (j - 1.5) * 60);
-      const ys = base.map((v, i) => i < k0 ? v : lerp(base[k0], -330 + j * 10, E.io(Math.min(1, (i - k0) / 14))));
-      b8plot(ctx, ys, 300, 1560, 560, col, 9, p); });
-    b6down(ctx, 1680, 600, 900, G.CREAM, 10, inv(D * 0.6, D * 0.85, lt));
-    tag(ctx, '一起往下', 1560, 1000, C, inv(D * 0.65, D * 0.9, lt), { px: 38, bg: G.CREAM, fg: G.INK });
+  VIZ.corr_balloons = (ctx, s, lt, C) => { // 几只原本各自漂着的小气球，被同一阵下沉气流一起压低
+    const D = s.vizDur, k = E.io(inv(D * 0.3, D * 0.75, lt)), cols = [G.CREAM, PAL.gold.t[2], PAL.green.t[1], PAL.red.t[1], PAL.ochre.t[3]];
+    const fx = [560, 820, 1080, 1340, 1560], fy = [520, 640, 470, 600, 540];
+    const air = inv(D * 0.2, D * 0.5, lt); if (air > 0) { ctx.save(); ctx.globalAlpha = 0.35 * clamp(air); ctx.strokeStyle = G.CREAM; ctx.lineWidth = 8; ctx.lineCap = 'round';
+      for (let i = 0; i < 6; i++) { const x = 480 + i * 230, y0 = 380 + b6fr(lt * 0.6 + i * 0.37) * 420; ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y0 + 120); ctx.stroke();
+        G.poly(ctx, [[x, y0 + 150], [x - 18, y0 + 118], [x + 18, y0 + 118]], G.CREAM); } ctx.restore(); }
+    cols.forEach((col, i) => { const ph = i * 1.7, x = fx[i] + 26 * Math.sin(lt * 0.9 + ph) * (1 - k), y = lerp(fy[i] + 34 * Math.sin(lt * 1.3 + ph), 790, k);
+      ctx.save(); ctx.strokeStyle = rgba(G.CREAM, 0.7); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, y + 62); ctx.quadraticCurveTo(x + 14, y + 110, x - 6, y + 150); ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.translate(x, y); ctx.scale(1, lerp(1, 0.86, k)); ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(0, 0, 50, 62, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      G.poly(ctx, [[x, y + 58], [x - 10, y + 72], [x + 10, y + 72]], col); });
+    ctx.fillStyle = rgba(G.CREAM, 0.35); ctx.fillRect(300, 1020 - 60, 1400, 5);
+    b6down(ctx, 1730, 420, 900, G.CREAM, 10, inv(D * 0.45, D * 0.75, lt));
+    tag(ctx, '一起被压低', 1540, 360, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: G.CREAM, fg: G.INK });
     vizCaption(ctx, s, lt, C);
   };
   VIZ.corr_downhill = (ctx, s, lt, C) => { // 回到并排走路的两个小人，脚下的路突然变成下坡
