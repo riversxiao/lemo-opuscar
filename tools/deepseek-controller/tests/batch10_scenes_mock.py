@@ -57,7 +57,7 @@ for fid, (vis, want) in FILMS.items():
 ok(len(FILMS["option-long-v001"][0]) == 16, "option-long has 16 lines (premium deduction after L09)")
 ok(len(B10) == 64 and len(set(B10)) == 64, "64 batch-10 scenes, unique across the 5 films")
 ok(all(f"VIZ.{s} =" in sj and re.search(rf"\b{s}: '", sj) for s in B10), "every batch-10 scene drawn + palette in finance-v003 scenes.js")
-b10 = sj[sj.index("finance-v003 scene library, batch 10"):sj.index("finance-v003 scene library, batch 4")]
+b10 = sj[sj.index("finance-v003 scene library, batch 10"):sj.index("finance-v003 scene library, batch 11")]
 code = "\n".join(l.split("//")[0] for l in b10.split("\n"))  # drawn strings only, not comments
 ok(not re.search(r"基金|ETF|筹码|赌|骰|扑克|轮盘|赌场|彩票|中奖|σ|Σ|÷|√|公式|值得买|稳赚|机会大|K线|β|小钱|撬", code), "batch-10 scene text: no formulas, funds, gambling, lottery, K-lines, buy-signals or 小钱撬大钱")
 ok(not re.search(r"'[A-Z]{1,4}\d{2,4}'|代码", code), "no contract codes drawn")

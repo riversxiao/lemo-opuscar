@@ -4483,6 +4483,513 @@
     b6person(ctx, 1380, 600, 220, G.INK); b6down(ctx, 1380, 630, lerp(630, 1060, k), B10LOSS, 11, 1); b8txt(ctx, '卖方：未必有', 1620, 930, 36, G.INK);
     vizCaption(ctx, s, lt, C);
   };
+  // ───────── finance-v003 scene library, batch 11 (hedging + parity: put-call parity / basis risk / hedge ratio / contango-backwardation / margin, 2026-10-30) ─────────
+  // #31 看涨看跌平价 · #32 基差风险 · #33 套期保值比率 · #34 升水/贴水 · #35 保证金 — 64 scenes, one per line.
+  // 金融专家 rules: parity is European-only with the 「简化：不考虑分红」 corner note; fictional airline hedging jet fuel with crude
+  // futures, hedging makes big risk small, never zero; the hedge-ratio formula appears on screen only, once; futures converge to
+  // spot at expiry, contango ≠ bullish, backwardation ≠ bearish; margin = initial vs maintenance lines, a call tops back up to the
+  // UPPER line, forced liquidation, a deposit not a down payment or fee; no real contracts or codes; losses go DOWN.
+  Object.assign(VPAL, {
+    pcp_boxes: 'cream', pcp_title: 'ink', pcp_checks: 'green', pcp_euro: 'cream', pcp_call_in: 'purple', pcp_cash_in: 'cream',
+    pcp_put_in: 'gold', pcp_asset_in: 'cream', pcp_120: 'ochre', pcp_left120: 'cream', pcp_right120: 'purple', pcp_both: 'cream',
+    pcp_today: 'ink', pcp_arb: 'cream', pcp_end: 'green',
+    bas_umbrella: 'cream', bas_title: 'purple', bas_gap: 'cream', bas_plane: 'gold', bas_rope: 'cream', bas_together: 'ink',
+    bas_width: 'cream', bas_short: 'ochre', bas_magnify: 'cream', bas_samegood: 'green', bas_rock: 'cream', bas_end: 'ink',
+    hr_scale: 'cream', hr_title: 'gold', hr_reuse: 'cream', hr_dial: 'purple', hr_dial_up: 'cream', hr_boxes: 'ochre',
+    hr_fut_big: 'cream', hr_spot_big: 'green', hr_formula: 'cream', hr_80: 'ink', hr_tilt: 'cream', hr_end: 'purple',
+    cb_tags: 'cream', cb_contango: 'green', cb_backw: 'cream', cb_warehouse: 'ochre', cb_bill: 'cream', cb_timeline: 'purple',
+    cb_shelf: 'cream', cb_hand: 'gold', cb_converge: 'cream', cb_meet: 'ink', cb_not_bull: 'cream', cb_not_bear: 'purple', cb_end: 'cream',
+    mg_lines: 'ink', mg_init: 'cream', mg_maint: 'purple', mg_daily: 'cream', mg_breach: 'ochre', mg_letter: 'cream',
+    mg_topup: 'ink', mg_back: 'cream', mg_close: 'ochre', mg_misread: 'cream', mg_key: 'ink', mg_end: 'cream',
+  });
+  const B11LOSS = PAL.red.t[2], B11GAIN = PAL.green.t[2], B11ORG = PAL.red.t[4], B11GOLD = PAL.gold.t[2];
+  const b11ser = (n, f) => Array.from({ length: n }, (_, i) => f(i / (n - 1), i));
+  function b11box(ctx, x, yb, w, h, col, rib) { // open gift box (front only), yb = bottom; contents drawn BEFORE it poke out of the rim
+    ctx.fillStyle = col; ctx.fillRect(x - w / 2, yb - h, w, h); ctx.fillStyle = rib; ctx.fillRect(x - 16, yb - h, 32, h);
+    ctx.fillStyle = col; ctx.fillRect(x - w / 2 - 18, yb - h - 26, w + 36, 30);
+  }
+  function b11block(ctx, x, y, s, col, fg, txt = '标的') { ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x - s / 2, y - s / 2, s, s, 12); ctx.fill(); if (txt) b8txt(ctx, txt, x, y + 2, s * 0.3, fg); }
+  function b11pcp(ctx, C, o = {}) { // the two parity boxes: left = call + cash, right = put + underlying; o.* = drop progress 0..1, o.*A = alpha
+    const yb = 900, h = 230, rim = yb - h, L = 560, R = 1360;
+    const drop = (p, a, f) => { if (p == null || p <= 0) return; ctx.save(); ctx.globalAlpha = a ?? 1; f(lerp(250, rim - 50, E.io(clamp(p)))); ctx.restore(); };
+    drop(o.lt, o.ltA, (y) => b10ticket(ctx, L - 90, y - 40, 210, 96, B11GAIN, G.CREAM, '看涨', 34, C.bg, { rot: -0.12 }));
+    drop(o.lp, o.lpA, (y) => b6piggy(ctx, L + 100, y - 36, 62, G.CREAM, G.INK));
+    drop(o.lb, o.lbA, (y) => b11block(ctx, L + 100, y - 50, 120, G.INK, G.CREAM));
+    drop(o.rt, o.rtA, (y) => b10ticket(ctx, R - 90, y - 40, 210, 96, B11ORG, G.CREAM, '看跌', 34, C.bg, { rot: 0.12 }));
+    drop(o.rb, o.rbA, (y) => b11block(ctx, R + 100, y - 50, 120, G.INK, G.CREAM));
+    b11box(ctx, L, yb, 440, h, o.col || C.fg, C.acc); b11box(ctx, R, yb, 440, h, o.col || C.fg, C.acc);
+    if (o.lv) b8txt(ctx, o.lv, L, 800, 64, C.bg, { en: 1 }); if (o.rv) b8txt(ctx, o.rv, R, 800, 64, C.bg, { en: 1 });
+  }
+  function b11plot2(ctx, a, b, x0, x1, yc, ca, cb, p, w = 10) { const ha = b8plot(ctx, a, x0, x1, yc, ca, w, p); const hb = b8plot(ctx, b, x0, x1, yc, cb, w, p); return [ha, hb]; }
+  function b11barrel(ctx, x, yb, w, h, col, band, txt, px = 34) { // oil drum, yb = bottom
+    ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x - w / 2, yb - h, w, h, 18); ctx.fill();
+    ctx.fillStyle = band; ctx.fillRect(x - w / 2, yb - h * 0.72, w, 10); ctx.fillRect(x - w / 2, yb - h * 0.3, w, 10);
+    if (txt) b8txt(ctx, txt, x, yb - h * 0.5, px, band);
+  }
+  function b11plane(ctx, x, y, s, col) { // generic airliner side view, no livery, (x,y) = fuselage centre
+    ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(x, y, s, s * 0.13, 0, 0, Math.PI * 2); ctx.fill();
+    G.poly(ctx, [[x - s * 0.15, y], [x + s * 0.2, y], [x - s * 0.25, y + s * 0.5], [x - s * 0.42, y + s * 0.5]], col);
+    G.poly(ctx, [[x - s * 0.75, y - s * 0.05], [x - s * 0.95, y - s * 0.05], [x - s * 1.05, y - s * 0.45], [x - s * 0.9, y - s * 0.45]], col);
+  }
+  function b11rope(ctx, x0, y0, x1, y1, col, sag = 40) { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.setLineDash([16, 10]); ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo((x0 + x1) / 2, (y0 + y1) / 2 + sag, x1, y1); ctx.stroke(); ctx.restore(); }
+  function b11drops(ctx, x0, x1, y0, y1, lt, col, n, seed = 3) { for (let i = 0; i < n; i++) { const x = lerp(x0, x1, b6rnd(i, seed)), u = b6fr(lt * 0.7 + b6rnd(i, seed + 1)), y = lerp(y0, y1, u);
+    ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(x, y, 7, 16, 0, 0, Math.PI * 2); ctx.fill(); } }
+  function b11dial(ctx, x, y, r, v, col, face, lab) { // half-dial 0 (left) … 1 (right), (x,y) = pivot
+    ctx.save(); ctx.lineCap = 'round'; ctx.strokeStyle = face; ctx.lineWidth = 26; ctx.beginPath(); ctx.arc(x, y, r, Math.PI, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = col; ctx.beginPath(); ctx.arc(x, y, r, Math.PI, Math.PI * (1 + clamp(v))); ctx.stroke(); ctx.restore();
+    b6needle(ctx, x, y, r * 0.8, Math.PI * (1 + clamp(v)), 10, col); G.disc(ctx, x, y, 16, col);
+    if (lab) b8txt(ctx, lab, x, y + 56, 34, col);
+  }
+  function b11weights(ctx, n, px, py, s, col) { for (let i = 0; i < n; i++) b9weight(ctx, px - (n - 1) * s * 0.55 + i * s * 1.1, py, s, col); }
+  function b11pricetag(ctx, x, y, w, h, bg, fg, head, num) { // hanging price tag, (x,y) = centre
+    ctx.fillStyle = bg; G.poly(ctx, [[x - w / 2 + 40, y - h / 2], [x + w / 2, y - h / 2], [x + w / 2, y + h / 2], [x - w / 2 + 40, y + h / 2], [x - w / 2, y]], bg);
+    G.disc(ctx, x - w / 2 + 40, y, 12, fg); b8txt(ctx, head, x + 20, y - h * 0.2, h * 0.22, fg); b8txt(ctx, num, x + 20, y + h * 0.2, h * 0.3, fg, { en: 1 });
+  }
+  function b11house(ctx, x, yb, w, h, col, door) { // plain warehouse, yb = ground
+    ctx.fillStyle = col; ctx.fillRect(x - w / 2, yb - h, w, h); G.poly(ctx, [[x - w / 2 - 30, yb - h], [x + w / 2 + 30, yb - h], [x, yb - h - 140]], col);
+    ctx.fillStyle = door; ctx.fillRect(x - w * 0.22, yb - h * 0.6, w * 0.44, h * 0.6);
+  }
+  function b11shelf(ctx, x0, x1, y0, rows, col) { ctx.fillStyle = col; for (let r = 0; r < rows; r++) ctx.fillRect(x0, y0 + r * 170, x1 - x0, 14); ctx.fillRect(x0, y0 - 40, 14, rows * 170 + 20); ctx.fillRect(x1 - 14, y0 - 40, 14, rows * 170 + 20); }
+  const B11AY = 900, B11AH = 520, B11TOP = 0.72, B11LOW = 0.45;
+  function b11acct(ctx, x, v, C, o = {}) { // margin account column, v = fill 0..1 of height; upper (initial) + lower (maintenance) lines
+    const w = 260, yt = B11AY - B11TOP * B11AH, yl = B11AY - B11LOW * B11AH;
+    ctx.save(); ctx.strokeStyle = o.frame || C.fg; ctx.lineWidth = 8; ctx.strokeRect(x - w / 2, B11AY - B11AH, w, B11AH); ctx.restore();
+    ctx.fillStyle = o.fill || B11GOLD; const hv = clamp(v) * B11AH; ctx.fillRect(x - w / 2 + 12, B11AY - hv, w - 24, Math.max(0, hv - 4));
+    ctx.save(); ctx.lineWidth = 8; ctx.setLineDash([20, 12]);
+    ctx.strokeStyle = o.topCol || rgba(C.fg, o.topA ?? 0.6); ctx.beginPath(); ctx.moveTo(x - w / 2 - 70, yt); ctx.lineTo(x + w / 2 + 70, yt); ctx.stroke();
+    ctx.strokeStyle = o.lowCol || rgba(C.fg, o.lowA ?? 0.6); ctx.beginPath(); ctx.moveTo(x - w / 2 - 70, yl); ctx.lineTo(x + w / 2 + 70, yl); ctx.stroke(); ctx.restore();
+    if (o.labels !== false) { b8txt(ctx, '初始', x + w / 2 + 130, yt, 34, o.topCol || C.fg); b8txt(ctx, '维持', x + w / 2 + 130, yl, 34, o.lowCol || C.fg); }
+    return [yt, yl, w];
+  }
+  function b11key(ctx, x, y, s, col, rot = 0) { ctx.save(); ctx.translate(x, y); ctx.rotate(rot); b6key(ctx, 0, 0, s, col, false); ctx.restore(); }
+
+  // ── #31 看涨看跌平价 ── (European only, no dividends; left box = call + cash at the strike, right box = put + the underlying)
+  VIZ.pcp_boxes = (ctx, s, lt, C) => { // 两个并排的礼盒，打开后里面的东西一样多，角标「简化：不考虑分红」
+    const D = s.vizDur, p = inv(D * 0.1, D * 0.6, lt); b11pcp(ctx, C, { lt: p, lp: p, rt: p, rb: p });
+    tag(ctx, '一模一样', 960, 420, C, inv(D * 0.55, D * 0.85, lt), { px: 40, bg: C.acc, fg: G.CREAM });
+    b8corner(ctx, '简化：不考虑分红', C, inv(D * 0.1, D * 0.4, lt), 1600, 300);
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.pcp_title = (ctx, s, lt, C) => { // 屏幕标题「Put-Call Parity」
+    const D = s.vizDur, p = inv(D * 0.2, D * 0.7, lt); b6title(ctx, 'Put-Call Parity', W / 2, 400, 150, C.fg, inv(0.05, D * 0.5, lt));
+    b11box(ctx, 700, 900, 300, 170, C.fg, C.acc); b11box(ctx, 1220, 900, 300, 170, C.fg, C.acc); b8txt(ctx, '＝', 960, 820, 90 * clamp(p) + 1, C.fg);
+  };
+  VIZ.pcp_checks = (ctx, s, lt, C) => { // 三个对勾依次亮起
+    const D = s.vizDur, labs = ['同一标的', '同一行权价', '同一到期日'];
+    labs.forEach((t, i) => { const p = inv(D * (0.1 + i * 0.22), D * (0.3 + i * 0.22), lt), y = 460 + i * 170;
+      ctx.fillStyle = rgba(C.fg, 0.12); ctx.beginPath(); ctx.roundRect(560, y - 64, 800, 128, 24); ctx.fill();
+      ctx.save(); ctx.strokeStyle = C.fg; ctx.lineWidth = 6; ctx.strokeRect(610, y - 40, 80, 80); ctx.restore(); b8check(ctx, 650, y, 70, G.CREAM, p);
+      b8txt(ctx, t, 1010, y, 50, C.fg, { a: 0.4 + 0.6 * clamp(p) }); });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.pcp_euro = (ctx, s, lt, C) => { // 一扇门只在日历最后一天打开
+    const D = s.vizDur, k = inv(D * 0.05, D * 0.75, lt), day = Math.min(6, Math.floor(k * 7)), last = day === 6 ? E.io(inv(D * 0.75, D * 0.95, lt)) : 0;
+    for (let i = 0; i < 7; i++) { const x = 260 + i * 110; ctx.fillStyle = i === 6 ? C.acc : rgba(C.fg, i <= day ? 0.55 : 0.18); ctx.fillRect(x, 440, 94, 94); b8txt(ctx, `${i + 1}`, x + 47, 489, 40, G.CREAM, { en: 1 }); }
+    b8txt(ctx, '到期日', 260 + 6 * 110 + 47, 590, 32, C.acc); ctx.fillStyle = C.fg; ctx.fillRect(260 + day * 110, 545, 94, 10);
+    b6door(ctx, 1420, 960, 260, 460, last, C.fg, rgba(C.fg, 0.7), B11GOLD);
+    tag(ctx, '欧式：只在到期日', 1420, 400, C, inv(D * 0.55, D * 0.85, lt), { px: 34, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.pcp_call_in = (ctx, s, lt, C) => { // 左边礼盒里放进一张绿色门票
+    const D = s.vizDur; b11pcp(ctx, C, { lt: inv(D * 0.1, D * 0.55, lt) });
+    tag(ctx, '看涨期权', 560, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: B11GAIN, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.pcp_cash_in = (ctx, s, lt, C) => { // 左边礼盒里再放进一个存钱罐，标「到期等于行权价」
+    const D = s.vizDur; b11pcp(ctx, C, { lt: 1, lp: inv(D * 0.1, D * 0.55, lt) });
+    tag(ctx, '到期等于行权价', 640, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.pcp_put_in = (ctx, s, lt, C) => { // 右边礼盒里放进一张橙色门票
+    const D = s.vizDur; b11pcp(ctx, C, { lt: 1, lp: 1, rt: inv(D * 0.1, D * 0.55, lt) });
+    tag(ctx, '看跌期权', 1360, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: B11ORG, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.pcp_asset_in = (ctx, s, lt, C) => { // 右边礼盒里再放进一个代表标的的方块
+    const D = s.vizDur; b11pcp(ctx, C, { lt: 1, lp: 1, rt: 1, rb: inv(D * 0.1, D * 0.55, lt) });
+    tag(ctx, '标的本身', 1460, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.pcp_120 = (ctx, s, lt, C) => { // 价格线升到一百二，一百处画虚线，角标「假设」
+    const D = s.vizDur, yK = 700; b10grid(ctx, 300, 1560, 380, 940, rgba(C.fg, 0.12));
+    b8dash(ctx, 300, yK, 1560, yK, C.fg, 5); b8txt(ctx, '100', 1640, yK, 40, C.fg, { en: 1 });
+    const ys = b11ser(26, (u, i) => 200 * Math.pow(u, 1.3) + 22 * Math.sin(i * 1.3) * (1 - u * 0.6) - 40 * Math.sin(u * 3.2));
+    const hd = b8plot(ctx, ys, 300, 1560, yK, C.acc, 10, inv(D * 0.05, D * 0.75, lt));
+    if (inv(D * 0.7, D * 0.85, lt) > 0) b8txt(ctx, '120', hd[0] + 80, hd[1], 44, C.acc, { en: 1 });
+    b8corner(ctx, '假设', C, inv(D * 0.1, D * 0.4, lt), 1690, 300);
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.pcp_left120 = (ctx, s, lt, C) => { // 左边礼盒：存钱罐换成方块，标一百二
+    const D = s.vizDur, k = E.io(inv(D * 0.15, D * 0.55, lt)); b11pcp(ctx, C, { lt: 1, lp: 1, lpA: 1 - k, lb: 1, lbA: k, rtA: 0.25, rt: 1, rbA: 0.25, rb: 1, lv: k > 0.6 ? '120' : '' });
+    tag(ctx, '用存款行权买入', 560, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 34, bg: B11GAIN, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.pcp_right120 = (ctx, s, lt, C) => { // 右边礼盒：橙色门票作废，方块标一百二
+    const D = s.vizDur, k = inv(D * 0.15, D * 0.5, lt); b11pcp(ctx, C, { lt: 1, ltA: 0.25, lb: 1, lbA: 0.25, rt: 1, rtA: 1 - 0.6 * clamp(k), rb: 1, rv: k > 0.6 ? '120' : '' });
+    b8cross(ctx, 1270, 600, 90, B11LOSS, k);
+    tag(ctx, '期权不用行权', 1360, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 34, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.pcp_both = (ctx, s, lt, C) => { // 价格线上下各走一遍，两个礼盒的数值始终相同
+    const D = s.vizDur, u = clamp(inv(D * 0.05, D * 0.9, lt)), S = Math.round(100 + 25 * Math.sin(u * Math.PI * 2)), v = `${Math.max(S, 100)}`;
+    const ys = b11ser(30, (q) => 60 * Math.sin(q * Math.PI * 2)); const hd = b8plot(ctx, ys, 360, 1560, 400, C.fg, 8, u);
+    b8dash(ctx, 360, 400, 1560, 400, rgba(C.fg, 0.4), 4); b8txt(ctx, `${S}`, hd[0] + 70, hd[1], 36, C.fg, { en: 1 });
+    b11pcp(ctx, C, { lt: 1, lp: 1, rt: 1, rb: 1, lv: v, rv: v });
+    tag(ctx, '两边一样', 960, 560, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: C.acc, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.pcp_today = (ctx, s, lt, C) => { // 镜头倒回今天，两个礼盒放上天平
+    const D = s.vizDur, k = E.io(inv(D * 0.1, D * 0.45, lt)), p = inv(D * 0.4, D * 0.8, lt);
+    ctx.save(); ctx.strokeStyle = C.fg; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(320, 420, 70, -Math.PI * 0.2, -Math.PI * 0.2 - Math.PI * 1.6 * k, true); ctx.stroke(); ctx.restore();
+    b8txt(ctx, '今天', 320, 540, 40, C.fg);
+    if (p > 0) { ctx.save(); ctx.globalAlpha = clamp(p * 2); b8bal(ctx, 960, 520, 380, 0, C.fg, (c, sd, px, py) => b11box(c, px, py, 200, 110, sd < 0 ? B11GAIN : B11ORG, G.CREAM)); ctx.restore(); }
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.pcp_arb = (ctx, s, lt, C) => { // 天平一边略高，很快被拉回水平
+    const D = s.vizDur, k = inv(D * 0.3, D * 0.8, lt), tilt = 0.35 * (1 - E.io(clamp(k)));
+    b8bal(ctx, 960, 520, 380, tilt, C.fg, (c, sd, px, py) => b11box(c, px, py, 200, 110, sd < 0 ? B11GAIN : B11ORG, G.CREAM));
+    if (k > 0 && k < 1) { b6upArrow(ctx, 1460, 900, 640, C.acc, 10, 1); }
+    tag(ctx, '套利拉回来', 1540, 420, C, inv(D * 0.3, D * 0.6, lt), { px: 38, bg: C.acc, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.pcp_end = (ctx, s, lt, C) => { // 回到两个并排的礼盒，天平保持水平
+    const D = s.vizDur; ctx.fillStyle = C.fg; ctx.fillRect(330, 910, 1260, 16); G.poly(ctx, [[960, 926], [920, 990], [1000, 990]], C.fg);
+    b11pcp(ctx, C, { lt: 1, lp: 1, rt: 1, rb: 1 });
+    tag(ctx, '结局相同 → 价钱相同', 960, 420, C, inv(D * 0.4, D * 0.8, lt), { px: 40, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  // ── #32 基差风险 ── (fictional airline, jet fuel hedged with crude futures; hedging shrinks risk, never to zero)
+  VIZ.bas_umbrella = (ctx, s, lt, C) => { // 一把伞挡住了大部分雨，伞边还是漏进几滴
+    const D = s.vizDur; b11drops(ctx, 200, 1720, 330, 600, lt, rgba(C.fg, 0.35), 50);
+    b6umbrella(ctx, 960, 660, 320, C.fg, [], C.bg); b11drops(ctx, 630, 670, 680, 930, lt, B11LOSS, 3, 9); b11drops(ctx, 1250, 1290, 680, 930, lt, B11LOSS, 2, 11);
+    tag(ctx, '还剩一点', 1520, 760, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: B11LOSS, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.bas_title = (ctx, s, lt, C) => { // 屏幕标题「Basis Risk」
+    const D = s.vizDur; b6title(ctx, 'Basis Risk', W / 2, 420, 170, C.fg, inv(0.05, D * 0.5, lt));
+    const p = inv(D * 0.2, D * 0.8, lt); b11plot2(ctx, b11ser(24, (u) => 30 * Math.sin(u * 5)), b11ser(24, (u) => 30 * Math.sin(u * 5) - 60 - 20 * Math.sin(u * 9)), 460, 1460, 760, C.fg, C.acc, p, 8);
+  };
+  VIZ.bas_gap = (ctx, s, lt, C) => { // 两条价格线之间的距离被标出来，画面写「基差 = 现货价 − 期货价」
+    const D = s.vizDur, p = inv(D * 0.05, D * 0.6, lt), sp = b11ser(26, (u) => 30 * Math.sin(u * 6)), fu = b11ser(26, (u) => 30 * Math.sin(u * 6) - 110);
+    b11plot2(ctx, sp, fu, 300, 1400, 640, C.fg, C.acc, p); b8txt(ctx, '现货', 1480, 640 - sp[25], 34, C.fg); b8txt(ctx, '期货', 1480, 640 - fu[25], 34, C.acc);
+    const k = inv(D * 0.45, D * 0.7, lt); if (k > 0) { ctx.save(); ctx.strokeStyle = B11GOLD; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(900, 640 - sp[13]); ctx.lineTo(900, 640 - sp[13] + 110 * k); ctx.stroke(); ctx.restore(); }
+    b8card(ctx, 960, 400, 760, 100, C.fg, C.bg, '基差 = 现货价 − 期货价', 44, { sc: E.oBack(inv(D * 0.5, D * 0.8, lt)) + 0.001 });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.bas_plane = (ctx, s, lt, C) => { // 一架虚构航空公司的飞机旁边一个油桶，角标「假设」
+    const D = s.vizDur, k = E.io(inv(D * 0.05, D * 0.5, lt)); b11plane(ctx, lerp(1900, 820, k), 600, 420, C.fg);
+    ctx.fillStyle = C.fg; ctx.fillRect(200, 900, 1520, 8); b11barrel(ctx, 1460, 900, 170, 240, C.acc, G.CREAM, '航油');
+    b6upArrow(ctx, 1640, 880, 640, B11LOSS, 10, inv(D * 0.5, D * 0.8, lt)); b8txt(ctx, '怕变贵', 1640, 600, 32, B11LOSS);
+    b8corner(ctx, '假设', C, inv(D * 0.1, D * 0.4, lt), 1690, 300);
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.bas_rope = (ctx, s, lt, C) => { // 航油桶旁边放上一个原油桶，用一根绳子连着
+    const D = s.vizDur, k = E.io(inv(D * 0.1, D * 0.5, lt)), r = inv(D * 0.45, D * 0.75, lt);
+    ctx.fillStyle = C.fg; ctx.fillRect(300, 900, 1320, 8); b11barrel(ctx, 640, 900, 220, 300, C.fg, G.CREAM, '航油', 40);
+    b11barrel(ctx, lerp(1900, 1280, k), 900, 220, 300, C.acc, G.CREAM, '原油', 40);
+    if (r > 0) b11rope(ctx, 750, 700, lerp(750, 1170, r), 700, C.fg, 60);
+    tag(ctx, '用原油期货对冲', 960, 440, C, inv(D * 0.55, D * 0.85, lt), { px: 36, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.bas_together = (ctx, s, lt, C) => { // 两条价格线大致一起往上
+    const D = s.vizDur, p = inv(D * 0.05, D * 0.8, lt);
+    b11plot2(ctx, b11ser(26, (u, i) => 220 * u + 25 * Math.sin(i * 1.1)), b11ser(26, (u, i) => 200 * u - 50 + 25 * Math.sin(i * 1.1 + 0.6)), 300, 1500, 800, C.fg, C.acc, p);
+    b8txt(ctx, '航油', 1590, 560, 34, C.fg); b8txt(ctx, '原油', 1590, 660, 34, C.acc);
+    tag(ctx, '大体同方向', 600, 420, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: C.acc, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.bas_width = (ctx, s, lt, C) => { // 两条线之间的距离时宽时窄
+    const D = s.vizDur, p = inv(D * 0.05, D * 0.8, lt), a = b11ser(30, (u) => 40 * Math.sin(u * 4)), b = b11ser(30, (u) => 40 * Math.sin(u * 4) - 80 - 60 * Math.sin(u * 11));
+    const n = Math.max(2, Math.floor(30 * clamp(p))); ctx.fillStyle = rgba(B11GOLD, 0.35); ctx.beginPath();
+    for (let i = 0; i < n; i++) ctx.lineTo(lerp(300, 1560, i / 29), 640 - a[i]); for (let i = n - 1; i >= 0; i--) ctx.lineTo(lerp(300, 1560, i / 29), 640 - b[i]); ctx.fill();
+    b11plot2(ctx, a, b, 300, 1560, 640, C.fg, C.acc, p);
+    tag(ctx, '价差时宽时窄', 960, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.bas_short = (ctx, s, lt, C) => { // 航油线升得更高，绳子够不着，中间露出一段缺口
+    const D = s.vizDur, p = inv(D * 0.05, D * 0.7, lt), jet = b11ser(24, (u) => 260 * u * u), cru = b11ser(24, (u) => 150 * u * u);
+    const [hj, hc] = b11plot2(ctx, jet, cru, 300, 1300, 820, C.fg, C.acc, p); b8txt(ctx, '航油', hj[0] + 80, hj[1], 34, C.fg); b8txt(ctx, '原油', hc[0] + 80, hc[1], 34, C.acc);
+    const k = inv(D * 0.3, D * 0.55, lt); if (k > 0) { b11rope(ctx, 1300, 820 - 150, 1300, 820 - 150 - 60 * k, C.acc, 0); ctx.fillStyle = rgba(B11LOSS, 0.5 * clamp(k)); ctx.fillRect(1280, 820 - 260, 40, 50); }
+    tag(ctx, '补不全', 1560, 420, C, inv(D * 0.6, D * 0.9, lt), { px: 40, bg: B11LOSS, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.bas_magnify = (ctx, s, lt, C) => { // 缺口被放大镜放大，标「基差在变」
+    const D = s.vizDur, k = E.oBack(inv(D * 0.1, D * 0.45, lt));
+    b11plot2(ctx, b11ser(24, (u) => 260 * u * u), b11ser(24, (u) => 150 * u * u), 300, 1300, 860, rgba(C.fg, 0.5), rgba(C.acc, 0.5), 1, 8);
+    ctx.fillStyle = rgba(B11LOSS, 0.4); ctx.fillRect(1280, 600, 40, 110); b10lens(ctx, 1300, 650, 150 * k + 1, C.fg, rgba(G.CREAM, 0.3));
+    tag(ctx, '基差在变', 700, 420, C, inv(D * 0.5, D * 0.8, lt), { px: 40, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.bas_samegood = (ctx, s, lt, C) => { // 同一种商品的两条价格线，走势相近但不重合
+    const D = s.vizDur, p = inv(D * 0.15, D * 0.85, lt); b6crate(ctx, 320, 640, 180, C.fg, C.bg); b8txt(ctx, '同一种货', 320, 800, 34, C.fg);
+    b11plot2(ctx, b11ser(26, (u, i) => 50 * Math.sin(u * 7) + 10 * Math.sin(i)), b11ser(26, (u, i) => 50 * Math.sin(u * 7 - 0.4) - 25), 520, 1560, 640, C.fg, C.acc, p);
+    b8txt(ctx, '现货', 1640, 600, 34, C.fg); b8txt(ctx, '期货', 1640, 690, 34, C.acc);
+    tag(ctx, '相近，不重合', 1040, 420, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: C.acc, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.bas_rock = (ctx, s, lt, C) => { // 一块大石头被换成一颗小石子
+    const D = s.vizDur, k = E.io(inv(D * 0.25, D * 0.6, lt)); ctx.fillStyle = C.fg; ctx.fillRect(300, 900, 1320, 8);
+    ctx.save(); ctx.globalAlpha = 1 - k; b9stone(ctx, 700, 760, 170, C.fg); ctx.restore(); b8txt(ctx, '大风险', 700, 520, 40, rgba(C.fg, 1 - k * 0.6));
+    ctx.save(); ctx.globalAlpha = k; b9stone(ctx, 1240, 870, 40, C.acc); ctx.restore(); b8txt(ctx, '小风险', 1240, 760, 40, C.acc, { a: k });
+    b8dash(ctx, 900, 760, 1150, 830, C.fg, 6); vizCaption(ctx, s, lt, C);
+  };
+  VIZ.bas_end = (ctx, s, lt, C) => { // 回到那把伞：雨小了很多，伞边还有几滴
+    const D = s.vizDur; b11drops(ctx, 300, 1620, 330, 540, lt, rgba(C.fg, 0.25), 14, 5);
+    b6umbrella(ctx, 960, 660, 320, C.fg, [], C.bg); b11drops(ctx, 640, 670, 680, 930, lt, B11LOSS, 2, 13);
+    tag(ctx, '不是零风险', 1520, 760, C, inv(D * 0.4, D * 0.8, lt), { px: 38, bg: B11LOSS, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  // ── #33 套期保值比率 ── (how much hedge per unit of exposure; formula on screen once, never spoken)
+  VIZ.hr_scale = (ctx, s, lt, C) => { // 天平左边一个大方块，右边放的砝码不是同样大小
+    const D = s.vizDur, k = inv(D * 0.1, D * 0.5, lt);
+    b8bal(ctx, 960, 480, 420, 0.08, C.fg, (c, sd, px, py) => { if (sd < 0) b11block(c, px, py - 90, 180, C.acc, G.CREAM, '现货'); else if (k > 0) b11weights(c, 2, px, py, 70, C.fg); });
+    tag(ctx, '不一定一比一', 1560, 360, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.hr_title = (ctx, s, lt, C) => { // 屏幕标题「Hedge Ratio」
+    const D = s.vizDur; b6title(ctx, 'Hedge Ratio', W / 2, 420, 170, C.fg, inv(0.05, D * 0.5, lt));
+    b8bal(ctx, 960, 680, 240, 0.05 * Math.sin(lt * 2), C.fg, (c, sd, px, py) => sd < 0 ? b11block(c, px, py - 50, 100, C.fg, C.bg, '') : b11weights(c, 2, px, py, 40, C.fg));
+  };
+  VIZ.hr_reuse = (ctx, s, lt, C) => { // 复用基差风险那两条走势相近但不重合的线
+    const D = s.vizDur, p = inv(D * 0.05, D * 0.7, lt);
+    ctx.save(); ctx.strokeStyle = rgba(C.fg, 0.3); ctx.lineWidth = 4; ctx.setLineDash([14, 10]); ctx.strokeRect(260, 420, 1400, 460); ctx.restore();
+    b11plot2(ctx, b11ser(26, (u, i) => 50 * Math.sin(u * 7) + 10 * Math.sin(i)), b11ser(26, (u, i) => 50 * Math.sin(u * 7 - 0.4) - 25), 340, 1580, 650, C.fg, C.acc, p);
+    tag(ctx, '上一条：基差风险', 520, 360, C, inv(D * 0.1, D * 0.4, lt), { px: 32, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.hr_dial = (ctx, s, lt, C) => { // 两条线之间出现一个相关性刻度盘
+    const D = s.vizDur, k = E.oBack(inv(D * 0.2, D * 0.55, lt));
+    b11plot2(ctx, b11ser(24, (u) => 40 * Math.sin(u * 6)), b11ser(24, (u) => 40 * Math.sin(u * 6 - 0.3) - 30), 260, 1660, 470, C.fg, B11GOLD, 1, 7);
+    ctx.save(); ctx.translate(960, 840); ctx.scale(k + 0.001, k + 0.001); b11dial(ctx, 0, 0, 200, 0.6, B11GOLD, rgba(C.fg, 0.3), '相关性'); ctx.restore();
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.hr_dial_up = (ctx, s, lt, C) => { // 刻度盘指针往高处走，伞变得更大
+    const D = s.vizDur, k = E.io(inv(D * 0.1, D * 0.7, lt)); b11dial(ctx, 560, 820, 200, lerp(0.3, 0.92, k), C.acc, rgba(C.fg, 0.2), '越相关');
+    b6umbrella(ctx, 1320, 620, lerp(140, 300, k), C.fg, [], C.bg); b11drops(ctx, 1000, 1640, 260, 440, lt, rgba(C.fg, 0.3), 16, 7);
+    tag(ctx, '挡得越多', 1320, 960, C, inv(D * 0.55, D * 0.85, lt), { px: 34, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.hr_boxes = (ctx, s, lt, C) => { // 两条线各自的起伏幅度被框出来
+    const D = s.vizDur, a = b11ser(26, (u, i) => 50 * Math.sin(i * 0.9)), b = b11ser(26, (u, i) => 100 * Math.sin(i * 0.9 + 0.5));
+    b8plot(ctx, a, 300, 1500, 470, C.fg, 8, 1); b8plot(ctx, b, 300, 1500, 760, C.acc, 8, 1);
+    const k = inv(D * 0.2, D * 0.6, lt); ctx.save(); ctx.lineWidth = 6; ctx.setLineDash([16, 10]); ctx.globalAlpha = clamp(k);
+    ctx.strokeStyle = C.fg; ctx.strokeRect(280, 470 - 62, 1240, 124); ctx.strokeStyle = C.acc; ctx.strokeRect(280, 760 - 112, 1240, 224); ctx.restore();
+    b8txt(ctx, '现货', 1610, 470, 34, C.fg); b8txt(ctx, '期货', 1610, 760, 34, C.acc);
+    tag(ctx, '各自的波动', 960, 340, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.hr_fut_big = (ctx, s, lt, C) => { // 期货那条线起伏更大，右边砝码变少
+    const D = s.vizDur, k = inv(D * 0.3, D * 0.7, lt), n = k > 0.5 ? 2 : 4;
+    b8plot(ctx, b11ser(22, (u, i) => 30 * Math.sin(i * 0.9)), 220, 900, 420, C.fg, 6, 1); b8plot(ctx, b11ser(22, (u, i) => 110 * Math.sin(i * 0.9 + 0.5)), 220, 900, 720, C.acc, 8, 1);
+    b8txt(ctx, '现货', 160, 420, 30, C.fg); b8txt(ctx, '期货 波动大', 560, 880, 32, C.acc);
+    b8bal(ctx, 1380, 500, 300, 0, C.fg, (c, sd, px, py) => sd < 0 ? b11block(c, px, py - 70, 140, C.fg, C.bg, '现货') : b11weights(c, n, px, py, 50, C.acc));
+    tag(ctx, '配少一点', 1680, 340, C, inv(D * 0.55, D * 0.85, lt), { px: 34, bg: C.acc, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.hr_spot_big = (ctx, s, lt, C) => { // 现货那条线起伏更大，右边砝码变多
+    const D = s.vizDur, k = inv(D * 0.3, D * 0.7, lt), n = k > 0.5 ? 4 : 2;
+    b8plot(ctx, b11ser(22, (u, i) => 110 * Math.sin(i * 0.9)), 220, 900, 470, C.fg, 8, 1); b8plot(ctx, b11ser(22, (u, i) => 30 * Math.sin(i * 0.9 + 0.5)), 220, 900, 780, C.acc, 6, 1);
+    b8txt(ctx, '现货 波动大', 560, 330, 32, C.fg); b8txt(ctx, '期货', 160, 780, 30, C.acc);
+    b8bal(ctx, 1380, 500, 300, 0, C.fg, (c, sd, px, py) => sd < 0 ? b11block(c, px, py - 70, 140, C.fg, C.bg, '现货') : b11weights(c, n, px, py, 50, C.acc));
+    tag(ctx, '配多一点', 1680, 340, C, inv(D * 0.55, D * 0.85, lt), { px: 34, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.hr_formula = (ctx, s, lt, C) => { // 画面写出 h = ρ × σ现货 / σ期货（只上画面，不念）
+    const D = s.vizDur, k = E.oBack(inv(D * 0.3, D * 0.6, lt));
+    ['相关性', '现货波动', '期货波动'].forEach((t, i) => { const p = inv(D * (0.02 + i * 0.08), D * (0.2 + i * 0.08), lt); b8card(ctx, 520 + i * 440, 420, 360, 100, C.fg, C.bg, t, 40, { sc: E.oBack(p) + 0.001 }); });
+    b8card(ctx, 960, 680, 1000, 160, C.acc, G.CREAM, 'h = ρ × σ现货 / σ期货', 64, { sc: k + 0.001 });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.hr_80 = (ctx, s, lt, C) => { // 左边一百吨航油，右边八十吨期货砝码，角标「假设」
+    const D = s.vizDur, k = inv(D * 0.2, D * 0.6, lt);
+    b8bal(ctx, 960, 480, 420, 0, C.fg, (c, sd, px, py) => { if (sd < 0) b11barrel(c, px, py, 180, 220, C.acc, G.CREAM, '100吨', 38); else if (k > 0) { b11block(c, px, py - 70, 140, C.fg, C.bg, '80吨'); } });
+    b8corner(ctx, '假设', C, inv(D * 0.1, D * 0.4, lt), 1690, 300);
+    tag(ctx, '比率 0.8', 960, 300, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: C.acc, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.hr_tilt = (ctx, s, lt, C) => { // 砝码多一点或少一点，天平都会偏一点
+    const D = s.vizDur, ph = lt % 3 < 1.5, n = ph ? 3 : 1;
+    b8bal(ctx, 960, 480, 420, ph ? -0.12 : 0.12, C.fg, (c, sd, px, py) => sd < 0 ? b11block(c, px, py - 80, 160, C.acc, G.CREAM, '现货') : b11weights(c, n, px, py, 60, C.fg));
+    b8txt(ctx, ph ? '配多了' : '配少了', 1400, 330, 40, C.fg);
+    tag(ctx, '都会留下缺口', 960, 960, C, inv(D * 0.4, D * 0.8, lt), { px: 34, bg: B11LOSS, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.hr_end = (ctx, s, lt, C) => { // 回到天平：两边的线一起起伏，天平基本稳住
+    const D = s.vizDur, w = 0.03 * Math.sin(lt * 2.2);
+    b11plot2(ctx, b11ser(26, (u, i) => 40 * Math.sin(i * 0.7 + lt)), b11ser(26, (u, i) => 40 * Math.sin(i * 0.7 + lt + 0.25) - 20), 260, 1660, 420, rgba(C.fg, 0.6), rgba(C.acc, 0.7), 1, 6);
+    b8bal(ctx, 960, 580, 380, w, C.fg, (c, sd, px, py) => sd < 0 ? b11block(c, px, py - 70, 140, C.acc, G.CREAM, '现货') : b11weights(c, 2, px, py, 55, C.fg));
+    tag(ctx, '基本稳住', 1580, 600, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  // ── #34 升水 / 贴水 ── (cost of carry vs scarcity; converge at expiry; neither is a forecast)
+  VIZ.cb_tags = (ctx, s, lt, C) => { // 两个价签并排，一个写「现货」，一个写「期货」，数字不同
+    const D = s.vizDur, a = E.oBack(inv(D * 0.05, D * 0.35, lt)), b = E.oBack(inv(D * 0.25, D * 0.55, lt));
+    ctx.save(); ctx.translate(640, 640); ctx.scale(a + 0.001, a + 0.001); b11pricetag(ctx, 0, 0, 440, 240, C.fg, C.bg, '现货', '100'); ctx.restore();
+    ctx.save(); ctx.translate(1280, 640); ctx.scale(b + 0.001, b + 0.001); b11pricetag(ctx, 0, 0, 440, 240, C.acc, G.CREAM, '期货', '104'); ctx.restore();
+    b8txt(ctx, '≠', 960, 640, 90, C.fg, { a: clamp(inv(D * 0.5, D * 0.7, lt)) });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.cb_contango = (ctx, s, lt, C) => { // 期货价签在上，现货在下，屏幕标题「Contango」
+    const D = s.vizDur, k = E.io(inv(D * 0.2, D * 0.6, lt)); b6title(ctx, 'Contango', W / 2, 410, 110, C.fg, inv(0.05, D * 0.4, lt));
+    b11pricetag(ctx, 960, lerp(720, 610, k), 380, 160, C.acc, G.CREAM, '期货', '104'); b11pricetag(ctx, 960, lerp(720, 830, k), 380, 160, C.fg, C.bg, '现货', '100');
+    b8txt(ctx, '升水：期货更贵', 1500, 610, 36, C.acc, { a: clamp(inv(D * 0.55, D * 0.8, lt)) });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.cb_backw = (ctx, s, lt, C) => { // 期货价签在下，现货在上，屏幕标题「Backwardation」
+    const D = s.vizDur, k = E.io(inv(D * 0.2, D * 0.6, lt)); b6title(ctx, 'Backwardation', W / 2, 410, 110, C.fg, inv(0.05, D * 0.4, lt));
+    b11pricetag(ctx, 960, lerp(720, 610, k), 380, 160, C.fg, C.bg, '现货', '100'); b11pricetag(ctx, 960, lerp(720, 830, k), 380, 160, C.acc, G.CREAM, '期货', '96');
+    b8txt(ctx, '贴水：期货更便宜', 1500, 830, 36, C.acc, { a: clamp(inv(D * 0.55, D * 0.8, lt)) });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.cb_warehouse = (ctx, s, lt, C) => { // 一个仓库里堆着货
+    const D = s.vizDur, n = Math.floor(clamp(inv(D * 0.1, D * 0.7, lt)) * 9); ctx.fillStyle = C.fg; ctx.fillRect(200, 940, 1520, 8);
+    b11house(ctx, 960, 940, 900, 420, C.fg, rgba(G.INK, 0.35));
+    for (let i = 0; i < n; i++) { const c = i % 3, r = Math.floor(i / 3); b6crate(ctx, 860 + c * 100, 890 - r * 100, 92, C.acc, G.CREAM); }
+    tag(ctx, '要储存的货', 1560, 380, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: C.acc, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.cb_bill = (ctx, s, lt, C) => { // 仓库门口一张账单，写着仓储费和利息
+    const D = s.vizDur, k = E.oBack(inv(D * 0.15, D * 0.5, lt)); ctx.fillStyle = C.fg; ctx.fillRect(200, 940, 1520, 8);
+    b11house(ctx, 560, 940, 600, 380, C.fg, rgba(G.INK, 0.35));
+    ctx.save(); ctx.translate(1280, 640); ctx.scale(k + 0.001, k + 0.001); ctx.rotate(0.04); ctx.fillStyle = G.CREAM; ctx.fillRect(-230, -260, 460, 520);
+    b8txt(ctx, '账单', 0, -190, 48, G.INK); b8txt(ctx, '仓储费', -60, -60, 40, G.INK); b8txt(ctx, '利息', -80, 40, 40, G.INK);
+    ctx.fillStyle = rgba(G.INK, 0.25); ctx.fillRect(60, -70, 120, 20); ctx.fillRect(60, 30, 120, 20); ctx.fillRect(-180, 140, 360, 6); ctx.restore();
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.cb_timeline = (ctx, s, lt, C) => { // 时间轴越往后，价签越高
+    const D = s.vizDur; b6timeline(ctx, 300, 1600, 900, inv(D * 0.05, D * 0.5, lt), C.fg);
+    ['现在', '3个月', '6个月', '9个月'].forEach((t, i) => { const p = E.oBack(inv(D * (0.2 + i * 0.12), D * (0.4 + i * 0.12), lt)), x = 420 + i * 360, y = 760 - i * 90;
+      ctx.save(); ctx.translate(x, y); ctx.scale(p + 0.001, p + 0.001); b11pricetag(ctx, 0, 0, 240, 130, i ? C.acc : C.fg, i ? G.CREAM : C.bg, i ? '期货' : '现货', `${100 + i * 2}`); ctx.restore(); b8txt(ctx, t, x, 950, 30, C.fg); });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.cb_shelf = (ctx, s, lt, C) => { // 货架上只剩最后几件
+    const D = s.vizDur, k = inv(D * 0.05, D * 0.6, lt), left = Math.max(2, 12 - Math.floor(clamp(k) * 10)); b11shelf(ctx, 520, 1400, 480, 3, C.fg);
+    for (let i = 0; i < left; i++) { const r = Math.floor(i / 4), c = i % 4; b6crate(ctx, 640 + c * 200, 480 + r * 170 - 50, 90, C.acc, G.CREAM); }
+    tag(ctx, '眼下紧缺', 1600, 360, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: B11LOSS, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.cb_hand = (ctx, s, lt, C) => { // 一只手握着现货，旁边的期货价签偏低
+    const D = s.vizDur, k = E.io(inv(D * 0.3, D * 0.7, lt)); b6crate(ctx, 640, 560, 200, C.acc, G.CREAM); b7hand(ctx, 640, 720, 150, C.fg, 0);
+    b8txt(ctx, '现货在手', 640, 900, 38, C.fg);
+    b11pricetag(ctx, 1320, lerp(560, 760, k), 360, 170, C.fg, C.bg, '期货', '96'); b6down(ctx, 1580, 560, lerp(561, 760, k), B11LOSS, 9, 1);
+    tag(ctx, '现货更值钱', 1320, 380, C, inv(D * 0.55, D * 0.85, lt), { px: 36, bg: C.acc, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.cb_converge = (ctx, s, lt, C) => { // 两条线随时间越靠越近
+    const D = s.vizDur, p = inv(D * 0.05, D * 0.85, lt), sp = b11ser(28, (u, i) => 20 * Math.sin(i * 0.8)), fu = b11ser(28, (u, i) => 20 * Math.sin(i * 0.8) + 160 * (1 - u));
+    b11plot2(ctx, sp, fu, 300, 1500, 760, C.fg, C.acc, p); b8txt(ctx, '期货', 240, 760 - fu[0], 32, C.acc); b8txt(ctx, '现货', 240, 760 - sp[0], 32, C.fg);
+    ctx.fillStyle = C.fg; ctx.fillRect(1500, 420, 6, 500); b8txt(ctx, '到期', 1503, 960, 32, C.fg);
+    tag(ctx, '越靠越近', 960, 360, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: C.acc, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.cb_meet = (ctx, s, lt, C) => { // 两条线在到期日汇合成一点
+    const D = s.vizDur, sp = b11ser(28, (u, i) => 20 * Math.sin(i * 0.8) * (1 - u)), up = b11ser(28, (u) => 160 * (1 - u)), dn = b11ser(28, (u) => -140 * (1 - u));
+    b8plot(ctx, up, 300, 1440, 680, rgba(C.acc, 0.8), 8, 1); b8plot(ctx, dn, 300, 1440, 680, rgba(C.acc, 0.5), 8, 1, [16, 12]); b8plot(ctx, sp, 300, 1440, 680, C.fg, 10, 1);
+    const k = E.oBack(inv(D * 0.3, D * 0.6, lt)); G.disc(ctx, 1440, 680, 30 * k + 1, B11GOLD);
+    b8txt(ctx, '升水', 240, 520, 32, C.acc); b8txt(ctx, '贴水', 240, 820, 32, C.acc);
+    tag(ctx, '到期基本对上', 1520, 460, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.cb_not_bull = (ctx, s, lt, C) => { // 一个写着「看涨」的箭头被划掉
+    const D = s.vizDur; b11pricetag(ctx, 560, 660, 380, 180, C.acc, G.CREAM, '升水', '期货贵');
+    b6upArrow(ctx, 1280, 860, 480, rgba(C.fg, 0.7), 14, inv(D * 0.05, D * 0.3, lt)); b8txt(ctx, '看涨', 1560, 520, 44, C.fg);
+    b8cross(ctx, 1320, 660, 260, B11LOSS, inv(D * 0.35, D * 0.6, lt));
+    tag(ctx, '不代表看涨', 960, 380, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.cb_not_bear = (ctx, s, lt, C) => { // 一个写着「看空」的箭头被划掉
+    const D = s.vizDur; b11pricetag(ctx, 560, 660, 380, 180, C.fg, C.bg, '贴水', '期货便宜');
+    b6down(ctx, 1280, 460, 840, rgba(C.fg, 0.7), 14, inv(D * 0.05, D * 0.3, lt)); b8txt(ctx, '看空', 1560, 520, 44, C.fg);
+    b8cross(ctx, 1320, 660, 260, B11LOSS, inv(D * 0.35, D * 0.6, lt));
+    tag(ctx, '也不代表看空', 960, 380, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: C.acc, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.cb_end = (ctx, s, lt, C) => { // 回到两个价签，旁边是仓库和货架，没有水晶球
+    const D = s.vizDur; ctx.fillStyle = C.fg; ctx.fillRect(200, 940, 1520, 8);
+    b11house(ctx, 420, 940, 360, 260, C.fg, rgba(G.INK, 0.35)); b11shelf(ctx, 1380, 1700, 700, 2, C.fg); b6crate(ctx, 1460, 650, 70, C.acc, G.CREAM);
+    b11pricetag(ctx, 960, 540, 320, 150, C.fg, C.bg, '现货', '100'); b11pricetag(ctx, 960, 740, 320, 150, C.acc, G.CREAM, '期货', '104');
+    tag(ctx, '成本和供需，不是预测', 960, 340, C, inv(D * 0.4, D * 0.8, lt), { px: 38, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  // ── #35 保证金 ── (upper = initial, lower = maintenance; a call tops back up to the UPPER line; a deposit, not a payment or fee)
+  VIZ.mg_lines = (ctx, s, lt, C) => { // 一个账户余额柱，上面画着两条横线，屏幕标题「Margin」
+    const D = s.vizDur; b6title(ctx, 'Margin', 560, 560, 170, C.fg, inv(0.05, D * 0.4, lt));
+    b11acct(ctx, 1300, 0.78 * clamp(inv(D * 0.2, D * 0.6, lt) * 1.2), C, { labels: false });
+    tag(ctx, '两条线', 1300, 320, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mg_init = (ctx, s, lt, C) => { // 上方那条线亮起，标「初始保证金」
+    const D = s.vizDur, g = clamp(inv(D * 0.15, D * 0.4, lt)); b11acct(ctx, 860, 0.78, C, { topCol: g > 0.5 ? B11GOLD : undefined, lowA: 0.3 });
+    tag(ctx, '初始保证金：开仓要交', 1420, B11AY - B11TOP * B11AH - 90, C, inv(D * 0.4, D * 0.7, lt), { px: 34, bg: B11GOLD, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mg_maint = (ctx, s, lt, C) => { // 下方那条线亮起，标「维持保证金」
+    const D = s.vizDur, g = clamp(inv(D * 0.15, D * 0.4, lt)); b11acct(ctx, 860, 0.78, C, { lowCol: g > 0.5 ? B11LOSS : undefined, topA: 0.3 });
+    tag(ctx, '维持保证金：必须守住', 1420, B11AY - B11LOW * B11AH + 90, C, inv(D * 0.4, D * 0.7, lt), { px: 34, bg: B11LOSS, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mg_daily = (ctx, s, lt, C) => { // 日历翻页，余额柱上下变化
+    const D = s.vizDur, vals = [0.78, 0.7, 0.75, 0.62, 0.68, 0.58], u = clamp(inv(D * 0.05, D * 0.9, lt)) * (vals.length - 1), i = Math.floor(u), v = lerp(vals[i], vals[Math.min(i + 1, 5)], E.io(u - i));
+    b7cal(ctx, 260, 440, 3, 3, 90, C.fg, rgba(C.bg, 0.4), C.acc); b8txt(ctx, `第 ${i + 1} 天`, 395, 475, 34, C.bg);
+    b11acct(ctx, 1160, v, C, { fill: v < vals[Math.max(0, i)] - 0.001 ? B11LOSS : B11GOLD });
+    tag(ctx, '每天结算', 395, 820, C, inv(D * 0.5, D * 0.8, lt), { px: 34, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mg_breach = (ctx, s, lt, C) => { // 余额柱往下沉，穿过下方那条线，角标「假设」
+    const D = s.vizDur, k = E.io(inv(D * 0.1, D * 0.7, lt)), v = lerp(0.72, 0.36, k); const [, yl] = b11acct(ctx, 860, v, C, { fill: v < B11LOW ? B11LOSS : B11GOLD });
+    b6down(ctx, 1240, 520, lerp(521, 760, k), B11LOSS, 10, 1); b8txt(ctx, '亏损', 1240, 800, 34, B11LOSS);
+    if (v < B11LOW) tag(ctx, '低于下线', 1500, yl, C, 1, { px: 34, bg: B11LOSS, fg: G.CREAM });
+    b8corner(ctx, '假设', C, inv(D * 0.1, D * 0.4, lt), 1690, 300);
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mg_letter = (ctx, s, lt, C) => { // 一封信落到账户上，写着「追加保证金」
+    const D = s.vizDur, k = E.oBack(inv(D * 0.1, D * 0.5, lt)); b11acct(ctx, 760, 0.36, C, { fill: B11LOSS });
+    const y = lerp(220, 560, clamp(k)); b10env(ctx, 1340, y, 420, 260, C.fg, C.bg); b8txt(ctx, '追加保证金', 1340, y + 70, 44, C.bg);
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mg_topup = (ctx, s, lt, C) => { // 箭头越过下线，一直推到上方那条线
+    const D = s.vizDur, k = inv(D * 0.15, D * 0.7, lt); const [yt, yl] = b11acct(ctx, 760, 0.36, C, { fill: B11LOSS, topCol: B11GOLD });
+    b6upArrow(ctx, 1160, B11AY - 0.36 * B11AH, lerp(B11AY - 0.36 * B11AH - 1, yt, E.io(clamp(k))), B11GAIN, 14, 1);
+    b8cross(ctx, 1300, yl, 60, B11LOSS, inv(D * 0.5, D * 0.7, lt)); b8txt(ctx, '不是补到下线', 1500, yl, 32, C.fg); b8txt(ctx, '补回上线', 1450, yt, 36, B11GAIN);
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mg_back = (ctx, s, lt, C) => { // 余额柱回到上方那条线
+    const D = s.vizDur, k = E.io(inv(D * 0.1, D * 0.6, lt)), v = lerp(0.36, B11TOP, k); b11acct(ctx, 860, v, C, { topCol: k > 0.95 ? B11GOLD : undefined });
+    b8check(ctx, 1280, B11AY - B11TOP * B11AH - 80, 80, B11GAIN, inv(D * 0.6, D * 0.8, lt));
+    tag(ctx, '回到初始保证金', 1500, 380, C, inv(D * 0.55, D * 0.85, lt), { px: 34, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mg_close = (ctx, s, lt, C) => { // 另一条分支：账户被一只手合上
+    const D = s.vizDur, k = E.io(inv(D * 0.3, D * 0.75, lt));
+    ctx.save(); ctx.strokeStyle = rgba(C.fg, 0.5); ctx.lineWidth = 8; ctx.setLineDash([18, 12]); ctx.beginPath(); ctx.moveTo(300, 640); ctx.lineTo(560, 640); ctx.lineTo(760, 480); ctx.moveTo(560, 640); ctx.lineTo(760, 800); ctx.stroke(); ctx.restore();
+    b8txt(ctx, '补', 840, 480, 36, rgba(C.fg, 0.5)); b8txt(ctx, '不补', 860, 800, 36, C.fg);
+    ctx.fillStyle = C.fg; ctx.beginPath(); ctx.roundRect(1000, 640, 520, 300, 20); ctx.fill();
+    ctx.save(); ctx.translate(1000, 640); ctx.rotate(-1.3 * (1 - k)); ctx.fillStyle = rgba(G.INK, 0.85); ctx.fillRect(0, -16, 520, 16); ctx.restore();
+    b7hand(ctx, lerp(1700, 1460, k), lerp(380, 600, k), 110, G.CREAM, -0.5);
+    tag(ctx, '强制平仓', 1260, 380, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: B11LOSS, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mg_misread = (ctx, s, lt, C) => { // 一张写着「首付」的牌子和一张写着「手续费」的收据
+    const D = s.vizDur, a = E.oBack(inv(D * 0.05, D * 0.4, lt)), b = E.oBack(inv(D * 0.25, D * 0.6, lt));
+    ctx.save(); ctx.translate(620, 640); ctx.scale(a + 0.001, a + 0.001); ctx.fillStyle = C.fg; ctx.fillRect(-12, 0, 24, 300); b8card(ctx, 0, -40, 380, 200, C.fg, C.bg, '首付', 72); ctx.restore();
+    ctx.save(); ctx.translate(1300, 640); ctx.scale(b + 0.001, b + 0.001); ctx.rotate(0.05); ctx.fillStyle = G.CREAM; ctx.fillRect(-170, -240, 340, 480);
+    b8txt(ctx, '收据', 0, -180, 40, G.INK); b8txt(ctx, '手续费', 0, -60, 52, G.INK); ctx.fillStyle = rgba(G.INK, 0.25); for (let i = 0; i < 3; i++) ctx.fillRect(-120, 40 + i * 50, 240, 14); ctx.restore();
+    b8txt(ctx, '？', 960, 460, 100, C.acc, { a: clamp(inv(D * 0.6, D * 0.8, lt)) });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mg_key = (ctx, s, lt, C) => { // 牌子和收据被换成一把押金钥匙
+    const D = s.vizDur, k = E.io(inv(D * 0.15, D * 0.5, lt)), r = E.oBack(inv(D * 0.45, D * 0.75, lt));
+    ctx.save(); ctx.globalAlpha = 1 - k; b8card(ctx, 620, 600, 380, 200, C.fg, C.bg, '首付', 72); b8card(ctx, 1300, 600, 340, 200, G.CREAM, G.INK, '手续费', 52); ctx.restore();
+    ctx.save(); ctx.translate(960, 620); ctx.scale(r + 0.001, r + 0.001); b11key(ctx, 0, 0, 260, B11GOLD, -0.3); ctx.restore();
+    tag(ctx, '履约押金', 960, 380, C, inv(D * 0.6, D * 0.9, lt), { px: 40, bg: B11GOLD, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.mg_end = (ctx, s, lt, C) => { // 回到账户和两条线，旁边那把押金钥匙
+    const D = s.vizDur; b11acct(ctx, 760, B11TOP, C, {});
+    b11key(ctx, 1420, 620, 200, B11GOLD, -0.3);
+    tag(ctx, '押金，不是首付或手续费', 1400, 380, C, inv(D * 0.4, D * 0.8, lt), { px: 34, bg: C.fg, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
   // ───────── finance-v003 scene library, batch 4 (CAPM long, 13 lines, 2026-10-30) ─────────
   // Metaphor (金融专家): companies = unnamed small buildings, the market = the ground they stand on.
   // Company trouble = smoke on one roof (diluted by owning many); market risk = the whole ground sinks.
