@@ -503,10 +503,12 @@
     {
       "members": [
         "期货",
-        "奇祸"
+        "奇祸",
+        "其货",
+        "棋货"
       ],
       "short": [],
-      "note": "qī huò vs qí huò (tone only); futures L02 small heard 奇祸"
+      "note": "qī huò vs qí huò (tone only); futures L02 small heard 奇祸; +其货 (basis small, 2026-10-30); +棋货 (contango small, 2026-10-30)"
     },
     {
       "members": [
@@ -544,10 +546,14 @@
       "members": [
         "期权",
         "齐全",
-        "其权"
+        "其权",
+        "棋权",
+        "七拳",
+        "齐权",
+        "七权"
       ],
       "short": [],
-      "note": "qī quán vs qí quán (tone only); option L02/L07 small"
+      "note": "qī quán vs qí quán (tone only); option L02/L07 small; +棋权/七拳/齐权/七权 (pcp small, 2026-10-30)"
     },
     {
       "members": [
@@ -568,10 +574,11 @@
     {
       "members": [
         "行权",
-        "行全"
+        "行全",
+        "行拳"
       ],
       "short": [],
-      "note": "xíng quán, same pinyin; option L11 small"
+      "note": "xíng quán, same pinyin; option L11 small; +行拳 (pcp small, 2026-10-30)"
     },
     {
       "members": [
@@ -590,6 +597,101 @@
       ],
       "short": [],
       "note": "quán lì jīn, same pinyin; option L10/L12/L13 small"
+    },
+    {
+      "members": [
+        "到期",
+        "到其",
+        "到齐",
+        "倒棋",
+        "道棋"
+      ],
+      "short": [],
+      "note": "dao qi, same pinyin or tone only; put-call-parity small 2026-10-30; +道棋 (contango small, 2026-10-30)"
+    },
+    {
+      "members": [
+        "标的",
+        "标地"
+      ],
+      "short": [],
+      "note": "biao di, same pinyin or tone only; put-call-parity small 2026-10-30"
+    },
+    {
+      "members": [
+        "同一",
+        "同意"
+      ],
+      "short": [],
+      "note": "tong yi, same pinyin or tone only; put-call-parity small 2026-10-30"
+    },
+    {
+      "members": [
+        "平价",
+        "评价"
+      ],
+      "short": [],
+      "note": "ping jia, same pinyin or tone only; put-call-parity small 2026-10-30"
+    },
+    {
+      "members": [
+        "基差",
+        "鸡叉",
+        "击叉",
+        "机插"
+      ],
+      "short": [],
+      "note": "ji cha, same pinyin or tone only; basis-risk small 2026-10-30"
+    },
+    {
+      "members": [
+        "航油",
+        "航游"
+      ],
+      "short": [],
+      "note": "hang you, same pinyin or tone only; basis-risk small 2026-10-30"
+    },
+    {
+      "members": [
+        "涨得",
+        "长得"
+      ],
+      "short": [],
+      "note": "zhang de, same pinyin or tone only; basis-risk small 2026-10-30"
+    },
+    {
+      "members": [
+        "期货价",
+        "棋货架",
+        "期货架",
+        "齐货架"
+      ],
+      "short": [],
+      "note": "qi huo jia, same pinyin or tone only; contango small 2026-10-30; +齐货架 (contango large, 2026-10-30)"
+    },
+    {
+      "members": [
+        "现货价",
+        "现货架"
+      ],
+      "short": [],
+      "note": "xian huo jia, same pinyin or tone only; contango 2026-10-30"
+    },
+    {
+      "members": [
+        "升水",
+        "生水"
+      ],
+      "short": [],
+      "note": "sheng shui, same pinyin or tone only; contango 2026-10-30"
+    },
+    {
+      "members": [
+        "要交",
+        "药胶"
+      ],
+      "short": [],
+      "note": "yao jiao, same pinyin; margin L02 small 2026-10-30"
     }
   ]
 }

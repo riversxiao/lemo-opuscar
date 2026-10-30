@@ -4491,8 +4491,8 @@
   // UPPER line, forced liquidation, a deposit not a down payment or fee; no real contracts or codes; losses go DOWN.
   Object.assign(VPAL, {
     pcp_boxes: 'cream', pcp_title: 'ink', pcp_checks: 'green', pcp_euro: 'cream', pcp_call_in: 'purple', pcp_cash_in: 'cream',
-    pcp_put_in: 'gold', pcp_asset_in: 'cream', pcp_120: 'ochre', pcp_left120: 'cream', pcp_right120: 'purple', pcp_both: 'cream',
-    pcp_today: 'ink', pcp_arb: 'cream', pcp_end: 'green',
+    pcp_put_in: 'gold', pcp_asset_in: 'ochre', pcp_120: 'cream', pcp_left120: 'ink', pcp_right120: 'purple', pcp_both: 'cream',
+    pcp_today: 'ink', pcp_arb: 'cream', pcp_end: 'gold',
     bas_umbrella: 'cream', bas_title: 'purple', bas_gap: 'cream', bas_plane: 'gold', bas_rope: 'cream', bas_together: 'ink',
     bas_width: 'cream', bas_short: 'ochre', bas_magnify: 'cream', bas_samegood: 'green', bas_rock: 'cream', bas_end: 'ink',
     hr_scale: 'cream', hr_title: 'gold', hr_reuse: 'cream', hr_dial: 'purple', hr_dial_up: 'cream', hr_boxes: 'ochre',
@@ -4520,6 +4520,7 @@
     b11box(ctx, L, yb, 440, h, o.col || C.fg, C.acc); b11box(ctx, R, yb, 440, h, o.col || C.fg, C.acc);
     if (o.lv) b8txt(ctx, o.lv, L, 800, 64, C.bg, { en: 1 }); if (o.rv) b8txt(ctx, o.rv, R, 800, 64, C.bg, { en: 1 });
   }
+  function b11zoom(ctx, fx, fy, tx, ty, sc, f) { ctx.save(); ctx.translate(tx, ty); ctx.scale(sc, sc); ctx.translate(-fx, -fy); f(); ctx.restore(); } // focus (fx,fy) → (tx,ty)
   function b11plot2(ctx, a, b, x0, x1, yc, ca, cb, p, w = 10) { const ha = b8plot(ctx, a, x0, x1, yc, ca, w, p); const hb = b8plot(ctx, b, x0, x1, yc, cb, w, p); return [ha, hb]; }
   function b11barrel(ctx, x, yb, w, h, col, band, txt, px = 34) { // oil drum, yb = bottom
     ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x - w / 2, yb - h, w, h, 18); ctx.fill();
@@ -4591,13 +4592,13 @@
     vizCaption(ctx, s, lt, C);
   };
   VIZ.pcp_call_in = (ctx, s, lt, C) => { // 左边礼盒里放进一张绿色门票
-    const D = s.vizDur; b11pcp(ctx, C, { lt: inv(D * 0.1, D * 0.55, lt) });
-    tag(ctx, '看涨期权', 560, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: B11GAIN, fg: G.CREAM });
+    const D = s.vizDur; b11zoom(ctx, 560, 760, 1240, 640, 1.45, () => b11pcp(ctx, C, { lt: inv(D * 0.1, D * 0.55, lt) }));
+    tag(ctx, '看涨期权', 460, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: B11GAIN, fg: G.CREAM });
     vizCaption(ctx, s, lt, C);
   };
   VIZ.pcp_cash_in = (ctx, s, lt, C) => { // 左边礼盒里再放进一个存钱罐，标「到期等于行权价」
-    const D = s.vizDur; b11pcp(ctx, C, { lt: 1, lp: inv(D * 0.1, D * 0.55, lt) });
-    tag(ctx, '到期等于行权价', 640, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: C.fg, fg: C.bg });
+    const D = s.vizDur; b11zoom(ctx, 560, 800, 900, 800, 1.6, () => b11pcp(ctx, C, { lt: 1, lp: inv(D * 0.1, D * 0.55, lt) }));
+    tag(ctx, '到期等于行权价', 1520, 420, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: C.fg, fg: C.bg });
     vizCaption(ctx, s, lt, C);
   };
   VIZ.pcp_put_in = (ctx, s, lt, C) => { // 右边礼盒里放进一张橙色门票
@@ -4606,8 +4607,8 @@
     vizCaption(ctx, s, lt, C);
   };
   VIZ.pcp_asset_in = (ctx, s, lt, C) => { // 右边礼盒里再放进一个代表标的的方块
-    const D = s.vizDur; b11pcp(ctx, C, { lt: 1, lp: 1, rt: 1, rb: inv(D * 0.1, D * 0.55, lt) });
-    tag(ctx, '标的本身', 1460, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    const D = s.vizDur; b11zoom(ctx, 1360, 760, 1080, 640, 1.45, () => b11pcp(ctx, C, { lt: 1, lp: 1, rt: 1, rb: inv(D * 0.1, D * 0.55, lt) }));
+    tag(ctx, '标的本身', 420, 330, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: G.INK, fg: G.CREAM });
     vizCaption(ctx, s, lt, C);
   };
   VIZ.pcp_120 = (ctx, s, lt, C) => { // 价格线升到一百二，一百处画虚线，角标「假设」
@@ -4620,22 +4621,21 @@
     vizCaption(ctx, s, lt, C);
   };
   VIZ.pcp_left120 = (ctx, s, lt, C) => { // 左边礼盒：存钱罐换成方块，标一百二
-    const D = s.vizDur, k = E.io(inv(D * 0.15, D * 0.55, lt)); b11pcp(ctx, C, { lt: 1, lp: 1, lpA: 1 - k, lb: 1, lbA: k, rtA: 0.25, rt: 1, rbA: 0.25, rb: 1, lv: k > 0.6 ? '120' : '' });
-    tag(ctx, '用存款行权买入', 560, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 34, bg: B11GAIN, fg: G.CREAM });
+    const D = s.vizDur, k = E.io(inv(D * 0.15, D * 0.55, lt)), body = () => { b11pcp(ctx, C, { lt: 1, lp: 1, lpA: 1 - k, lb: 1, lbA: k, rtA: 0.25, rt: 1, rbA: 0.25, rb: 1, lv: k > 0.6 ? '120' : '' }); }; b11zoom(ctx, 560, 760, 640, 700, 1.2, body);
+    tag(ctx, '用存款行权买入', 1450, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 34, bg: B11GAIN, fg: G.CREAM });
     vizCaption(ctx, s, lt, C);
   };
   VIZ.pcp_right120 = (ctx, s, lt, C) => { // 右边礼盒：橙色门票作废，方块标一百二
-    const D = s.vizDur, k = inv(D * 0.15, D * 0.5, lt); b11pcp(ctx, C, { lt: 1, ltA: 0.25, lb: 1, lbA: 0.25, rt: 1, rtA: 1 - 0.6 * clamp(k), rb: 1, rv: k > 0.6 ? '120' : '' });
-    b8cross(ctx, 1270, 600, 90, B11LOSS, k);
-    tag(ctx, '期权不用行权', 1360, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 34, bg: C.fg, fg: C.bg });
+    const D = s.vizDur, k = inv(D * 0.15, D * 0.5, lt), body = () => { b11pcp(ctx, C, { lt: 1, ltA: 0.25, lb: 1, lbA: 0.25, rt: 1, rtA: 1 - 0.6 * clamp(k), rb: 1, rv: k > 0.6 ? '120' : '' }); b8cross(ctx, 1270, 600, 90, B11LOSS, k); }; b11zoom(ctx, 1360, 760, 700, 680, 1.3, body);
+    tag(ctx, '期权不用行权', 1450, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 34, bg: C.fg, fg: C.bg });
     vizCaption(ctx, s, lt, C);
   };
   VIZ.pcp_both = (ctx, s, lt, C) => { // 价格线上下各走一遍，两个礼盒的数值始终相同
     const D = s.vizDur, u = clamp(inv(D * 0.05, D * 0.9, lt)), S = Math.round(100 + 25 * Math.sin(u * Math.PI * 2)), v = `${Math.max(S, 100)}`;
     const ys = b11ser(30, (q) => 60 * Math.sin(q * Math.PI * 2)); const hd = b8plot(ctx, ys, 360, 1560, 400, C.fg, 8, u);
     b8dash(ctx, 360, 400, 1560, 400, rgba(C.fg, 0.4), 4); b8txt(ctx, `${S}`, hd[0] + 70, hd[1], 36, C.fg, { en: 1 });
-    b11pcp(ctx, C, { lt: 1, lp: 1, rt: 1, rb: 1, lv: v, rv: v });
-    tag(ctx, '两边一样', 960, 560, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: C.acc, fg: G.CREAM });
+    b11zoom(ctx, 960, 900, 960, 990, 0.62, () => b11pcp(ctx, C, { lt: 1, lp: 1, rt: 1, rb: 1, lv: v, rv: v }));
+    tag(ctx, '两边一样', 960, 600, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: C.acc, fg: G.CREAM });
     vizCaption(ctx, s, lt, C);
   };
   VIZ.pcp_today = (ctx, s, lt, C) => { // 镜头倒回今天，两个礼盒放上天平
@@ -4947,10 +4947,11 @@
     const y = lerp(220, 560, clamp(k)); b10env(ctx, 1340, y, 420, 260, C.fg, C.bg); b8txt(ctx, '追加保证金', 1340, y + 70, 44, C.bg);
     vizCaption(ctx, s, lt, C);
   };
-  VIZ.mg_topup = (ctx, s, lt, C) => { // 箭头越过下线，一直推到上方那条线
+  VIZ.mg_topup = (ctx, s, lt, C) => { // 箭头越过下线，一直推到上方那条线，小角标「以常见规则为例」
     const D = s.vizDur, k = inv(D * 0.15, D * 0.7, lt); const [yt, yl] = b11acct(ctx, 760, 0.36, C, { fill: B11LOSS, topCol: B11GOLD });
     b6upArrow(ctx, 1160, B11AY - 0.36 * B11AH, lerp(B11AY - 0.36 * B11AH - 1, yt, E.io(clamp(k))), B11GAIN, 14, 1);
     b8cross(ctx, 1300, yl, 60, B11LOSS, inv(D * 0.5, D * 0.7, lt)); b8txt(ctx, '不是补到下线', 1500, yl, 32, C.fg); b8txt(ctx, '补回上线', 1450, yt, 36, B11GAIN);
+    b8corner(ctx, '以常见规则为例', C, inv(D * 0.1, D * 0.4, lt), 1600, 300);
     vizCaption(ctx, s, lt, C);
   };
   VIZ.mg_back = (ctx, s, lt, C) => { // 余额柱回到上方那条线

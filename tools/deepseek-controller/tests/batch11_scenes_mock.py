@@ -44,7 +44,7 @@ FILMS = {
         ["两个价签并排，一个写「现货」，一个写「期货」，数字不同", "期货价签在上，现货在下，屏幕标题「Contango」", "期货价签在下，现货在上，屏幕标题「Backwardation」", "一个仓库里堆着货", "仓库门口一张账单，写着仓储费和利息", "时间轴越往后，价签越高", "货架上只剩最后几件", "一只手握着现货，旁边的期货价签偏低", "两条线随时间越靠越近", "两条线在到期日汇合成一点", "一个写着「看涨」的箭头被划掉", "一个写着「看空」的箭头被划掉", "回到两个价签，旁边是仓库和货架，没有水晶球"],
         ["cb_tags", "cb_contango", "cb_backw", "cb_warehouse", "cb_bill", "cb_timeline", "cb_shelf", "cb_hand", "cb_converge", "cb_meet", "cb_not_bull", "cb_not_bear", "cb_end"]),
     "margin-v001": (
-        ["一个账户余额柱，上面画着两条横线，屏幕标题「Margin」", "上方那条线亮起，标「初始保证金」", "下方那条线亮起，标「维持保证金」", "日历翻页，余额柱上下变化", "余额柱往下沉，穿过下方那条线，角标「假设」", "一封信落到账户上，写着「追加保证金」", "箭头越过下线，一直推到上方那条线", "余额柱回到上方那条线", "另一条分支：账户被一只手合上", "一张写着「首付」的牌子和一张写着「手续费」的收据", "牌子和收据被换成一把押金钥匙", "回到账户和两条线，旁边那把押金钥匙"],
+        ["一个账户余额柱，上面画着两条横线，屏幕标题「Margin」", "上方那条线亮起，标「初始保证金」", "下方那条线亮起，标「维持保证金」", "日历翻页，余额柱上下变化", "余额柱往下沉，穿过下方那条线，角标「假设」", "一封信落到账户上，写着「追加保证金」", "箭头越过下线，一直推到上方那条线，小角标「以常见规则为例」", "余额柱回到上方那条线", "另一条分支：账户被一只手合上", "一张写着「首付」的牌子和一张写着「手续费」的收据", "牌子和收据被换成一把押金钥匙", "回到账户和两条线，旁边那把押金钥匙"],
         ["mg_lines", "mg_init", "mg_maint", "mg_daily", "mg_breach", "mg_letter", "mg_topup", "mg_back", "mg_close", "mg_misread", "mg_key", "mg_end"]),
 }
 sj = (REPO / "styles" / "pictogram-motion" / "versions" / "finance-v003" / "scenes.js").read_text("utf-8")
@@ -69,7 +69,7 @@ for t in ("'Put-Call Parity'", "'Basis Risk'", "'Hedge Ratio'", "'Contango'", "'
 ok("'不是零风险'" in code and "'还剩一点'" in code and "'小风险'" in code, "basis risk: hedging turns big risk small, never zero")
 ok("'不代表看涨'" in code and "'也不代表看空'" in code and code.count("b8cross(ctx, 1320, 660, 260") == 2, "contango ≠ bullish, backwardation ≠ bearish (both arrows crossed out)")
 ok("'到期基本对上'" in code and "'越靠越近'" in code, "futures converge to spot at expiry")
-ok("'补回上线'" in code and "'不是补到下线'" in code and "'强制平仓'" in code, "margin call tops back up to the upper line; forced liquidation")
+ok("'以常见规则为例'" in code and "'补回上线'" in code and "'不是补到下线'" in code and "'强制平仓'" in code, "margin call tops back up to the upper line; forced liquidation")
 ok("'履约押金'" in code and "'押金，不是首付或手续费'" in code, "margin is a deposit, not a down payment or fee")
 ok("b6down(ctx, 1240, 520" in code, "margin loss drawn downward")
 r = subprocess.run(["node", "-e", f"new Function(require('fs').readFileSync({json.dumps(str(REPO / 'styles/pictogram-motion/versions/finance-v003/scenes.js'))},'utf8'))"], capture_output=True)
