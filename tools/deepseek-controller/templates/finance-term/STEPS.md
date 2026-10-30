@@ -47,6 +47,22 @@ TTS_PROVIDER=elevenlabs STYLE_VERSION=finance-v003 \
   `<film>/music/`, no new request; usage recorded in its `meta.json`). Ducked mix → mux −14 LUFS,
   `WORDFILM_TP_CEIL=-2.8` + `WORDFILM_TP_RETRY_ABOVE=-2.0` (upstream `LEMO_TP_*` names still work); quality requires TP ≤ −2 dBTP for v003 films.
 - quality adds required `visual_content` + `visual_duplicate` once `content/viz.json` exists.
+- **Language (粤语 drift fix, 2026-10-29)**: eleven_v4 speaks both Mandarin and Cantonese from the same hanzi and guessed
+  per request (beta-v001 L06 came out Cantonese). The provider now sends `language_code` on every line plus
+  `previous_text`/`next_text`. Per-line `lang` in lines.json: `zh` (default for any line with hanzi) · `en` (no hanzi →
+  automatic) · `mixed` (Chinese line with English terms: one `zh` request — Tex still reads the English words naturally,
+  seamless). `WORDFILM_TTS_ELEVENLABS_MIXED=split` = opt-in per-run split (zh/en runs, 40 ms crossfade). `yue` only if a
+  line explicitly asks for it. `WORDFILM_TTS_ELEVENLABS_SEED` optional (`LEMO_` spellings still work).
+- **Dialect gate** `dialect_mandarin` (required when VO exists): `core/tts/dialect_check.py`, Meta MMS-LID-256
+  (`/workspace/_models/mms-lid-256`, or `WORDFILM_DIALECT_MODEL`; runs in `.venv-spk`). Chinese (zh/mixed) lines FAIL when
+  a non-Mandarin Chinese label (yue/nan/hak/wuu/…) wins with p ≥ 0.5; `en` lines never fail (WARN if not heard as
+  English). Whisper LID cannot tell yue from zh — don't use it. Evidence: `evidence/dialect-check.json`.
+  Fix a FAIL by re-TTS of that film (language_code makes it deterministic); never re-word the line.
+- **Draft copy**: `batch_terms.py from-draft --draft $WORDFILM_FILMS/dialogue-drafts/<name>.lines.json --term <term>`
+  copies `visual`/`lang`/voice into `<term>/src/lines.json` only if every text/say equals the approved line
+  (draft folder never written). `elevenlabs:<id>` voice prefix accepted.
+- Same-term earlier takes (beta-v001 when building beta-v002) are skipped by `visual_dupe.py`; a delivered film is
+  `--register`ed into the series index after quality, so later films are checked against it.
 
 ## Drafting lines (future)
 
@@ -66,15 +82,44 @@ Prefer **OpenCode + `VOLCENGINE_CODING_API_KEY`** (Volcano Coding Plan) for draf
 
 `EL_BACKUP=1` (or `batch_terms.py build --el-backup`) builds `<film>/backup-el/` and muxes `<name>-el.mp4` with Skylar (`uDnTdfbGbx3cHHFnY83O`) + `eleven_v4`. Provider spells Chinese numbers and joins letter spellings (E-S→ES) for ASR. Off by default (uses Creator character quota). Tex failed zh number ASR with Arabic numerals; with Chinese-word `say` Tex + v4 passes (number test 2026-10-29: 一百万 / 九十九天 / 贝塔大于一 exact) and is the series narrator for finance-v003.
 
+## Variable length (wen hao, 2026-10-30)
+
+Line count follows concept difficulty: simple ≈ 7 lines / ~30 s; hard (VaR, CAPM) 10–14 lines / ~45–70 s;
+the longest concepts up to 17 lines / 90 s (wen hao 2026-10-30, after CAPM long).
+Still **one memory point per film**, speed 1.0, `PACING=calm`; duration is a ceiling, never padded.
+
+- 5–17 lines; one card per shot (`p0…pN`), every card has ≥1 line, every line's shot has a card, cards in line order.
+  `plan` refuses anything else.
+- `plan.shots` is generated from the cards: `p0` intro/hook · `p1` chapter · cards · the `turn` line's shot = hard-cut
+  (pose diving) · last = finale (relay). Each shot 4 beats; the schedule stretches to the VO.
+- Default ceiling tiered by line count (`batch_terms.DURATION_TIERS`): ≤7 → 40 s · ≤10 → 55 s · ≤14 → 75 s · ≤17 → 90 s.
+  lines.json `targetDurationSec` overrides (clamped 15–90). Manifest `pictogram-motion` max 90 s.
+  Top tier sizing: Tex ≈ 4.0 字/s + ≈0.6 s/shot + 1.5 s outro → 17 lines ≈ 14.6 s overhead → ≈ 300 字 of speech
+  (≈ 17–18 字/line). Ceiling only: a 15-line film that reads in 70 s stays 70 s.
+- `init --lines N` writes an N-line skeleton. An approved 台词教父 draft becomes a term folder with
+  `batch_terms.py init-from-draft --draft $WORDFILM_FILMS/dialogue-drafts/<name>.lines.json --term <term>
+  --approved-by "金融专家 …" [--meta <other-term>/src/term.json] [--cards cards.json]` — reads the draft only
+  (refuses a `--term` inside dialogue-drafts), copies say/visual/lang/voice verbatim, one shot per line.
+  `cards.json` = `{"cards": {"p0": {"zh": "…", "en": "…"}}, "brand": {…}, "glossary": {…}}` (card `en` ≤40, ASCII `-` not `–`, no `?`).
+- Scene library finance-v003 batch 3 (14 scenes for the VaR long film, all distinct from the series index):
+  cap_crossed · bank_report · three_slots · slots_filled · grid_10x10 · square_over · year_strip · red_cluster ·
+  bottomless · old_ledger · sky_change · expect_actual · tail_dots_es · bank_on_line. Metaphor: 0 at the top,
+  losses go down, the gold line is a threshold (never a floor); nothing below it has a drawn bottom.
+- Scene library finance-v003 batch 5 (13 scenes for the Sharpe long film, distinct from every delivered film):
+  twin_q · score_sharpe · baskets_8 · calm_wild · pillars_cut · remain_six · swing_box · sandbags · coin_stack ·
+  score_fill · card_fog · ruler_chair · bag_pillars. Metaphor: hypothetical 甲/乙 only, return = pillar above zero,
+  国债 base cut off the bottom, risk = swing (losses drawn below zero) carried as a sandbag; screen says `Sharpe`.
+  `tests/sharpe_scenes_mock.py` checks that every older film line in `fixtures/viz-scene-snapshot.json` keeps its scene.
+
 ## Files
 
 | file | who edits | purpose |
 |---|---|---|
-| `plan.skeleton.json` | nobody per term | pictogram-motion · concept · standard · 7 shots (intro, chapter, 3×card, hard-cut, finale) · StepAudio session |
-| `lines.skeleton.json` | **金融专家** | 7 cards (zh/en ≤40) + 7 lines (`cap` with `{强调词}`, optional `say`) + `approvedBy`/`approvedAt` |
+| `plan.skeleton.json` | nobody per term | pictogram-motion · concept · standard · shots regenerated from the cards by `plan` (5–17) · tiered ceiling |
+| `lines.skeleton.json` | **金融专家** | 7 cards by default (`init --lines N` for 5–17) (zh/en ≤40) + 7 lines (`cap` with `{强调词}`, optional `say`) + `approvedBy`/`approvedAt` |
 | `BRIEF.skeleton.md` / `FACTS.skeleton.md` | generated | brief + provenance; FACTS lists the approved caps, no model-added facts |
 | `build_term.sh` | nobody | render + gates + handoffs for one term |
-| `../../batch_terms.py` | nobody | `init` / `plan` / `status` |
+| `../../batch_terms.py` | nobody | `init` / `init-from-draft` / `from-draft` / `plan` / `status` / `build` |
 
 Line roles: L01 hook · L02–L04 evidence · L05 turn · L06 evidence · L07a payoff (+ optional L07b on same finale shot). Multiple VO lines per shotId are OK (schedule maps by shot).
 `text` is generated from `cap` (braces stripped). `say` is spoken-only: use it for acronyms the TTS
@@ -105,7 +150,7 @@ States: `awaiting-expert-lines` → `approved` → `planned` → `delivered` (qu
   (VaR: 168). Never paid StepFun TTS/ASR. A failed split re-uses the cached take
   (`voices/_session.json` sha) and retries a second local ASR pass; `WORDFILM_TTS_STEPAUDIO_REUSE=0`
   forces a new take (`LEMO_TTS_STEPAUDIO_*` spellings still work; `WORDFILM_` wins).
-- Expect ~28–32 s at standard pacing for 7 lines of ~18 字 (duration is a ceiling, never padded).
+- Expect ~28–32 s at standard pacing for 7 lines of ~18 字; 14 lines ≈ 60–70 s calm, 17 lines ≈ 85–90 s (duration is a ceiling, never padded).
 - `quality --delivery` must PASS; pacing WARN is report-only.
 
 ## Rework (only on FAIL, max 2 rounds)

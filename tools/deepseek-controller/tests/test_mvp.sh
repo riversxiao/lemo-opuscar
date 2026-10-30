@@ -1901,6 +1901,36 @@ else
   bad "quota ledger isolation: mocks wrote $(wc -l <"$WORK/real-quota.jsonl" 2>/dev/null || echo 0) rows to the exported WORDFILM_QUOTA_LEDGER"
 fi
 
+if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY -u STEP_API_KEY -u ELEVENLABS_API_KEY -u DEEPSEEK_API_KEY python3 "$CTL/tests/variable_length_mock.py" >$WORK/dc_varlen_mock.log 2>&1; then
+  ok "finance-term variable length: 5–17 lines/cards/shots, tiers 40/55/75/90, init-from-draft read-only, batch-3 scenes distinct ($(tail -1 $WORK/dc_varlen_mock.log))"
+else
+  bad "finance-term variable-length mock (see $WORK/dc_varlen_mock.log)"
+fi
+
+if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY -u STEP_API_KEY -u ELEVENLABS_API_KEY -u DEEPSEEK_API_KEY python3 "$CTL/tests/sharpe_scenes_mock.py" >$WORK/dc_sharpe_mock.log 2>&1; then
+  ok "finance-v003 batch-5 Sharpe scenes: 13 distinct, lint clean, older films' scene mappings unchanged ($(tail -1 $WORK/dc_sharpe_mock.log))"
+else
+  bad "finance-v003 batch-5 Sharpe scenes mock (see $WORK/dc_sharpe_mock.log)"
+fi
+
+if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY -u STEP_API_KEY -u ELEVENLABS_API_KEY -u DEEPSEEK_API_KEY python3 "$CTL/tests/batch6_scenes_mock.py" >$WORK/dc_batch6_mock.log 2>&1; then
+  ok "finance-v003 batch-6 risk scenes (systematic/unsystematic/APT long/moral hazard/adverse selection): 53 distinct, lint clean, older + Sharpe mappings unchanged ($(tail -1 $WORK/dc_batch6_mock.log))"
+else
+  bad "finance-v003 batch-6 risk scenes mock (see $WORK/dc_batch6_mock.log)"
+fi
+
+if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY -u STEP_API_KEY -u ELEVENLABS_API_KEY -u DEEPSEEK_API_KEY python3 "$CTL/tests/batch7_scenes_mock.py" >$WORK/dc_batch7_mock.log 2>&1; then
+  ok "finance-v003 batch-7 scenes (three lines/Barings/LTCM long/normal/fat tails): 57 distinct, lint clean, losses left/down, older + batch 5/6 mappings unchanged ($(tail -1 $WORK/dc_batch7_mock.log))"
+else
+  bad "finance-v003 batch-7 scenes mock (see $WORK/dc_batch7_mock.log)"
+fi
+
+if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY -u STEP_API_KEY -u ELEVENLABS_API_KEY -u DEEPSEEK_API_KEY python3 "$CTL/tests/batch8_scenes_mock.py" >$WORK/dc_batch8_mock.log 2>&1; then
+  ok "finance-v003 batch-8 scenes (volatility/correlation/covariance/regression/hypothesis test): 60 distinct, lint clean, no formulas, losses down, older + batch 5/6/7 mappings unchanged ($(tail -1 $WORK/dc_batch8_mock.log))"
+else
+  bad "finance-v003 batch-8 scenes mock (see $WORK/dc_batch8_mock.log)"
+fi
+
 # budget ledger: tests write to \$WORDFILM_BUDGET_LEDGER, never the real fixtures ledger
 if PYTHONPATH="$CTL" python3 -c "
 import budget,os

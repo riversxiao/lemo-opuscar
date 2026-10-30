@@ -10,6 +10,22 @@ Env (preferred name first):
                               default 21m00Tcm4TlvDq8ikWAM (Rachel, public demo voice)
   WORDFILM_TTS_ELEVENLABS_MODEL   default eleven_multilingual_v2
   WORDFILM_TTS_ELEVENLABS_BASE    default https://api.elevenlabs.io/v1
+  WORDFILM_TTS_ELEVENLABS_LANGUAGE  default language for lines without `lang` (auto: CJK → zh, else en)
+  WORDFILM_TTS_ELEVENLABS_MIXED   single (default) | split — how `lang: mixed` lines are synthesized
+  WORDFILM_TTS_ELEVENLABS_SEED    optional integer seed (best-effort determinism)
+
+Language (Cantonese drift fix, 贝塔 pilot 2026-10-29): eleven_v4 supports both Mandarin (`zh`)
+and Cantonese (`yue`); both are written in hanzi, so without `language_code` the model guesses
+per request and short Chinese lines sometimes come out in 粤语. Every request now carries an
+explicit language_code. Per line (`lang` in lines.json / plan voice line):
+  zh     (default for CJK text)  Mandarin, one request with language_code=zh
+  en     (default for text with no CJK) English, language_code=en
+  mixed  Chinese with English words/sentences. Default `single`: ONE request with language_code=zh
+         (no seams; tested 2026-10-29: Tex + v4 + zh still reads embedded English in English —
+         「英文 Value at Risk」 → Whisper "value at risk" p≥0.96). `split` (opt-in): zh / en runs as
+         separate requests with their own language_code + previous_text/next_text, same voice + seed,
+         joined with a punctuation pause or a short equal-power crossfade; segment offsets →
+         spoken.json (the dialect gate then checks the zh runs only).
 """
 from __future__ import annotations
 
@@ -97,7 +113,9 @@ def voice_settings(model: str, speed: float | None = None) -> dict[str, Any]:
 
 
 def _post_tts(text: str, *, voice: str, model: str, timeout: float = 120.0,
-              speed: float | None = None) -> tuple[bytes, str | None]:
+              speed: float | None = None, language: str | None = None,
+              previous_text: str | None = None, next_text: str | None = None,
+              seed: int | None = None) -> tuple[bytes, str | None]:
     key = api_key()
     if not key:
         raise ElevenLabsError("ELEVENLABS_API_KEY not set")
@@ -107,6 +125,14 @@ def _post_tts(text: str, *, voice: str, model: str, timeout: float = 120.0,
         "model_id": model,
         "voice_settings": voice_settings(model, speed),
     }
+    if language and not str(model).startswith("eleven_multilingual_v2"):  # v2 rejects language_code
+        body["language_code"] = language
+    if previous_text:
+        body["previous_text"] = previous_text
+    if next_text:
+        body["next_text"] = next_text
+    if seed is not None:
+        body["seed"] = int(seed)
     data = json.dumps(body, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -128,41 +154,142 @@ def _post_tts(text: str, *, voice: str, model: str, timeout: float = 120.0,
         raise ElevenLabsError(f"ElevenLabs transport error: {e.reason}") from None
 
 
+CJK_RE = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
+# an English run: Latin words (with digits, apostrophes, hyphens, inner spaces/punctuation)
+EN_RUN = re.compile(r"[A-Za-z][A-Za-z0-9'’\-]*(?:[\s,.;:!?%&/]+[A-Za-z0-9][A-Za-z0-9'’\-]*)*[.!?]?")
+XFADE_SEC = 0.04
+
+
+def norm_voice(v: Any) -> str | None:
+    """Accept `elevenlabs:<id>` (台词教父 drafts) as well as a bare id."""
+    if v is None:
+        return None
+    v = str(v).strip()
+    if v.lower().startswith("elevenlabs:"):
+        v = v.split(":", 1)[1].strip()
+    return v or None
+
+
+def line_lang(L: dict[str, Any], text: str) -> str:
+    lg = str(L.get("lang") or "").strip().lower()
+    if lg in ("zh", "en", "mixed", "yue"):
+        return lg
+    default = env("TTS_ELEVENLABS_LANGUAGE").strip().lower()
+    if default:
+        return default
+    return "zh" if CJK_RE.search(text) else "en"
+
+
+def split_lang(text: str) -> list[tuple[str, str]]:
+    """'叫贝塔，英文叫 Beta。' → [('zh','叫贝塔，英文叫'), ('en','Beta'), ('zh','。')] merged:
+    punctuation-only runs are glued onto the previous run."""
+    segs: list[tuple[str, str]] = []
+    pos = 0
+    for m in EN_RUN.finditer(text):
+        if not re.search(r"[A-Za-z]{2,}", m.group(0)):   # single capitals stay in the zh run
+            continue
+        if m.start() > pos:
+            segs.append(("zh", text[pos:m.start()]))
+        segs.append(("en", m.group(0)))
+        pos = m.end()
+    if pos < len(text):
+        segs.append(("zh", text[pos:]))
+    out: list[tuple[str, str]] = []
+    for lg, t in segs:
+        if out and not re.search(r"[A-Za-z0-9\u3400-\u9fff]", t):
+            out[-1] = (out[-1][0], out[-1][1] + t)
+        elif t.strip():
+            out.append((lg, t.strip()))
+    return out or [("zh", text)]
+
+
+PAUSE_SEC = 0.16   # split mode: a run ending in ，/。 gets a breath instead of a crossfade (trim ate it)
+
+
+def _xfade_join(parts: list[np.ndarray], sr: int = SR, gaps: list[float] | None = None
+                ) -> tuple[np.ndarray, list[tuple[int, int]]]:
+    n = int(XFADE_SEC * sr)
+    out = parts[0].astype(np.float32)
+    spans = [(0, len(out))]
+    for idx, p in enumerate(parts[1:]):
+        p = p.astype(np.float32)
+        g = (gaps or [])[idx] if gaps and idx < len(gaps) else 0.0
+        if g > 0:
+            out = np.concatenate([out, np.zeros(int(g * sr), np.float32)])
+        k = 0 if g > 0 else min(n, len(out), len(p))
+        if k > 0:
+            t = np.linspace(0, np.pi / 2, k, dtype=np.float32)
+            mid = out[-k:] * np.cos(t) + p[:k] * np.sin(t)
+            start = len(out) - k
+            out = np.concatenate([out[:-k], mid, p[k:]])
+        else:
+            start = len(out)
+            out = np.concatenate([out, p])
+        spans.append((start, len(out)))
+    return out, spans
+
+
 def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[str, float]:
-    """tts_router entry: write <id>.wav (24 kHz mono) + dur.json."""
+    """tts_router entry: write <id>.wav (24 kHz mono) + dur.json + spoken.json (langs, segments)."""
     if not api_key():
         sys.exit(
             "tts_router: provider 'elevenlabs' needs ELEVENLABS_API_KEY in the environment "
             "(alias ELEVEN_API_KEY also accepted)"
         )
-    voice = voice_id(opts.get("voice"))
+    voice = voice_id(norm_voice(opts.get("voice")))
     model = str(opts.get("model") or model_id())
     speed = opts.get("speed")
     if speed is None and env("TTS_ELEVENLABS_SPEED"):
         speed = float(env("TTS_ELEVENLABS_SPEED"))
+    seed = env("TTS_ELEVENLABS_SEED")
+    seed = int(seed) if seed else None
+    mixed_mode = (env("TTS_ELEVENLABS_MIXED") or "single").strip().lower()
     os.makedirs(out_dir, exist_ok=True)
     dur: dict[str, float] = {}
     spoken: dict[str, str] = {}
-    for L in lines:
+    langs: dict[str, str] = {}
+    segments: dict[str, list[dict[str, Any]]] = {}
+    texts = [spoken_text(L) for L in lines]
+    for i, L in enumerate(lines):
         lid = L["id"]
-        text = spoken_text(L)
+        text = texts[i]
         if not text.strip():
             sys.exit(f"tts_router: elevenlabs line {lid!r} has empty text")
         spoken[lid] = text
-        line_voice = voice_id(L.get("voice") or voice)
+        line_voice = voice_id(norm_voice(L.get("voice")) or voice)
+        lg = line_lang(L, text)
+        langs[lid] = lg
+        prev_line = texts[i - 1] if i else None
+        next_line = texts[i + 1] if i + 1 < len(texts) else None
+        if lg == "mixed" and mixed_mode == "split":
+            segs = split_lang(text)
+        else:
+            segs = [("zh" if lg == "mixed" else lg, text)]
+        parts = []
         try:
-            raw, ctype = _post_tts(text, voice=line_voice, model=L.get("model") or model, speed=speed)
-            a = http_speech._trim(_decode_audio(raw, ctype), SR)
+            for j, (slg, st) in enumerate(segs):
+                prev_t = "".join(t for _, t in segs[:j]) or prev_line
+                next_t = "".join(t for _, t in segs[j + 1:]) or next_line
+                raw, ctype = _post_tts(st, voice=line_voice, model=L.get("model") or model, speed=speed,
+                                       language=slg, previous_text=prev_t, next_text=next_t, seed=seed)
+                parts.append(http_speech._trim(_decode_audio(raw, ctype), SR))
         except ElevenLabsError as e:
             sys.exit(f"tts_router: elevenlabs failed on {lid}: {e}")
+        a, spans = _xfade_join(parts, gaps=[PAUSE_SEC if re.search(r"[，,、：:；;。.!?！？]\s*$", t) else 0.0
+                                            for _, t in segs[:-1]])
+        if len(segs) > 1:
+            segments[lid] = [{"lang": slg, "text": st, "start": round(s0 / SR, 3), "end": round(s1 / SR, 3)}
+                             for (slg, st), (s0, s1) in zip(segs, spans)]
         path = os.path.join(out_dir, f"{lid}.wav")
         sf.write(path, a, SR)
         dur[lid] = round(len(a) / float(SR), 3)
-        print(lid, dur[lid], text)
+        print(lid, dur[lid], lg, text)
     with open(os.path.join(out_dir, "dur.json"), "w", encoding="utf-8") as f:
         json.dump(dur, f, indent=1, ensure_ascii=False)
     with open(os.path.join(out_dir, "spoken.json"), "w", encoding="utf-8") as f:
-        json.dump({"voice": voice, "model": model, "chars": sum(len(t) for t in spoken.values()), "lines": spoken}, f, indent=1, ensure_ascii=False)
+        json.dump({"voice": voice, "model": model, "chars": sum(len(t) for t in spoken.values()),
+                   "seed": seed, "mixedMode": mixed_mode, "langs": langs, "segments": segments,
+                   "lines": spoken}, f, indent=1, ensure_ascii=False)
     return dur
 
 

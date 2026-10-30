@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -115,6 +116,7 @@ def main(argv=None) -> int:
     ap.add_argument("--others", default=",".join(DEFAULT_OTHERS))
     ap.add_argument("--register", action="store_true", help="add this film to the series index on PASS")
     ap.add_argument("--films", default=None, help="films root (default: see module docstring)")
+    ap.add_argument("--exclude", default="", help="films not to compare against (same-term takes are skipped anyway)")
     a = ap.parse_args(argv)
     film = Path(a.project).resolve()
     FILMS = (Path(a.films).expanduser().resolve() if a.films
@@ -134,8 +136,11 @@ def main(argv=None) -> int:
             pairs.append(row)
             if c["dup"]:
                 dups.append(row)
-    others = [o for o in a.others.split(",") if o and o != film.name]
-    others += [o for o in idx["films"] if o not in others and o != film.name]
+    # earlier takes of the same term (beta-v001 when building beta-v002) are superseded, not "the series"
+    stem = lambda n: re.sub(r"-v\d{3}$", "", n)  # noqa: E731
+    skip = {film.name} | {x for x in a.exclude.split(",") if x}
+    others = [o for o in a.others.split(",") if o and o not in skip and stem(o) != stem(film.name)]
+    others += [o for o in idx["films"] if o not in others and o not in skip and stem(o) != stem(film.name)]
     compared, missing = [], []
     for o in others:
         of = FILMS / o

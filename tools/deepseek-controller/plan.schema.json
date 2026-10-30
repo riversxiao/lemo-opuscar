@@ -92,7 +92,8 @@
               "shotId": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,31}$" },
               "role": { "type": "string", "description": "dialogue function → lines.json function", "enum": ["hook", "turn", "evidence", "payoff", "sting"] },
               "cap": { "type": "string", "maxLength": 200, "description": "keyword-marked text ({关键词}); text = spoken words" },
-              "say": { "type": "string", "minLength": 1, "maxLength": 200, "description": "TTS-only pronunciation of text (e.g. VaR → V-A-R); captions/srt/ASR keep text" }
+              "say": { "type": "string", "minLength": 1, "maxLength": 200, "description": "TTS-only pronunciation of text (e.g. VaR → V-A-R); captions/srt/ASR keep text" },
+              "lang": { "type": "string", "enum": ["zh", "en", "mixed"], "description": "TTS language: zh = Mandarin (default for CJK), en = English line, mixed = Chinese with English words (ElevenLabs language_code)" }
             }
           }
         }

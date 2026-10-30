@@ -15,7 +15,7 @@
   ],
   "durationSec": {
     "min": 20,
-    "max": 60,
+    "max": 90,
     "demo": 163.6
   },
   "beatGridSec": 0.4,

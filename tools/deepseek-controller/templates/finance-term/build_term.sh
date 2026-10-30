@@ -11,7 +11,10 @@
 #                   EL_VOICE (default Skylar uDnTdfbGbx3cHHFnY83O, bilingual zh/en male),
 #                   EL_MODEL (default eleven_v4). Off by default (uses ElevenLabs characters).
 #      TTS_PROVIDER=elevenlabs  main narration on ElevenLabs (series from 贝塔 pilot, wen hao 2026-10-29):
-#                   EL_VOICE default Tex TKaUqol7GKx4m7enpCpP, EL_MODEL eleven_v4 (speed natural 1.0).
+#                   EL_VOICE default = lines.json "voice" (from-draft) else Tex TKaUqol7GKx4m7enpCpP,
+#                   EL_MODEL eleven_v4 (speed natural 1.0). Every request sends language_code from the
+#                   line `lang` (CJK → zh Mandarin, English → en; mixed = one zh request) — without it v4
+#                   drifted into 粤语 (beta-v001 L06). quality gate dialect_mandarin FAILs non-Mandarin.
 #                   `say` must spell numbers in Chinese words; chars → voices/spoken.json.
 #      STYLE_VERSION=finance-v003  per-line `visual` scenes: viz_pick.py (scene + 金融专家 content lint)
 #                   after scaffold, end card as a ${OUTRO_SEC:-1.5}s outro, visual_dupe.py keyframe gate
@@ -45,6 +48,8 @@ export WORDFILM_TTS_STEPAUDIO_ROLE="${WORDFILM_TTS_STEPAUDIO_ROLE:-${LEMO_TTS_ST
 export WORDFILM_TTS_STEPAUDIO_TONE="${WORDFILM_TTS_STEPAUDIO_TONE:-${LEMO_TTS_STEPAUDIO_TONE:-（把一件事讲清楚）}}"
 export WORDFILM_TTS_STEPAUDIO_INSTRUCTION="${WORDFILM_TTS_STEPAUDIO_INSTRUCTION:-${LEMO_TTS_STEPAUDIO_INSTRUCTION:-安静录音棚，同一位男声从头到尾讲完整篇口播，语速正常、不赶，句与句之间自然换气；关键词加重；纯人声，无背景音乐，无音效}}"
 APPROVED=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['approvedBy'])" "$SRC/lines.json")
+# narrator from the draft (batch_terms.py from-draft → lines.json "voice"; `elevenlabs:` prefix accepted)
+DRAFT_VOICE=$(python3 -c "import json,sys;v=str(json.load(open(sys.argv[1])).get('voice') or '');print(v.split(':',1)[1] if v.lower().startswith('elevenlabs:') else v)" "$SRC/lines.json")
 cd "$REPO"
 
 build_one() {  # plan project name provider [handoffs:1|0]
@@ -93,6 +98,8 @@ build_one() {  # plan project name provider [handoffs:1|0]
   python3 "$CTL/pacing_check.py" --project "$PJ" --media "$OUT" --pacing "$PACING" || echo "pacing FAIL → STEPS.md §Rework"
   if [ "$V3" = 1 ]; then python3 "$CTL/visual_dupe.py" --project "$PJ" || echo "visual-dupe FAIL → STEPS.md §Rework"; fi
   python3 "$CTL/cli.py" quality --project "$PJ" --media "$OUT" --delivery --asr-mode auto
+  # delivered finance-v003 film joins the series index (next films are checked against it)
+  if [ "$V3" = 1 ] && [ "$HO" = 1 ]; then python3 "$CTL/visual_dupe.py" --project "$PJ" --register >/dev/null || true; fi
   # 5) handoffs: OpenFilm + HyperFrames + Premiere xmeml (timebase probed from the master)
   if [ "$HO" = 1 ]; then
     python3 "$CTL/cli.py" handoff --project "$PJ" --target all --name "$NM" --extract-shots --lint --no-budget
@@ -109,9 +116,10 @@ open(sys.argv[2], "w", encoding="utf-8").write(json.dumps(p, ensure_ascii=False,
 PY
 }
 if [ "$TTS_PROVIDER" = elevenlabs ]; then
-  el_plan "$SRC/plan.json" "$SRC/plan.el.json" "${EL_VOICE:-TKaUqol7GKx4m7enpCpP}"
+  EL_VOICE=${EL_VOICE:-${DRAFT_VOICE:-TKaUqol7GKx4m7enpCpP}}
+  el_plan "$SRC/plan.json" "$SRC/plan.el.json" "$EL_VOICE"
   # the provider reads the voice from env (plan voiceId alone is not used → would fall back to Rachel)
-  ELEVENLABS_VOICE_ID=${EL_VOICE:-TKaUqol7GKx4m7enpCpP} WORDFILM_TTS_ELEVENLABS_MODEL=${EL_MODEL:-eleven_v4} \
+  ELEVENLABS_VOICE_ID=$EL_VOICE WORDFILM_TTS_ELEVENLABS_MODEL=${EL_MODEL:-eleven_v4} \
     build_one "$SRC/plan.el.json" "$P" "$NAME" elevenlabs 1
   python3 -c "import json,sys;d=json.load(open(sys.argv[1]));print('ElevenLabs chars this film:',d.get('chars'))" "$P/voices/spoken.json" 2>/dev/null || true
   exit 0

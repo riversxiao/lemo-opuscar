@@ -325,7 +325,7 @@ def build_brand_strings(
 
 
 BRAND_KEYS = ("eyebrow", "eyebrowTop", "endTitle", "endLine", "titleEn", "titleZh",
-              "sloganEn", "sloganZh", "sloganJp", "credit")
+              "sloganEn", "sloganZh", "sloganJp", "credit", "thresholdLabel", "thresholdAmount")
 
 
 def _plan_texts(plan: dict[str, Any]) -> list[str]:

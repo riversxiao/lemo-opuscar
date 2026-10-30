@@ -19,13 +19,17 @@ _AR_BIG = re.compile(r"(\d+(?:\.\d+)?)([万亿])")
 
 
 def _small(s: str) -> int:
-    total, cur = 0, 0
+    # Colloquial trailing digit: 一百二 = 120, 三千五 = 3500 (a lone digit right after 百/千,
+    # no 零 between, is in the next unit down); 一百零二 = 102 and 二十五 = 25 are unchanged.
+    total, cur, last = 0, 0, 0
     for ch in s:
         if ch in _D:
             cur = _D[ch]
         elif ch in _U:
             total += (cur or 1) * _U[ch]
-            cur = 0
+            cur, last = 0, _U[ch]
+    if cur and last >= 100 and len(s) >= 2 and s[-2] in _U:
+        return total + cur * last // 10
     return total + cur
 
 
