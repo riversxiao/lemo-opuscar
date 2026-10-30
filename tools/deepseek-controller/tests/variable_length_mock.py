@@ -169,4 +169,7 @@ beta = json.loads((CTL / "templates" / "finance-term" / "examples" / "004-beta-v
 bl = beta if isinstance(beta, list) else beta["lines"]
 OLD.update(zip([x["visual"] for x in bl], ["plunge", "swing_label", "step_blocks", "waves", "boat", "mirror_updown", "coaster"]))
 ok(all(VP.pick_scene(v) == sc for v, sc in OLD.items()), "var-plain-v004 + beta scene mappings unchanged")
+import apply_pictogram_edl as APE  # noqa: E402
+ok("'门槛 100万'" not in sj and sj.count("LOSS_TH") >= 3 and "'亏损门槛 ' + brandStr('thresholdAmount', '100万')" in sj
+   and {"thresholdLabel", "thresholdAmount"} <= set(APE.BRAND_KEYS), "threshold label 「亏损门槛 <金额>」 (brand thresholdAmount/thresholdLabel)")
 print(f"{n} ok")

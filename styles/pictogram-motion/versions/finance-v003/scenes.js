@@ -28,6 +28,9 @@
   const SLOGAN_EN = brandStr('sloganEn', 'STAY DIVERSIFIED');
   const SLOGAN_ZH = brandStr('sloganZh', '鸡蛋不要放进同一个篮子');
   const SLOGAN_JP = brandStr('sloganJp', '分散投資');
+  // VaR-style loss threshold label (金融专家 2026-10-30): 「亏损门槛 <金额>」, not the bare 门槛+amount.
+  // brand.thresholdLabel overrides the whole label; brand.thresholdAmount just the amount (default 100万).
+  const LOSS_TH = brandStr('thresholdLabel', '亏损门槛 ' + brandStr('thresholdAmount', '100万'));
   const CREDIT = brandStr('credit', 'LemoLab × DeepSeek Flash');
   // finance-v002: per-term labels (plan.brand → brand_strings.json). Explicit "" hides a line.
   const brandOpt = (k, fallback) => (typeof BR[k] === 'string' ? BR[k] : fallback);
@@ -1408,7 +1411,7 @@
   VIZ.square_over = (ctx, s, lt, C) => { // 那个红色方块越过门槛线，标「超线」
     const D = s.vizDur, yt = 600, x = 960, sz = 220;
     goldLine(ctx, 160, 1760, yt, E.io(inv(0.05, 0.6, lt)), 16, PAL.gold.t[3]);
-    tag(ctx, '门槛 100万', 300, yt + 70, C, inv(0.3, 0.7, lt), { px: 32, bg: PAL.gold.t[3], fg: G.INK });
+    tag(ctx, LOSS_TH, 300, yt + 70, C, inv(0.3, 0.7, lt), { px: 32, bg: PAL.gold.t[3], fg: G.INK });
     const f = E.io3(inv(D * 0.2, D * 0.7, lt)), y = lerp(330, yt + 110, f), [sx, sy] = shake(lt, D * 0.48, 8);
     ctx.save(); ctx.translate(sx, sy);
     ctx.fillStyle = PAL.red.deep; ctx.beginPath(); ctx.roundRect(x - sz / 2, y, sz, sz, 24); ctx.fill();
@@ -1515,7 +1518,7 @@
     const D = s.vizDur, z = 1 + 0.35 * E.io(inv(0.1, D * 0.5, lt)), yt = 440;
     ctx.save(); ctx.translate(W / 2, yt); ctx.scale(z, z); ctx.translate(-W / 2, -yt);
     ctx.fillStyle = rgba(G.INK, 0.8); ctx.fillRect(260, yt - 4, 1400, 8);
-    G.typeText(ctx, '门槛 100万', 270, yt - 24, F.zh(800, 28), G.INK, 1, { caret: false });
+    G.typeText(ctx, LOSS_TH, 360, yt - 24, F.zh(800, 28), G.INK, 1, { caret: false });
     const deep = [[520, 0.35], [700, 0.8], [880, 0.5], [1060, 1.0], [1240, 0.62], [1420, 0.45]];
     deep.forEach(([x, d], i) => { const p = E.oBack(inv(0.2 + i * 0.08, 0.6 + i * 0.08, lt)); ctx.strokeStyle = rgba(G.INK, 0.3); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, yt); ctx.lineTo(x, yt + 60 + d * 360); ctx.stroke(); tile(ctx, x - 30, yt + 30 + d * 360, 60, REDT, clamp(p)); });
     const avg = deep.reduce((a, b) => a + b[1], 0) / deep.length, ya = yt + 60 + avg * 360, ap = E.io(inv(D * 0.45, D * 0.75, lt));
