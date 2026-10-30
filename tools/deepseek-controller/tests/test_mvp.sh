@@ -1495,7 +1495,7 @@ else
 fi
 
 if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY -u STEP_API_KEY -u ELEVENLABS_API_KEY -u DEEPSEEK_API_KEY python3 "$CTL/tests/variable_length_mock.py" >/tmp/dc_varlen_mock.log 2>&1; then
-  ok "finance-term variable length: 5–14 lines/cards/shots, tiers 40/55/75, init-from-draft read-only, batch-3 scenes distinct ($(tail -1 /tmp/dc_varlen_mock.log))"
+  ok "finance-term variable length: 5–17 lines/cards/shots, tiers 40/55/75/90, init-from-draft read-only, batch-3 scenes distinct ($(tail -1 /tmp/dc_varlen_mock.log))"
 else
   bad "finance-term variable-length mock (see /tmp/dc_varlen_mock.log)"
 fi

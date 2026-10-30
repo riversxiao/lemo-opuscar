@@ -79,15 +79,18 @@ Prefer **OpenCode + `VOLCENGINE_CODING_API_KEY`** (Volcano Coding Plan) for draf
 
 ## Variable length (wen hao, 2026-10-30)
 
-Line count follows concept difficulty: simple ≈ 7 lines / ~30 s; hard (VaR, CAPM) 10–14 lines / ~45–60 s.
+Line count follows concept difficulty: simple ≈ 7 lines / ~30 s; hard (VaR, CAPM) 10–14 lines / ~45–70 s;
+the longest concepts up to 17 lines / 90 s (wen hao 2026-10-30, after CAPM long).
 Still **one memory point per film**, speed 1.0, `PACING=calm`; duration is a ceiling, never padded.
 
-- 5–14 lines; one card per shot (`p0…pN`), every card has ≥1 line, every line's shot has a card, cards in line order.
+- 5–17 lines; one card per shot (`p0…pN`), every card has ≥1 line, every line's shot has a card, cards in line order.
   `plan` refuses anything else.
 - `plan.shots` is generated from the cards: `p0` intro/hook · `p1` chapter · cards · the `turn` line's shot = hard-cut
   (pose diving) · last = finale (relay). Each shot 4 beats; the schedule stretches to the VO.
-- Default ceiling tiered by line count (`batch_terms.DURATION_TIERS`): ≤7 → 40 s · ≤10 → 55 s · ≤14 → 75 s.
-  lines.json `targetDurationSec` overrides (clamped 15–75). Manifest `pictogram-motion` max 75 s.
+- Default ceiling tiered by line count (`batch_terms.DURATION_TIERS`): ≤7 → 40 s · ≤10 → 55 s · ≤14 → 75 s · ≤17 → 90 s.
+  lines.json `targetDurationSec` overrides (clamped 15–90). Manifest `pictogram-motion` max 90 s.
+  Top tier sizing: Tex ≈ 4.0 字/s + ≈0.6 s/shot + 1.5 s outro → 17 lines ≈ 14.6 s overhead → ≈ 300 字 of speech
+  (≈ 17–18 字/line). Ceiling only: a 15-line film that reads in 70 s stays 70 s.
 - `init --lines N` writes an N-line skeleton. An approved 台词教父 draft becomes a term folder with
   `batch_terms.py init-from-draft --draft /workspace/films/dialogue-drafts/<name>.lines.json --term <term>
   --approved-by "金融专家 …" [--meta <other-term>/src/term.json] [--cards cards.json]` — reads the draft only
@@ -102,8 +105,8 @@ Still **one memory point per film**, speed 1.0, `PACING=calm`; duration is a cei
 
 | file | who edits | purpose |
 |---|---|---|
-| `plan.skeleton.json` | nobody per term | pictogram-motion · concept · standard · shots regenerated from the cards by `plan` (5–14) · tiered ceiling |
-| `lines.skeleton.json` | **金融专家** | 7 cards by default (`init --lines N` for 5–14) (zh/en ≤40) + 7 lines (`cap` with `{强调词}`, optional `say`) + `approvedBy`/`approvedAt` |
+| `plan.skeleton.json` | nobody per term | pictogram-motion · concept · standard · shots regenerated from the cards by `plan` (5–17) · tiered ceiling |
+| `lines.skeleton.json` | **金融专家** | 7 cards by default (`init --lines N` for 5–17) (zh/en ≤40) + 7 lines (`cap` with `{强调词}`, optional `say`) + `approvedBy`/`approvedAt` |
 | `BRIEF.skeleton.md` / `FACTS.skeleton.md` | generated | brief + provenance; FACTS lists the approved caps, no model-added facts |
 | `build_term.sh` | nobody | render + gates + handoffs for one term |
 | `../../batch_terms.py` | nobody | `init` / `init-from-draft` / `from-draft` / `plan` / `status` / `build` |
@@ -137,7 +140,7 @@ States: `awaiting-expert-lines` → `approved` → `planned` → `delivered` (qu
   (VaR: 168). Never paid StepFun TTS/ASR. A failed split re-uses the cached take
   (`voices/_session.json` sha) and retries a second local ASR pass; `LEMO_TTS_STEPAUDIO_REUSE=0`
   forces a new take.
-- Expect ~28–32 s at standard pacing for 7 lines of ~18 字; 14 lines ≈ 60 s calm (duration is a ceiling, never padded).
+- Expect ~28–32 s at standard pacing for 7 lines of ~18 字; 14 lines ≈ 60–70 s calm, 17 lines ≈ 85–90 s (duration is a ceiling, never padded).
 - `quality --delivery` must PASS; pacing WARN is report-only.
 
 ## Rework (only on FAIL, max 2 rounds)

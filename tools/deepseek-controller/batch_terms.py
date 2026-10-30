@@ -15,8 +15,9 @@ init writes <out>/<NNN>-<slug>/src/{term.json, lines.json} (lines skeleton; neve
 existing lines.json). plan refuses until lines.json has approvedBy and every cap filled, then writes
 src/{plan.json, BRIEF.md, FACTS.md} and validates. No LLM, no network, no TTS here.
 
-Length (wen hao 2026-10-30): 5–14 lines with one card/shot per line group; plan shots are generated
-from the cards and targetDurationSec is a ceiling by line count (≤7 → 40 s, 8–10 → 55 s, 11–14 → 75 s).
+Length (wen hao 2026-10-30): 5–17 lines with one card/shot per line group; plan shots are generated
+from the cards and targetDurationSec is a ceiling by line count (≤7 → 40 s, 8–10 → 55 s, 11–14 → 75 s,
+15–17 → 90 s; override clamped 15–90).
 
 Per-term display: eyebrow label (default from the CSV 科目归类, or a CSV column `eyebrow`),
 end card `endTitle` / `endLine` (CSV columns or lines.json "brand"), and `glossary`
@@ -43,12 +44,15 @@ sys.path.insert(0, str(CTL))
 from common import upper_keep  # noqa: E402
 
 # Variable film length (wen hao 2026-10-30): line count follows concept difficulty — simple ~7 lines
-# (~30 s), hard (VaR, CAPM) 10–14 lines (~45–60 s). targetDurationSec is a CEILING only (never pad);
+# (~30 s), hard (VaR, CAPM) 10–14 lines (~45–70 s), up to 17 lines / 90 s (wen hao 2026-10-30, after CAPM long).
+# targetDurationSec is a CEILING only (never pad);
 # still one memory point per film, speed 1.0, pacing calm. lines.json "targetDurationSec" overrides
 # the tier (clamped to DURATION_CEIL).
-LINES_MIN, LINES_MAX = 5, 14
-DURATION_CEIL = 75
-DURATION_TIERS = ((7, 40), (10, 55), (LINES_MAX, DURATION_CEIL))  # (max lines, ceiling seconds)
+# Top tier sizing: Tex ≈ 4.0 字/s + ≈0.6 s/shot overhead + 1.5 s outro → 17 lines ≈ 14.6 s overhead, so 90 s leaves
+# ≈ 75 s of speech ≈ 300 字 (≈ 17–18 字/line). More lines would need shorter lines than the series reads well.
+LINES_MIN, LINES_MAX = 5, 17
+DURATION_CEIL = 90
+DURATION_TIERS = ((7, 40), (10, 55), (14, 75), (LINES_MAX, DURATION_CEIL))  # (max lines, ceiling seconds)
 # Card poses for the pictogram fallback (finance-v003 per-line scenes replace them); cycled for long films.
 CARD_POSES = ("archery", "shooting", "highjump", "fencing", "rowing", "javelin", "climbing", "sailing",
               "discus", "polevault", "hurdles", "longjump")
@@ -224,7 +228,7 @@ def build_plan(term_dir: Path) -> tuple[dict, list[str]]:
         raise SystemExit("plan refused:\n  " + "\n  ".join(errs))
     meta = dict(meta, approvedBy=L["approvedBy"], approvedAt=L.get("approvedAt", ""))
     plan = json.loads(_fill((TPL / "plan.skeleton.json").read_text("utf-8"), meta))
-    # shots follow the cards (5–14 lines → matching cards); duration ceiling by line count
+    # shots follow the cards (5–17 lines → matching cards); duration ceiling by line count
     turn_shots = {ln["shot"] for ln in L["lines"] if ln.get("role") == "turn"}
     plan["shots"] = shots_for(card_ids, turn_shots)
     plan["targetDurationSec"] = target_for(nl, L.get("targetDurationSec"))

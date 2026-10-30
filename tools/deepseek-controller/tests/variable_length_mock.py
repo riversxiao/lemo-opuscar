@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Variable-length finance-term mocks (no network): 5–14 lines with matching cards/shots, tiered ceilings
-(≤7→40 · ≤10→55 · ≤14→75, override clamped to 75), plan refusals, init-from-draft (draft read-only,
-never writes into dialogue-drafts, wording verbatim, one shot per line), manifest 75 s, and batch-3
+"""Variable-length finance-term mocks (no network): 5–17 lines with matching cards/shots, tiered ceilings
+(≤7→40 · ≤10→55 · ≤14→75 · ≤17→90, override clamped 15..90), plan refusals, init-from-draft (draft read-only,
+never writes into dialogue-drafts, wording verbatim, one shot per line), manifest 90 s, and batch-3
 scenes: 14 VaR-long visuals → 14 distinct scenes, lint clean, older films' mappings unchanged."""
 from __future__ import annotations
 
@@ -32,11 +32,12 @@ def ok(c, m):
 td = Path(tempfile.mkdtemp(prefix="varlen-mock-"))
 
 # 1) tiers + override clamp
-ok([BT.target_for(k) for k in (5, 7, 8, 10, 11, 14)] == [40, 40, 55, 55, 75, 75], "tiered ceilings 40/55/75")
-ok(BT.target_for(14, 90) == 75 and BT.target_for(7, 30) == 30 and BT.target_for(7, 5) == 15, "override clamped 15..75")
-ok(BT.DURATION_CEIL == 75 and (BT.LINES_MIN, BT.LINES_MAX) == (5, 14), "5..14 lines, 75 s ceiling")
+ok([BT.target_for(k) for k in (5, 7, 8, 10, 11, 14, 15, 17)] == [40, 40, 55, 55, 75, 75, 90, 90], "tiered ceilings 40/55/75/90")
+ok(BT.target_for(14, 120) == 90 and BT.target_for(14, 85) == 85 and BT.target_for(7, 30) == 30 and BT.target_for(7, 5) == 15,
+   "override clamped 15..90")
+ok(BT.DURATION_CEIL == 90 and (BT.LINES_MIN, BT.LINES_MAX) == (5, 17), "5..17 lines, 90 s ceiling")
 man = json.loads((CTL / "manifests" / "pictogram-motion.json").read_text("utf-8"))
-ok(man["durationSec"]["max"] == 75, "manifest pictogram-motion durationSec max 75")
+ok(man["durationSec"]["max"] == 90, "manifest pictogram-motion durationSec max 90")
 
 # 2) shots_for: 14 cards → intro, chapter, cards, hard-cut on the turn, finale
 ids = [f"p{i}" for i in range(14)]
@@ -47,11 +48,11 @@ ok(sh[8]["motionPreset"] == "hard-cut" and sum(s["motionPreset"] == "hard-cut" f
 ok(all(s["motionPreset"] == "card" for s in sh[2:8] + sh[9:13]), "middle shots are cards")
 ok(all(s.get("beats") == 4 for s in sh), "4 beats per shot (schedule stretches to VO)")
 
-# 3) skeletons + plan refusal outside 5..14
-for k in (5, 14):
+# 3) skeletons + plan refusal outside 5..17
+for k in (5, 14, 17):
     S = BT.skeleton_lines(k)
     ok(len(S["lines"]) == k and len(S["cards"]) == k, f"skeleton --lines {k}")
-for bad in (4, 15):
+for bad in (4, 18):
     try:
         BT.skeleton_lines(bad)
         ok(False, f"skeleton {bad} refused")
@@ -114,7 +115,7 @@ ok(sorted(p.name for p in dd.iterdir()) == ["d14.lines.json"] and hashlib.sha256
    "draft folder untouched")
 
 # 5) plan: 14 lines → 14 shots, ceiling 75, turn hard-cut; 7 → 40; 10 → 55
-for k, tgt in ((14, 75), (10, 55), (7, 40), (5, 40)):
+for k, tgt in ((17, 90), (15, 90), (14, 75), (10, 55), (7, 40), (5, 40)):
     term = td / f"p{k}"
     init(k, term)
     plan, _ = BT.build_plan(term)
@@ -139,8 +140,8 @@ def refused(mut, msg):
 
 
 refused(lambda X: (X["lines"].__delitem__(slice(4, 7)), X["cards"].__delitem__(slice(4, 7))), "plan refuses 4 lines")
-refused(lambda X: (X["lines"].extend(dict(x, id=f"L{20 + i}", shot=f"p{7 + i}") for i, x in enumerate(X["lines"] + X["lines"][:1])),
-                   X["cards"].extend({"shot": f"p{7 + i}", "zh": "卡", "en": "C"} for i in range(8))), "plan refuses 15 lines")
+refused(lambda X: (X["lines"].extend(dict(x, id=f"L{20 + i}", shot=f"p{7 + i}") for i, x in enumerate(X["lines"] + X["lines"][:4])),
+                   X["cards"].extend({"shot": f"p{7 + i}", "zh": "卡", "en": "C"} for i in range(11))), "plan refuses 18 lines")
 refused(lambda X: X["cards"].append({"shot": "p7", "zh": "多", "en": "X"}), "plan refuses a card with no line")
 refused(lambda X: X["lines"][3].update(shot="p9"), "plan refuses a line with no card")
 refused(lambda X: X["lines"].__setitem__(slice(2, 4), X["lines"][3:1:-1]), "plan refuses lines out of card order")
