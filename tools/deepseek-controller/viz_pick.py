@@ -31,6 +31,21 @@ from typing import Any
 # ───────── scene library (keyword rules, first match wins; most specific first) ─────────
 # Each rule: (scene id, all-of keyword groups). A group matches when any of its words occurs.
 RULES: list[tuple[str, list[list[str]]]] = [
+    # batch 3 (VaR long, 14 lines, 2026-10-30): most specific first — before 账本/门槛线/格子/平均 below
+    ("bank_on_line",   [["银行大楼"], ["门槛线"]]),
+    ("bank_report",    [["银行大楼", "银行"], ["报告卡", "报告"]]),
+    ("cap_crossed",    [["上限"], ["叉"]]),
+    ("slots_filled",   [["三个格子", "三格"], ["填上", "填入"]]),
+    ("three_slots",    [["三个格子", "三格"], ["亮起", "依次"]]),
+    ("grid_10x10",     [["十乘十", "10×10", "10x10"]]),
+    ("square_over",    [["红色方块", "红方块"], ["越过", "超过", "冲过"]]),
+    ("year_strip",     [["一整年", "二百五十格", "两百五十格", "250格"]]),
+    ("red_cluster",    [["挤在一起", "扎堆", "连着亮"]]),
+    ("bottomless",     [["没有底", "看不到头", "无底"]]),
+    ("old_ledger",     [["旧账本"]]),
+    ("sky_change",     [["天色", "变天"], ["门槛线", "线"]]),
+    ("expect_actual",  [["预期"], ["实际"]]),
+    ("tail_dots_es",   [["预期尾部损失", "ES"], ["平均"]]),
     # batch 2 (CAPM / ERM / VaR plain / 风险偏好): specific nouns first so 「部门小格子」 ≠ step_blocks
     ("beam_hold",      [["秤杆"]]),
     ("scale_half",     [["天平"], ["一半", "翘起"]]),

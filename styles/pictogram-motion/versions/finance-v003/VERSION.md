@@ -15,3 +15,7 @@ v002 plus a **per-line visual scene library** (2026-10-29, 贝塔 pilot).
 - Minimal HUD: eyebrow + term top, shot ticks bottom. Viz→viz transitions rotate by shot index.
 - New scene: add a rule in viz_pick.py RULES + `VIZ.<id>` here. Local canvas only; no image models.
 - Duplicate gate: `visual_dupe.py` (keyframe dHash + layout correlation vs. the series index).
+- Batch 3 (2026-10-30, VaR long, up to 14 shots): cap_crossed, bank_report, three_slots, slots_filled,
+  grid_10x10, square_over, year_strip, red_cluster, bottomless, old_ledger, sky_change, expect_actual,
+  tail_dots_es, bank_on_line. Helpers clockIcon/gauge/tile/goldLine. Same metaphor as var-plain
+  (0 line on top, losses downward, gold = threshold, no drawn bottom); no tickers, no K-lines, no dice.

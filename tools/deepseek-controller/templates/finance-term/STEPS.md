@@ -77,15 +77,36 @@ Prefer **OpenCode + `VOLCENGINE_CODING_API_KEY`** (Volcano Coding Plan) for draf
 
 `EL_BACKUP=1` (or `batch_terms.py build --el-backup`) builds `<film>/backup-el/` and muxes `<name>-el.mp4` with Skylar (`uDnTdfbGbx3cHHFnY83O`) + `eleven_v4`. Provider spells Chinese numbers and joins letter spellings (E-S→ES) for ASR. Off by default (uses Creator character quota). Tex failed zh number ASR with Arabic numerals; with Chinese-word `say` Tex + v4 passes (number test 2026-10-29: 一百万 / 九十九天 / 贝塔大于一 exact) and is the series narrator for finance-v003.
 
+## Variable length (wen hao, 2026-10-30)
+
+Line count follows concept difficulty: simple ≈ 7 lines / ~30 s; hard (VaR, CAPM) 10–14 lines / ~45–60 s.
+Still **one memory point per film**, speed 1.0, `PACING=calm`; duration is a ceiling, never padded.
+
+- 5–14 lines; one card per shot (`p0…pN`), every card has ≥1 line, every line's shot has a card, cards in line order.
+  `plan` refuses anything else.
+- `plan.shots` is generated from the cards: `p0` intro/hook · `p1` chapter · cards · the `turn` line's shot = hard-cut
+  (pose diving) · last = finale (relay). Each shot 4 beats; the schedule stretches to the VO.
+- Default ceiling tiered by line count (`batch_terms.DURATION_TIERS`): ≤7 → 40 s · ≤10 → 55 s · ≤14 → 75 s.
+  lines.json `targetDurationSec` overrides (clamped 15–75). Manifest `pictogram-motion` max 75 s.
+- `init --lines N` writes an N-line skeleton. An approved 台词教父 draft becomes a term folder with
+  `batch_terms.py init-from-draft --draft /workspace/films/dialogue-drafts/<name>.lines.json --term <term>
+  --approved-by "金融专家 …" [--meta <other-term>/src/term.json] [--cards cards.json]` — reads the draft only
+  (refuses a `--term` inside dialogue-drafts), copies say/visual/lang/voice verbatim, one shot per line.
+  `cards.json` = `{"cards": {"p0": {"zh": "…", "en": "…"}}, "brand": {…}, "glossary": {…}}` (card `en` ≤40, ASCII `-` not `–`, no `?`).
+- Scene library finance-v003 batch 3 (14 scenes for the VaR long film, all distinct from the series index):
+  cap_crossed · bank_report · three_slots · slots_filled · grid_10x10 · square_over · year_strip · red_cluster ·
+  bottomless · old_ledger · sky_change · expect_actual · tail_dots_es · bank_on_line. Metaphor: 0 at the top,
+  losses go down, the gold line is a threshold (never a floor); nothing below it has a drawn bottom.
+
 ## Files
 
 | file | who edits | purpose |
 |---|---|---|
-| `plan.skeleton.json` | nobody per term | pictogram-motion · concept · standard · 7 shots (intro, chapter, 3×card, hard-cut, finale) · StepAudio session |
-| `lines.skeleton.json` | **金融专家** | 7 cards (zh/en ≤40) + 7 lines (`cap` with `{强调词}`, optional `say`) + `approvedBy`/`approvedAt` |
+| `plan.skeleton.json` | nobody per term | pictogram-motion · concept · standard · shots regenerated from the cards by `plan` (5–14) · tiered ceiling |
+| `lines.skeleton.json` | **金融专家** | 7 cards by default (`init --lines N` for 5–14) (zh/en ≤40) + 7 lines (`cap` with `{强调词}`, optional `say`) + `approvedBy`/`approvedAt` |
 | `BRIEF.skeleton.md` / `FACTS.skeleton.md` | generated | brief + provenance; FACTS lists the approved caps, no model-added facts |
 | `build_term.sh` | nobody | render + gates + handoffs for one term |
-| `../../batch_terms.py` | nobody | `init` / `plan` / `status` |
+| `../../batch_terms.py` | nobody | `init` / `init-from-draft` / `from-draft` / `plan` / `status` / `build` |
 
 Line roles: L01 hook · L02–L04 evidence · L05 turn · L06 evidence · L07a payoff (+ optional L07b on same finale shot). Multiple VO lines per shotId are OK (schedule maps by shot).
 `text` is generated from `cap` (braces stripped). `say` is spoken-only: use it for acronyms the TTS
@@ -116,7 +137,7 @@ States: `awaiting-expert-lines` → `approved` → `planned` → `delivered` (qu
   (VaR: 168). Never paid StepFun TTS/ASR. A failed split re-uses the cached take
   (`voices/_session.json` sha) and retries a second local ASR pass; `LEMO_TTS_STEPAUDIO_REUSE=0`
   forces a new take.
-- Expect ~28–32 s at standard pacing for 7 lines of ~18 字 (duration is a ceiling, never padded).
+- Expect ~28–32 s at standard pacing for 7 lines of ~18 字; 14 lines ≈ 60 s calm (duration is a ceiling, never padded).
 - `quality --delivery` must PASS; pacing WARN is report-only.
 
 ## Rework (only on FAIL, max 2 rounds)
