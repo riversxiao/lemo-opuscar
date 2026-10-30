@@ -2276,6 +2276,608 @@
     vizCaption(ctx, s, lt, C);
   };
 
+  // ───────── finance-v003 scene library, batch 7 (governance cases + distributions, 2026-10-30) ─────────
+  // #11 三道防线 · #12 巴林银行 · #13 长期资本管理公司 · #14 正态分布 · #15 肥尾 — 57 scenes, one per line.
+  // 金融专家 rules: losses drawn DOWNWARD / loss tail to the LEFT, no rising-only curves, no tickers or chart candles,
+  // Barings: no gambling props, the earthquake only as a map with seismic rings (no people hurt), 「88888」 on screen.
+  Object.assign(VPAL, {
+    gates_three: 'ink', gates_title: 'purple', gate_worker: 'cream', gate_tower: 'green', gate_audit: 'ochre', gate_locks: 'red',
+    desk_split: 'cream', desk_merge: 'red', gates_catch: 'ink', oldbank_gate: 'gold',
+    bank_crack: 'ink', bank_plate: 'purple', desk_leeson: 'cream', nikkei_board: 'ochre', ledger_drawer: 'green', drawer_88888: 'red',
+    two_hands: 'purple', empty_chair: 'cream', quake_map: 'ink', snowball_down: 'red', pounds_sink: 'ochre', capital_floor: 'cream',
+    coin_keys: 'gold', gates_dark: 'ink',
+    gauge_car: 'cream', ltcm_title: 'purple', medal_manual: 'ochre', gap_lines: 'ink', lever_rock: 'green', coins_25: 'gold',
+    iou_torn: 'cream', gap_widen: 'red', rock_drop: 'ink', ring_14: 'purple', hand_catch: 'ochre', manual_wave: 'green', car_stuck: 'red',
+    balls_pile: 'ink', normal_title: 'purple', bell_outline: 'cream', bell_peak: 'green', bell_tails: 'ochre', calc_bell: 'gold',
+    calc_tick: 'cream', dots_outliers: 'red', tail_shadow: 'ink',
+    calendar_circled: 'cream', fat_title: 'gold', thin_bell: 'green', balls_ends: 'ink', tails_overlay: 'purple', left_tail_drag: 'red',
+    threshold_q: 'ochre', tail_zoom: 'cream', wall_push: 'purple', calc_crack: 'gold', calendar_two: 'ink',
+  });
+  const b7N = (u) => Math.exp(-u * u / 2);            // thin-tailed bell (peak 1)
+  const b7T = (u) => Math.pow(1 + u * u / 3, -2);      // fat-tailed bell (peak 1)
+  function b7curve(ctx, x0, x1, yb, h, f, p, col, w, fill, U = 3.6, from = 'left') { // bell-shaped curve over [x0,x1], baseline yb
+    const n = 120, pts = [];
+    for (let i = 0; i <= n; i++) { const u = -U + 2 * U * i / n; pts.push([lerp(x0, x1, i / n), yb - h * f(u)]); }
+    let a = 0, b = n; const q = clamp(p);
+    if (from === 'left') b = Math.round(n * q); else { a = Math.round(n / 2 * (1 - q)); b = n - a; }
+    if (b - a < 1) return pts;
+    if (fill) { ctx.fillStyle = fill; ctx.beginPath(); ctx.moveTo(pts[a][0], yb); for (let i = a; i <= b; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[b][0], yb); ctx.closePath(); ctx.fill(); }
+    if (col) { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath(); for (let i = a; i <= b; i++) (i === a ? ctx.moveTo : ctx.lineTo).call(ctx, pts[i][0], pts[i][1]); ctx.stroke(); ctx.restore(); }
+    return pts;
+  }
+  function b7area(ctx, x0, x1, yb, h, f, xa, xb, col, U = 3.6) { // fill under curve between xa..xb
+    const n = 80; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(xa, yb);
+    for (let i = 0; i <= n; i++) { const x = lerp(xa, xb, i / n), u = -U + 2 * U * (x - x0) / (x1 - x0); ctx.lineTo(x, yb - h * f(u)); }
+    ctx.lineTo(xb, yb); ctx.closePath(); ctx.fill();
+  }
+  function b7gate(ctx, x, y, h, col, open, lamp, on) { // turnstile gate, y = floor; open 0 shut … 1 bar raised
+    ctx.fillStyle = col; ctx.fillRect(x - 110, y - h, 30, h); ctx.fillRect(x + 80, y - h, 30, h);
+    ctx.save(); ctx.translate(x - 80, y - h * 0.55); ctx.rotate(-1.35 * clamp(open)); ctx.fillStyle = col; ctx.fillRect(0, -12, 170, 24); ctx.restore();
+    if (lamp) { G.disc(ctx, x + 95, y - h - 26, 24, on > 0 ? lamp : rgba(G.INK, 0.45)); if (on > 0) { ctx.save(); ctx.globalAlpha = 0.25 * clamp(on); G.disc(ctx, x + 95, y - h - 26, 60, lamp); ctx.restore(); } }
+  }
+  function b7bank(ctx, x, y, w, h, col, win) { // generic old stone building with columns (no name, no logo), y = ground
+    G.poly(ctx, [[x - w / 2 - 30, y - h], [x + w / 2 + 30, y - h], [x, y - h - h * 0.28]], col);
+    ctx.fillStyle = col; ctx.fillRect(x - w / 2 - 30, y - h, w + 60, h * 0.08); ctx.fillRect(x - w / 2 - 40, y - h * 0.07, w + 80, h * 0.07);
+    const n = 6; for (let i = 0; i < n; i++) { const cx = lerp(x - w / 2 + 20, x + w / 2 - 20, i / (n - 1)); ctx.fillStyle = col; ctx.fillRect(cx - w * 0.035, y - h * 0.92, w * 0.07, h * 0.85); }
+    if (win) { ctx.fillStyle = win; for (let i = 0; i < n - 1; i++) { const cx = lerp(x - w / 2 + 20, x + w / 2 - 20, (i + 0.5) / (n - 1)); ctx.fillRect(cx - w * 0.04, y - h * 0.7, w * 0.08, h * 0.22); } }
+  }
+  function b7calc(ctx, x, y, w, h, col, scr, key) { // calculator, (x,y) = centre; returns screen centre
+    ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, 30); ctx.fill();
+    ctx.fillStyle = scr; ctx.fillRect(x - w / 2 + 34, y - h / 2 + 34, w - 68, h * 0.28);
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { ctx.fillStyle = key; ctx.beginPath(); ctx.roundRect(x - w / 2 + 40 + c * (w - 80) / 4, y - h / 2 + h * 0.4 + r * h * 0.14, (w - 80) / 4 - 16, h * 0.1, 10); ctx.fill(); }
+    return [x, y - h / 2 + 34 + h * 0.14];
+  }
+  function b7cal(ctx, x0, y0, cols, rows, cell, col, line, head) { // calendar sheet
+    ctx.fillStyle = col; ctx.fillRect(x0, y0, cols * cell, rows * cell + 70); ctx.fillStyle = head; ctx.fillRect(x0, y0, cols * cell, 70);
+    ctx.save(); ctx.strokeStyle = line; ctx.lineWidth = 3;
+    for (let i = 0; i <= cols; i++) { ctx.beginPath(); ctx.moveTo(x0 + i * cell, y0 + 70); ctx.lineTo(x0 + i * cell, y0 + 70 + rows * cell); ctx.stroke(); }
+    for (let j = 0; j <= rows; j++) { ctx.beginPath(); ctx.moveTo(x0, y0 + 70 + j * cell); ctx.lineTo(x0 + cols * cell, y0 + 70 + j * cell); ctx.stroke(); }
+    ctx.restore(); [0.25, 0.75].forEach((f) => G.disc(ctx, x0 + cols * cell * f, y0 + 4, 14, line));
+  }
+  function b7rings(ctx, x, y, r, col, w, p, tilt = -0.2) { if (p <= 0) return; ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.ellipse(x, y, r * 1.15, r * 0.85, tilt, 0, Math.PI * 2 * clamp(p)); ctx.stroke(); ctx.restore(); }
+  function b7hand(ctx, x, y, s, col, rot = 0) { // open palm, fingers up, (x,y) = palm centre
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.fillStyle = col;
+    ctx.beginPath(); ctx.ellipse(0, 0, s * 0.55, s * 0.38, 0, 0, Math.PI * 2); ctx.fill();
+    for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.roundRect(-s * 0.5 + i * s * 0.27, -s * 0.95, s * 0.2, s * 0.7, s * 0.1); ctx.fill(); }
+    ctx.beginPath(); ctx.roundRect(s * 0.4, -s * 0.3, s * 0.55, s * 0.2, s * 0.1); ctx.fill();
+    ctx.fillRect(-s * 0.4, s * 0.2, s * 0.8, s * 0.8); ctx.restore();
+  }
+  function b7chair(ctx, x, y, s, col) { ctx.fillStyle = col; ctx.fillRect(x - s * 0.4, y - s * 0.5, s * 0.8, s * 0.1); ctx.fillRect(x + s * 0.3, y - s * 1.2, s * 0.1, s * 1.2); ctx.fillRect(x - s * 0.4, y - s * 0.5, s * 0.08, s * 0.5); ctx.fillRect(x + s * 0.3, y - s * 0.5, s * 0.08, s * 0.5); }
+  function b7tower(ctx, x, y, w, h, col, win) { // plain office tower, no logo, y = ground
+    ctx.fillStyle = col; ctx.fillRect(x - w / 2, y - h, w, h); ctx.fillStyle = win;
+    for (let r = 0; r < Math.floor((h - 30) / 70); r++) for (let c = 0; c < 4; c++) ctx.fillRect(x - w / 2 + 22 + c * (w - 30) / 4, y - h + 26 + r * 70, (w - 30) / 4 - 18, 34);
+  }
+  function b7balls(ctx, n, x0, x1, yb, r, f, p, col, U = 3.2) { // heap of balls following f (bell), dropped in by p
+    const cols = Math.floor((x1 - x0) / (r * 2)); let k = 0;
+    for (let c = 0; c < cols; c++) { const u = -U + 2 * U * (c + 0.5) / cols, hN = Math.round(n * f(u));
+      for (let j = 0; j < hN; j++, k++) { const t = clamp(p * 1.6 - b6rnd(k, 2) * 0.5 - j * 0.012); if (t <= 0) continue;
+        G.disc(ctx, x0 + r + c * r * 2, lerp(330, yb - r - j * r * 2, E.o3(t)), r * 0.9, col); } }
+  }
+  // ── #11 三道防线 ──
+  VIZ.gates_three = (ctx, s, lt, C) => { // 一条通道上依次立着三道闸门
+    const D = s.vizDur, gy = 900;
+    G.poly(ctx, [[160, gy], [1760, gy], [1700, gy + 80], [220, gy + 80]], rgba(C.fg, 0.12));
+    [560, 1000, 1440].forEach((x, i) => { const p = pop(lt, 0.2 + i * 0.35, 0.7 + i * 0.35); if (p <= 0) return; ctx.save(); ctx.translate(x, gy); ctx.scale(1, p); b7gate(ctx, 0, 0, 380, i === 1 ? C.acc : C.fg, 0, null); ctx.restore(); });
+    const wx = lerp(220, 1700, E.io(inv(D * 0.35, D * 0.95, lt))), sw = Math.sin(lt * 7);
+    b6person(ctx, wx, gy, 200, PAL.gold.t[2], { lL1: 22 * sw, lR1: -22 * sw, aL1: -20 * sw, aR1: 20 * sw });
+    tag(ctx, '三道关', W / 2, 400, C, inv(D * 0.45, D * 0.8, lt), { px: 40, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.gates_title = (ctx, s, lt, C) => { // 屏幕标题「Three Lines of Defense」，三道闸门编号一二三
+    const D = s.vizDur, gy = 960;
+    b6title(ctx, 'Three Lines of Defense', W / 2, 430, 104, C.fg, inv(0.05, D * 0.45, lt));
+    ['一', '二', '三'].forEach((t, i) => { const x = 620 + i * 340, p = pop(lt, D * 0.3 + i * 0.25, D * 0.3 + i * 0.25 + 0.5); if (p <= 0) return;
+      ctx.save(); ctx.translate(x, gy); ctx.scale(0.75 * p, 0.75 * p); b7gate(ctx, 0, 0, 360, C.fg, 0, null); ctx.restore();
+      tag(ctx, t, x, gy - 330, C, p, { px: 44, bg: C.acc, fg: C.fg }); });
+  };
+  VIZ.gate_worker = (ctx, s, lt, C) => { // 第一道闸门旁，业务员边干活边看风险表
+    const D = s.vizDur, gy = 960;
+    b7gate(ctx, 1500, gy, 400, C.fg, 0, null); tag(ctx, '一', 1500, gy - 470, C, pop(lt, 0.1, 0.5), { px: 40 });
+    ctx.fillStyle = PAL.ochre.t[3]; ctx.fillRect(560, gy - 260, 520, 30); ctx.fillRect(600, gy - 230, 24, 230); ctx.fillRect(1016, gy - 230, 24, 230);
+    const hit = Math.sin(lt * 6); b6person(ctx, 700, gy, 300, G.INK, { aR1: 95 + 25 * hit, aR2: 100 + 20 * hit, head: inv(D * 0.4, D * 0.6, lt) * 20 });
+    for (let i = 0; i < 3; i++) { ctx.fillStyle = PAL.purple.t[2]; ctx.fillRect(760 + i * 70, gy - 300 - i * 6, 60, 40); }
+    const p = pop(lt, D * 0.3, D * 0.6); if (p > 0) { ctx.save(); ctx.translate(1010, gy - 440); ctx.scale(p, p); b6doc(ctx, 0, 0, 220, 280, G.CREAM, rgba(G.INK, 0.3), inv(D * 0.3, D * 0.9, lt));
+      ctx.font = F.zh(900, 34); ctx.fillStyle = PAL.red.t[2]; ctx.textAlign = 'center'; ctx.fillText('风险表', 0, -100); ctx.restore(); }
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.gate_tower = (ctx, s, lt, C) => { // 第二道闸门上方一个独立的观察台，有人拿望远镜
+    const D = s.vizDur, gy = 980, tx = 1220;
+    b7gate(ctx, 760, gy, 360, C.fg, 0, null); tag(ctx, '二', 760, gy - 430, C, pop(lt, 0.1, 0.5), { px: 40 });
+    const k = E.io(inv(0.1, D * 0.5, lt)), ty = lerp(gy, 600, k);
+    ctx.fillStyle = G.INK; ctx.fillRect(tx - 160, ty, 26, gy - ty); ctx.fillRect(tx + 134, ty, 26, gy - ty); ctx.fillRect(tx - 190, ty - 20, 380, 30);
+    if (k > 0.95) { b6person(ctx, tx, ty - 20, 240, G.CREAM, { aR1: 120, aR2: 95, aL1: -110, aL2: -95, head: -6 });
+      ctx.save(); ctx.translate(tx - 70, ty - 222); ctx.rotate(-0.25); ctx.fillStyle = G.INK; ctx.fillRect(-90, -16, 110, 32); ctx.restore(); }
+    tag(ctx, '独立观察', 1560, 400, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: G.CREAM, fg: PAL.green.t[3] });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.gate_audit = (ctx, s, lt, C) => { // 第三道闸门旁，有人翻看前两道的记录本
+    const D = s.vizDur, gy = 980;
+    b7gate(ctx, 480, gy, 380, C.fg, 0, null); tag(ctx, '三', 480, gy - 450, C, pop(lt, 0.1, 0.5), { px: 40 });
+    b6person(ctx, 820, gy, 300, G.INK, { aR1: 70, aR2: 40, aL1: -70, aL2: -40, head: 18 });
+    const bx = 1340, by = 640, flip = b6fr(lt * 0.8);
+    ctx.fillStyle = G.CREAM; ctx.fillRect(bx - 300, by - 170, 300, 340); ctx.fillRect(bx + 6, by - 170, 300, 340);
+    ctx.fillStyle = rgba(G.INK, 0.3); for (let i = 0; i < 6; i++) { ctx.fillRect(bx - 270, by - 130 + i * 48, 240, 10); ctx.fillRect(bx + 36, by - 130 + i * 48, i === 3 ? 140 : 240, 10); }
+    ctx.save(); ctx.translate(bx, by); ctx.scale(Math.cos(flip * Math.PI), 1); ctx.fillStyle = rgba(G.CREAM, 0.9); ctx.fillRect(0, -170, 300, 340); ctx.restore();
+    tag(ctx, '一', bx - 150, by - 230, C, pop(lt, D * 0.3, D * 0.6), { px: 32, bg: G.INK, fg: C.bg });
+    tag(ctx, '二', bx + 156, by - 230, C, pop(lt, D * 0.4, D * 0.7), { px: 32, bg: G.INK, fg: C.bg });
+    G.disc(ctx, bx + 230, by + 14, 22, PAL.red.t[2]);
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.gate_locks = (ctx, s, lt, C) => { // 三道闸门各自有独立的锁，钥匙在三个人手里
+    const D = s.vizDur, gy = 760;
+    [560, 960, 1360].forEach((x, i) => { b7gate(ctx, x, gy, 300, C.fg, 0, null);
+      const p = pop(lt, 0.2 + i * 0.25, 0.6 + i * 0.25); if (p > 0) { ctx.save(); ctx.translate(x, gy - 160); ctx.scale(p, p);
+        ctx.strokeStyle = G.INK; ctx.lineWidth = 12; ctx.beginPath(); ctx.arc(0, -30, 30, Math.PI, 0); ctx.stroke(); ctx.fillStyle = G.INK; ctx.fillRect(-46, -30, 92, 70); G.disc(ctx, 0, 0, 9, C.bg); ctx.restore(); }
+      const kp = inv(D * 0.4 + i * 0.2, D * 0.7 + i * 0.2, lt), col = [PAL.gold.t[2], G.CREAM, PAL.purple.t[1]][i];
+      b6person(ctx, x, 1000, 170, col, { aR1: lerp(8, 70, kp), aR2: lerp(12, 80, kp) });
+      if (kp > 0) b6key(ctx, x + 70, 840, 60, col); });
+    tag(ctx, '三把锁 · 三个人', 1500, 380, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: G.CREAM, fg: PAL.red.t[3] });
+    vizCaption(ctx, s, lt, C, { x: 150, y: 220 });
+  };
+  function b7desk(ctx, gy, wall) {
+    ctx.fillStyle = PAL.ochre.t[3]; ctx.fillRect(360, gy - 260, 1200, 34); ctx.fillRect(400, gy - 226, 26, 226); ctx.fillRect(1494, gy - 226, 26, 226);
+    if (wall > 0) { ctx.fillStyle = rgba(G.INK, 0.85 * wall); ctx.fillRect(W / 2 - 14, gy - 620, 28, 394); }
+  }
+  VIZ.desk_split = (ctx, s, lt, C) => { // 一张桌子被隔板分成两边：左边下单，右边记账，坐着不同的人
+    const D = s.vizDur, gy = 980;
+    b7desk(ctx, gy, E.io(inv(0.1, D * 0.4, lt)));
+    b6person(ctx, 640, gy, 300, PAL.purple.t[2], { aR1: 85, aR2: 70 }); b6person(ctx, 1280, gy, 300, PAL.green.t[3], { aL1: -85, aL2: -70 });
+    b6doc(ctx, 810, gy - 300, 150, 90, G.CREAM, rgba(G.INK, 0.3)); b6doc(ctx, 1110, gy - 300, 150, 90, G.CREAM, rgba(G.INK, 0.3));
+    tag(ctx, '下单', 640, 480, C, pop(lt, D * 0.35, D * 0.6), { px: 40, bg: PAL.purple.t[2], fg: G.CREAM });
+    tag(ctx, '记账', 1280, 480, C, pop(lt, D * 0.5, D * 0.75), { px: 40, bg: PAL.green.t[3], fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.desk_merge = (ctx, s, lt, C) => { // 隔板被拿走，一个人同时坐两边，账本上的红字被盖住
+    const D = s.vizDur, gy = 980, k = E.io(inv(0.1, D * 0.35, lt));
+    ctx.save(); ctx.translate(0, -k * 500); ctx.globalAlpha = 1 - k; b7desk(ctx, gy, 1); ctx.restore(); b7desk(ctx, gy, 0);
+    b6person(ctx, W / 2, gy, 320, G.INK, { aR1: 95, aR2: 80, aL1: -95, aL2: -80 });
+    const lx = 1280, ly = gy - 330; ctx.fillStyle = G.CREAM; ctx.fillRect(lx - 150, ly - 70, 300, 120);
+    ctx.fillStyle = PAL.red.t[3]; for (let i = 0; i < 3; i++) ctx.fillRect(lx - 120, ly - 46 + i * 34, 240, 14);
+    const c = E.io(inv(D * 0.45, D * 0.8, lt)); ctx.fillStyle = G.INK; ctx.fillRect(lx - 150, ly - 70, 300 * c, 120);
+    b6doc(ctx, 640, gy - 300, 150, 90, G.CREAM, rgba(G.INK, 0.3));
+    tag(ctx, '红字被盖住', lx, 470, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: G.CREAM, fg: PAL.red.t[3] });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.gates_catch = (ctx, s, lt, C) => { // 三道闸门亮灯，一个红色小错块在第二道被拦下
+    const D = s.vizDur, gy = 920, xs = [520, 960, 1400];
+    xs.forEach((x, i) => b7gate(ctx, x, gy, 340, C.fg, 0, PAL.green.t[1], inv(0.1 + i * 0.25, 0.4 + i * 0.25, lt)));
+    const tStop = D * 0.55, u = clamp(lt / tStop), bx = lerp(200, xs[1] - 150, E.io(u)) - (lt > tStop ? Math.sin((lt - tStop) * 18) * 18 * Math.max(0, 1 - (lt - tStop) * 2) : 0);
+    ctx.fillStyle = PAL.red.t[2]; ctx.beginPath(); ctx.roundRect(bx - 40, gy - 230, 80, 80, 12); ctx.fill();
+    tag(ctx, '拦下', xs[1], 460, C, inv(tStop, tStop + 0.5, lt), { px: 44, bg: PAL.red.t[2], fg: G.CREAM });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.oldbank_gate = (ctx, s, lt, C) => { // 镜头拉远：一栋无名老楼的轮廓，门口只剩一道闸门
+    const D = s.vizDur, sc = lerp(1.5, 1, E.io(inv(0, D * 0.7, lt)));
+    ctx.save(); ctx.translate(1160, 980); ctx.scale(sc, sc); ctx.translate(-1160, -980);
+    b7bank(ctx, 1300, 980, 600, 500, rgba(G.INK, 0.8), rgba(G.CREAM, 0.35));
+    b7gate(ctx, 760, 980, 300, G.INK, 0, PAL.red.t[2], 0.6 + 0.4 * Math.sin(lt * 5));
+    ctx.restore();
+    tag(ctx, '只剩一道', 760, 560, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  // ── #12 巴林银行 ──
+  VIZ.bank_crack = (ctx, s, lt, C) => { // 一个人的剪影站在一栋老银行大楼前，大楼出现裂缝
+    const D = s.vizDur, gy = 990, k = E.io(inv(D * 0.3, D * 0.9, lt));
+    b7bank(ctx, 1200, gy, 700, 520, rgba(G.CREAM, 0.85), rgba(G.INK, 0.5));
+    const pts = [[1200, gy - 660], [1170, gy - 560], [1230, gy - 460], [1180, gy - 350], [1250, gy - 240], [1210, gy - 110]], n = Math.max(1, Math.ceil((pts.length - 1) * k));
+    if (k > 0) { ctx.save(); ctx.strokeStyle = PAL.red.t[2]; ctx.lineWidth = 12; ctx.lineJoin = 'round'; ctx.beginPath(); pts.slice(0, n + 1).forEach((p, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, p[0], p[1])); ctx.stroke(); ctx.restore(); }
+    b6person(ctx, 520, gy, 360, '#0d0d14', { head: 6 });
+    tag(ctx, '一个人', 520, 560, C, inv(D * 0.2, D * 0.5, lt), { px: 38, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.bank_plate = (ctx, s, lt, C) => { // 老楼门牌「巴林银行 1995」，门口落下卷帘门
+    const D = s.vizDur;
+    ctx.fillStyle = rgba(G.CREAM, 0.85); ctx.fillRect(560, 380, 800, 610); ctx.fillStyle = rgba(G.INK, 0.75); ctx.fillRect(760, 560, 400, 430);
+    const p = pop(lt, 0.1, 0.6); if (p > 0) { ctx.save(); ctx.translate(W / 2, 470); ctx.scale(p, p); ctx.fillStyle = PAL.gold.t[2]; ctx.beginPath(); ctx.roundRect(-300, -56, 600, 112, 14); ctx.fill();
+      ctx.font = F.zh(900, 52); ctx.fillStyle = G.INK; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('巴林银行 1995', 0, 4); ctx.restore(); }
+    const sh = 430 * E.io(inv(D * 0.35, D * 0.85, lt)); ctx.fillStyle = PAL.ochre.t[3]; ctx.fillRect(760, 560, 400, sh);
+    ctx.fillStyle = rgba(G.INK, 0.4); for (let y = 584; y < 560 + sh; y += 30) ctx.fillRect(760, y, 400, 6);
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.desk_leeson = (ctx, s, lt, C) => { // 交易台前一个背影，屏幕标「Nick Leeson · 新加坡」
+    const D = s.vizDur;
+    ctx.fillStyle = G.INK; ctx.beginPath(); ctx.roundRect(560, 400, 800, 400, 20); ctx.fill(); ctx.fillStyle = '#1d2b3a'; ctx.fillRect(590, 430, 740, 340);
+    ctx.fillStyle = G.INK; ctx.fillRect(930, 800, 60, 60); ctx.fillStyle = PAL.ochre.t[3]; ctx.fillRect(420, 860, 1080, 30);
+    G.maskText(ctx, 'Nick Leeson', W / 2, 570, F.en(900, 72), G.CREAM, inv(0.2, D * 0.5, lt), { align: 'center', ls: '3px' });
+    G.maskText(ctx, '新加坡', W / 2, 690, F.zh(900, 60), PAL.gold.t[2], inv(D * 0.35, D * 0.7, lt), { align: 'center', ls: '4px' });
+    G.disc(ctx, W / 2, 900, 64, '#0d0d14'); ctx.fillStyle = '#0d0d14'; ctx.beginPath(); ctx.roundRect(W / 2 - 150, 950, 300, 200, 60); ctx.fill();
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.nikkei_board = (ctx, s, lt, C) => { // 屏幕标「日经225 指数期货」，只有文字没有走势图
+    const D = s.vizDur;
+    ctx.fillStyle = G.INK; ctx.beginPath(); ctx.roundRect(360, 360, 1200, 420, 24); ctx.fill();
+    G.maskText(ctx, '日经225', W / 2, 540, F.zh(900, 150), PAL.gold.t[1], inv(0.1, D * 0.45, lt), { align: 'center', ls: '6px' });
+    G.maskText(ctx, '指数期货', W / 2, 700, F.zh(900, 72), G.CREAM, inv(D * 0.3, D * 0.7, lt), { align: 'center', ls: '8px' });
+    for (let i = 0; i < 6; i++) { const p = pop(lt, D * 0.4 + i * 0.12, D * 0.4 + i * 0.12 + 0.4); if (p <= 0) continue; ctx.save(); ctx.translate(560 + i * 130, 900 - i * 4); ctx.rotate((i - 2.5) * 0.04); ctx.scale(p, p); b6doc(ctx, 0, 0, 120, 150, G.CREAM, rgba(G.INK, 0.3)); ctx.restore(); }
+    tag(ctx, '合约越堆越多', 1500, 920, C, inv(D * 0.7, D * 0.95, lt), { px: 34, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C, { x: 150, y: 220 });
+  };
+  VIZ.ledger_drawer = (ctx, s, lt, C) => { // 一本账簿最后一页夹着一个隐藏的小抽屉，红字往里塞
+    const D = s.vizDur, bx = W / 2, by = 560;
+    ctx.fillStyle = G.CREAM; ctx.fillRect(bx - 420, by - 200, 410, 420); ctx.fillRect(bx + 10, by - 200, 410, 420);
+    ctx.fillStyle = rgba(G.INK, 0.3); for (let i = 0; i < 7; i++) { ctx.fillRect(bx - 380, by - 160 + i * 50, 330, 10); ctx.fillRect(bx + 50, by - 160 + i * 50, 330, 10); }
+    const dk = E.io(inv(0.2, D * 0.45, lt)), dy = by + 220 + dk * 120;
+    ctx.fillStyle = G.INK; ctx.fillRect(bx - 180, by + 220, 360, dk * 140); ctx.fillStyle = PAL.ochre.t[3]; ctx.fillRect(bx - 200, dy, 400, 30);
+    for (let i = 0; i < 4; i++) { const u = clamp(inv(D * 0.4 + i * 0.35, D * 0.4 + i * 0.35 + 0.6, lt)); if (u <= 0) continue;
+      ctx.save(); ctx.globalAlpha = 1 - u * 0.8; ctx.fillStyle = PAL.red.t[2]; ctx.fillRect(lerp(bx + 60, bx - 60, u), lerp(by - 120 + i * 60, by + 280, u), 200 * (1 - u * 0.5), 18); ctx.restore(); }
+    tag(ctx, '藏起来', bx + 540, by + 300, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: PAL.red.t[2], fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.drawer_88888 = (ctx, s, lt, C) => { // 抽屉标签「88888」
+    const D = s.vizDur, k = E.io(inv(0, D * 0.4, lt)), sc = lerp(0.8, 1, k);
+    ctx.save(); ctx.translate(W / 2, 620); ctx.scale(sc, sc);
+    ctx.fillStyle = PAL.ochre.t[3]; ctx.fillRect(-520, -230, 1040, 460); ctx.fillStyle = rgba(G.INK, 0.25); ctx.fillRect(-490, -200, 980, 400);
+    ctx.fillStyle = G.CREAM; ctx.beginPath(); ctx.roundRect(-360, -110, 720, 220, 18); ctx.fill();
+    G.typeText(ctx, '88888', 0, 56, F.mono(170), G.INK, inv(D * 0.1, D * 0.5, lt), { align: 'center', ls: '10px', caret: false });
+    ctx.fillStyle = G.INK; ctx.fillRect(-90, 150, 180, 34); ctx.restore();
+    tag(ctx, '错误账户', W / 2, 960, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: G.CREAM, fg: PAL.red.t[3] });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 220, align: 'right' });
+  };
+  VIZ.two_hands = (ctx, s, lt, C) => { // 同一个人左手下单、右手盖章结算
+    const D = s.vizDur, gy = 990, st = Math.max(0, Math.sin(lt * 5));
+    ctx.fillStyle = PAL.ochre.t[3]; ctx.fillRect(420, gy - 300, 1080, 30);
+    b6person(ctx, W / 2, gy, 340, G.CREAM, { aL1: -100, aL2: -80, aR1: 100, aR2: 95 + st * 30 });
+    b6doc(ctx, 640, gy - 360, 170, 110, G.CREAM, rgba(G.INK, 0.3), inv(0.2, D * 0.6, lt));
+    b6doc(ctx, 1280, gy - 330, 170, 110, G.CREAM, rgba(G.INK, 0.3));
+    ctx.fillStyle = PAL.red.t[2]; ctx.fillRect(1250, gy - 470 + st * 90, 60, 80); ctx.fillRect(1230, gy - 400 + st * 90, 100, 20);
+    if (st > 0.9) { ctx.strokeStyle = PAL.red.t[2]; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(1280, gy - 330, 40, 0, Math.PI * 2); ctx.stroke(); }
+    tag(ctx, '下单', 640, 480, C, pop(lt, D * 0.25, D * 0.5), { px: 38, bg: G.CREAM, fg: PAL.purple.t[3] });
+    tag(ctx, '结算', 1280, 480, C, pop(lt, D * 0.45, D * 0.7), { px: 38, bg: PAL.red.t[2], fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.empty_chair = (ctx, s, lt, C) => { // 本该站第二个人的位置是空椅子
+    const D = s.vizDur, gy = 990;
+    b7chair(ctx, 700, gy, 300, G.INK); b6person(ctx, 680, gy, 300, PAL.purple.t[2], { aR1: 80, aR2: 70 });
+    b7chair(ctx, 1240, gy, 300, rgba(G.INK, 0.8));
+    const p = inv(D * 0.3, D * 0.6, lt); if (p > 0) { ctx.save(); ctx.globalAlpha = clamp(p); ctx.setLineDash([18, 14]); ctx.strokeStyle = PAL.red.t[2]; ctx.lineWidth = 6; ctx.beginPath(); ctx.ellipse(1250, gy - 230, 190, 280, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+    ctx.save(); ctx.font = F.en(900, 140); ctx.fillStyle = rgba(PAL.red.t[2], clamp(inv(D * 0.4, D * 0.7, lt))); ctx.textAlign = 'center'; ctx.fillText('?', 1250, gy - 540); ctx.restore();
+    tag(ctx, '没人复核', 1600, 420, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: PAL.red.t[2], fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.quake_map = (ctx, s, lt, C) => { // 地图上日本神户一带震波扩散（只画地图与震波，不画人）
+    const D = s.vizDur, ex = 1040, ey = 690;
+    const isl = [[[1380, 380], [1460, 440], [1420, 520], [1340, 470]], [[1180, 500], [1330, 540], [1300, 640], [1150, 700], [1010, 720], [860, 760], [760, 820], [800, 760], [960, 680], [1100, 600]], [[880, 800], [990, 790], [960, 860], [870, 860]], [[620, 860], [740, 850], [720, 950], [600, 940]]];
+    isl.forEach((pp) => G.poly(ctx, pp, rgba(G.CREAM, 0.8)));
+    for (let i = 0; i < 4; i++) { const u = b6fr(lt * 0.6 + i / 4); ctx.save(); ctx.globalAlpha = (1 - u) * clamp(inv(0.2, 0.8, lt)); ctx.strokeStyle = PAL.red.t[2]; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(ex, ey, 30 + u * 380, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+    G.disc(ctx, ex, ey, 16, PAL.red.t[2]);
+    tag(ctx, '神户 · 1995.1', ex - 260, ey + 160, C, inv(D * 0.3, D * 0.6, lt), { px: 36, bg: PAL.red.t[2], fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.snowball_down = (ctx, s, lt, C) => { // 红色亏损雪球往下坡滚，越滚越大
+    const D = s.vizDur, k = E.io(inv(0.1, D * 0.95, lt));
+    G.poly(ctx, [[160, 420], [1760, 980], [160, 980]], rgba(G.CREAM, 0.85));
+    const x = lerp(300, 1480, k), r = lerp(30, 150, k), y = lerp(420, 980, (x - 160) / 1600) - r * 1.05;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(lt * 4); G.disc(ctx, 0, 0, r, G.INK); ctx.fillStyle = PAL.red.t[1]; ctx.fillRect(-r * 0.7, -r * 0.08, r * 1.4, r * 0.16); ctx.restore();
+    tag(ctx, '越滚越大', 1400, 420, C, inv(D * 0.5, D * 0.85, lt), { px: 38, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.pounds_sink = (ctx, s, lt, C) => { // 屏幕数字「约 8.27 亿英镑」往下沉
+    const D = s.vizDur, k = E.io(inv(D * 0.3, D * 0.95, lt)), y = lerp(560, 820, k);
+    ctx.fillStyle = rgba(G.INK, 0.25); ctx.fillRect(96, 760, 1728, 266);
+    G.maskText(ctx, '约 8.27 亿英镑', W / 2, y, F.zh(900, 140), G.INK, inv(0.05, D * 0.4, lt), { align: 'center', ls: '4px' });
+    b6down(ctx, 1660, 400, 680, PAL.red.t[2], 14, inv(D * 0.3, D * 0.8, lt));
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.capital_floor = (ctx, s, lt, C) => { // 红色亏损柱往下压，越过了标着「银行资本」的地板线
+    const D = s.vizDur, fy = 620, k = E.io(inv(0.1, D * 0.8, lt)), by = lerp(380, 920, k);
+    ctx.fillStyle = PAL.ochre.t[3]; ctx.fillRect(260, fy, 1400, 34);
+    tag(ctx, '银行资本', 440, fy + 100, C, pop(lt, 0.1, 0.5), { px: 38, bg: PAL.ochre.t[3], fg: G.CREAM });
+    ctx.fillStyle = PAL.red.t[2]; ctx.fillRect(W / 2 - 110, 360, 220, by - 360); G.poly(ctx, [[W / 2 - 110, by], [W / 2 + 110, by], [W / 2, by + 60]], PAL.red.t[2]);
+    if (by > fy) { ctx.save(); ctx.strokeStyle = G.INK; ctx.lineWidth = 8; [-1, 1].forEach((d) => { ctx.beginPath(); ctx.moveTo(W / 2 + d * 110, fy + 17); ctx.lineTo(W / 2 + d * 220, fy - 10); ctx.lineTo(W / 2 + d * 300, fy + 30); ctx.stroke(); }); ctx.restore(); }
+    tag(ctx, '压穿', 1460, 880, C, inv(D * 0.6, D * 0.9, lt), { px: 40, bg: PAL.red.t[2], fg: G.CREAM });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.coin_keys = (ctx, s, lt, C) => { // 一枚一英镑硬币放在老楼钥匙旁
+    const D = s.vizDur, gy = 820;
+    ctx.fillStyle = rgba(G.INK, 0.2); ctx.fillRect(200, gy, 1520, 200);
+    const p = pop(lt, D * 0.25, D * 0.6); if (p > 0) { ctx.save(); ctx.translate(760, gy - 140); ctx.scale(p, p); G.disc(ctx, 0, 0, 150, '#d9a62e'); G.disc(ctx, 0, 0, 122, '#f1c453');
+      ctx.font = F.zh(900, 60); ctx.fillStyle = G.INK; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('1英镑', 0, 4); ctx.restore(); }
+    ctx.save(); ctx.translate(1260, gy - 120); ctx.rotate(-0.15); b6key(ctx, 0, 0, 260, G.INK); ctx.restore();
+    tag(ctx, '象征性价格', 1500, 400, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.gates_dark = (ctx, s, lt, C) => { // 回到三道闸门：三道全开着，没有一盏灯亮
+    const D = s.vizDur;
+    G.poly(ctx, [[560, 600], [760, 600], [1760, 1000], [1060, 1000]], rgba(G.CREAM, 0.08));
+    [[680, 600, 0.5], [1000, 760, 0.72], [1420, 990, 1]].forEach(([x, y, sc], i) => { ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
+      b7gate(ctx, 0, 0, 380, rgba(G.CREAM, 0.8), E.io(inv(0.1 + i * 0.2, D * 0.5 + i * 0.2, lt)), PAL.green.t[1], 0); ctx.restore(); });
+    tag(ctx, '全都开着', 1500, 420, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: PAL.red.t[2], fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  // ── #13 长期资本管理公司 ──
+  function b7car(ctx, x, y, s, col, rot = 0, gauge = 0) { // instrument car, (x,y) = ground under centre
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.fillStyle = col;
+    ctx.beginPath(); ctx.roundRect(-s, -s * 0.62, s * 2, s * 0.42, 18); ctx.fill(); ctx.beginPath(); ctx.roundRect(-s * 0.55, -s * 0.95, s * 1.1, s * 0.4, 18); ctx.fill();
+    G.disc(ctx, -s * 0.6, -s * 0.2, s * 0.22, G.INK); G.disc(ctx, s * 0.6, -s * 0.2, s * 0.22, G.INK);
+    G.disc(ctx, 0, -s * 1.15, s * 0.26, G.CREAM); ctx.strokeStyle = G.INK; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(0, -s * 1.15); ctx.lineTo(Math.cos(-2.4 + gauge) * s * 0.2, -s * 1.15 + Math.sin(-2.4 + gauge) * s * 0.2); ctx.stroke();
+    ctx.restore();
+  }
+  VIZ.gauge_car = (ctx, s, lt, C) => { // 一辆精密仪表车在平路上开得很稳，前方出现一个深坑
+    const D = s.vizDur, gy = 900, k = E.io(inv(0, D * 0.9, lt));
+    ctx.fillStyle = G.INK; ctx.fillRect(96, gy, 1300, 16); ctx.fillRect(1640, gy, 184, 16);
+    const pk = E.io(inv(D * 0.3, D * 0.7, lt)); G.poly(ctx, [[1396, gy], [1640, gy], [1600, gy + 110 * pk], [1436, gy + 110 * pk]], rgba(G.INK, 0.85));
+    b7car(ctx, lerp(300, 1100, k), gy, 130, PAL.purple.t[2], 0, Math.sin(lt * 2) * 0.1);
+    tag(ctx, '深坑', 1518, 780, C, inv(D * 0.5, D * 0.8, lt), { px: 36, bg: PAL.red.t[2], fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.ltcm_title = (ctx, s, lt, C) => { // 屏幕标题「LTCM」，一栋无标识写字楼
+    const D = s.vizDur;
+    b6title(ctx, 'LTCM', 700, 600, 220, C.fg, inv(0.05, D * 0.45, lt), 900);
+    const p = E.io(inv(D * 0.2, D * 0.7, lt)); b7tower(ctx, 1440, 1000, 320, 640 * p, rgba(G.CREAM, 0.85), rgba(G.INK, 0.4));
+  };
+  VIZ.medal_manual = (ctx, s, lt, C) => { // 会议桌上放着一枚奖章和厚厚的模型手册，标「1994」
+    const D = s.vizDur, gy = 820;
+    ctx.fillStyle = PAL.ochre.t[4] || G.INK; ctx.fillRect(200, gy, 1520, 40); ctx.fillStyle = rgba(G.INK, 0.25); ctx.fillRect(260, gy + 40, 1400, 160);
+    const mp = pop(lt, 0.2, 0.7); if (mp > 0) { ctx.save(); ctx.translate(640, gy - 150); ctx.scale(mp, mp); G.poly(ctx, [[-50, -150], [0, -60], [50, -150]], PAL.red.t[2]); G.disc(ctx, 0, 0, 100, '#d9a62e'); G.disc(ctx, 0, 0, 70, '#f1c453'); ctx.restore(); }
+    const bp = E.io(inv(D * 0.25, D * 0.7, lt)); for (let i = 0; i < 8; i++) { if (i / 8 > bp) break; ctx.fillStyle = i % 2 ? G.CREAM : '#e6dcc6'; ctx.fillRect(1040, gy - 30 - i * 30, 420, 28); }
+    ctx.fillStyle = PAL.purple.t[2]; ctx.fillRect(1030, gy - 30 - 8 * 30 * bp - 12, 440, 20);
+    tag(ctx, '1994', 1250, 420, C, inv(D * 0.5, D * 0.8, lt), { px: 44, bg: G.INK, fg: C.bg, font: F.mono(44) });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.gap_lines = (ctx, s, lt, C) => { // 两条本该并拢的线中间有一道缝，箭头指向合拢
+    const D = s.vizDur, k = E.io(inv(0.1, D * 0.5, lt)), gap = 70 + 20 * Math.sin(lt * 2);
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineWidth = 16;
+    ctx.strokeStyle = G.CREAM; ctx.beginPath(); ctx.moveTo(260, 650 - gap); ctx.lineTo(lerp(260, 1660, k), 650 - gap); ctx.stroke();
+    ctx.strokeStyle = C.acc; ctx.beginPath(); ctx.moveTo(260, 650 + gap); ctx.lineTo(lerp(260, 1660, k), 650 + gap); ctx.stroke(); ctx.restore();
+    const ap = inv(D * 0.45, D * 0.8, lt); b6down(ctx, 960, 400, 540, G.CREAM, 10, ap); b6upArrow(ctx, 960, 900, 760, C.acc, 10, ap);
+    tag(ctx, '等它合拢', 1500, 920, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.lever_rock = (ctx, s, lt, C) => { // 一根小撬棍撬起一块巨石
+    const D = s.vizDur, gy = 960, k = E.io(inv(D * 0.2, D * 0.7, lt)), a = lerp(0.18, -0.22, k), fx = 760;
+    G.poly(ctx, [[fx - 60, gy], [fx + 60, gy], [fx, gy - 100]], G.INK);
+    ctx.save(); ctx.translate(fx, gy - 100); ctx.rotate(a); ctx.fillStyle = G.CREAM; ctx.fillRect(-460, -10, 1000, 20);
+    ctx.fillStyle = rgba(G.INK, 0.85); ctx.beginPath(); ctx.ellipse(400, -170, 200, 160, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    const hx = fx - 430 * Math.cos(a), hy = gy - 100 - 430 * Math.sin(a);
+    b6person(ctx, hx - 40, gy, 220, G.CREAM, { aR1: 60, aR2: 50, torso: 18 });
+    tag(ctx, '小力撬大石', 1460, 400, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: G.CREAM, fg: PAL.green.t[3] });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.coins_25 = (ctx, s, lt, C) => { // 天平一边一枚小硬币，另一边二十五枚叠起来的硬币，标「约25倍+」
+    const D = s.vizDur, cx = W / 2, cy = 560, k = E.io(inv(D * 0.2, D * 0.7, lt)), a = 0.16 * k;
+    ctx.fillStyle = G.INK; ctx.fillRect(cx - 14, cy, 28, 420); ctx.fillRect(cx - 160, 970, 320, 24);
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(a); ctx.fillStyle = G.INK; ctx.fillRect(-560, -10, 1120, 20);
+    [-1, 1].forEach((d) => { ctx.fillStyle = G.INK; ctx.fillRect(d * 520 - 4, 0, 8, 140); ctx.fillRect(d * 520 - 130, 140, 260, 14); });
+    ctx.restore();
+    const L = [cx - 520 * Math.cos(a), cy - 520 * Math.sin(a) + 140], R = [cx + 520 * Math.cos(a), cy + 520 * Math.sin(a) + 140];
+    ctx.fillStyle = '#f1c453'; ctx.beginPath(); ctx.ellipse(L[0], L[1] - 16, 60, 16, 0, 0, Math.PI * 2); ctx.fill();
+    const n = Math.round(25 * E.io(inv(D * 0.1, D * 0.6, lt))); for (let i = 0; i < n; i++) { ctx.fillStyle = i % 2 ? '#d9a62e' : '#f1c453'; ctx.fillRect(R[0] - 60, R[1] - 14 - (i + 1) * 13, 120, 12); }
+    tag(ctx, '约25倍+', R[0], 360, C, inv(D * 0.55, D * 0.85, lt), { px: 42, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.iou_torn = (ctx, s, lt, C) => { // 一张欠条被撕开，标「1998 俄罗斯违约」
+    const D = s.vizDur, k = E.io(inv(D * 0.3, D * 0.8, lt)), cx = W / 2, cy = 620;
+    [-1, 1].forEach((d) => { ctx.save(); ctx.translate(cx + d * k * 80, cy + k * 60); ctx.rotate(d * k * 0.12);
+      ctx.fillStyle = '#e9dcbf'; ctx.strokeStyle = rgba(G.INK, 0.55); ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, -220); ctx.lineTo(d * 360, -220); ctx.lineTo(d * 360, 220); ctx.lineTo(0, 220);
+      for (let i = 0; i < 8; i++) ctx.lineTo(d * (i % 2 ? 16 : -6), 220 - i * 55); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = rgba(G.INK, 0.3); for (let i = 0; i < 4; i++) ctx.fillRect(d > 0 ? 40 : -320, -60 + i * 50, 280, 10); ctx.restore(); });
+    G.maskText(ctx, '欠条', cx, cy - 120, F.zh(900, 64), G.INK, inv(0.1, D * 0.3, lt), { align: 'center', ls: '8px' });
+    tag(ctx, '1998 俄罗斯违约', cx, 940, C, inv(D * 0.45, D * 0.75, lt), { px: 40, bg: PAL.red.t[2], fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.gap_widen = (ctx, s, lt, C) => { // 那两条线不仅没合拢，缝隙越撕越宽
+    const D = s.vizDur, k = E.io(inv(0.1, D * 0.9, lt)), n = 60, x0 = 260, x1 = 1660;
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 14;
+    const up = (u) => 560 - 40 * u * u, dn = (u) => 640 + 300 * u * u; const m = Math.max(1, Math.round(n * k));
+    ctx.fillStyle = rgba(G.INK, 0.35); ctx.beginPath(); for (let i = 0; i <= m; i++) { const u = i / n; ctx.lineTo(lerp(x0, x1, u), up(u)); } for (let i = m; i >= 0; i--) { const u = i / n; ctx.lineTo(lerp(x0, x1, u), dn(u)); } ctx.fill();
+    ctx.strokeStyle = G.CREAM; ctx.beginPath(); for (let i = 0; i <= m; i++) { const u = i / n; (i ? ctx.lineTo : ctx.moveTo).call(ctx, lerp(x0, x1, u), up(u)); } ctx.stroke();
+    ctx.strokeStyle = G.INK; ctx.beginPath(); for (let i = 0; i <= m; i++) { const u = i / n; (i ? ctx.lineTo : ctx.moveTo).call(ctx, lerp(x0, x1, u), dn(u)); } ctx.stroke(); ctx.restore();
+    b6down(ctx, 1700, 660, 940, G.INK, 10, inv(D * 0.5, D * 0.85, lt));
+    tag(ctx, '越拉越大', 1400, 420, C, inv(D * 0.55, D * 0.85, lt), { px: 38, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.rock_drop = (ctx, s, lt, C) => { // 撬棍反弹，巨石往下砸，红色亏损线成倍下坠
+    const D = s.vizDur, gy = 960, fx = 560, k = E.io(inv(0.1, D * 0.45, lt)), a = lerp(-0.22, 0.2, k);
+    G.poly(ctx, [[fx - 50, gy], [fx + 50, gy], [fx, gy - 90]], G.CREAM);
+    ctx.save(); ctx.translate(fx, gy - 90); ctx.rotate(a); ctx.fillStyle = G.CREAM; ctx.fillRect(-320, -9, 700, 18); ctx.restore();
+    const ry = lerp(560, 860, E.i3 ? E.i3(k) : k * k); ctx.fillStyle = rgba(G.CREAM, 0.85); ctx.beginPath(); ctx.ellipse(fx + 300, ry, 150, 120, 0, 0, Math.PI * 2); ctx.fill();
+    const lp = inv(D * 0.35, D * 0.95, lt), steps = [[1000, 420], [1140, 420], [1140, 480], [1280, 480], [1280, 600], [1420, 600], [1420, 840], [1640, 840]];
+    const m = Math.max(1, Math.ceil((steps.length - 1) * lp)); if (lp > 0) { ctx.save(); ctx.strokeStyle = PAL.red.t[2]; ctx.lineWidth = 14; ctx.lineJoin = 'round'; ctx.beginPath(); steps.slice(0, m + 1).forEach((p, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, p[0], p[1])); ctx.stroke(); ctx.restore(); }
+    tag(ctx, '成倍往下', 1420, 960, C, inv(D * 0.7, D * 0.95, lt), { px: 38, bg: PAL.red.t[2], fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.ring_14 = (ctx, s, lt, C) => { // 十四个无标识的小方块围成一圈，中间一个协调人
+    const D = s.vizDur, cx = W / 2, cy = 640;
+    for (let i = 0; i < 14; i++) { const p = pop(lt, 0.1 + i * 0.08, 0.5 + i * 0.08); if (p <= 0) continue; const a = -Math.PI / 2 + i / 14 * Math.PI * 2;
+      ctx.save(); ctx.translate(cx + Math.cos(a) * 340, cy + Math.sin(a) * 300); ctx.scale(p, p); ctx.fillStyle = i % 2 ? G.CREAM : PAL.gold.t[1]; ctx.beginPath(); ctx.roundRect(-38, -38, 76, 76, 12); ctx.fill(); ctx.restore(); }
+    b6person(ctx, cx, cy + 130, 240, G.CREAM, { aR1: 120 + 20 * Math.sin(lt * 3), aR2: 140, aL1: -120, aL2: -140 });
+    tag(ctx, '十四家', 1540, 940, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: G.CREAM, fg: PAL.purple.t[3] });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.hand_catch = (ctx, s, lt, C) => { // 一只大手接住正在下坠的写字楼，标「约36亿美元」
+    const D = s.vizDur, k = E.io(inv(0, D * 0.5, lt)), ty = lerp(560, 760, k), cx = 1000;
+    ctx.save(); ctx.translate(cx, ty); ctx.rotate(0.12 * (1 - k)); b7tower(ctx, 0, 0, 240, 420, rgba(G.INK, 0.85), rgba(G.CREAM, 0.4)); ctx.restore();
+    b7hand(ctx, cx, 900, 300, G.CREAM, 0);
+    tag(ctx, '约36亿美元', 1520, 520, C, inv(D * 0.45, D * 0.75, lt), { px: 42, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.manual_wave = (ctx, s, lt, C) => { // 模型手册上写「极少发生」，窗外大浪拍来
+    const D = s.vizDur;
+    ctx.fillStyle = G.CREAM; ctx.beginPath(); ctx.roundRect(260, 460, 520, 500, 16); ctx.fill(); ctx.fillStyle = PAL.purple.t[2]; ctx.fillRect(260, 460, 40, 500);
+    G.maskText(ctx, '极少发生', 545, 720, F.zh(900, 76), G.INK, inv(0.1, D * 0.4, lt), { align: 'center', ls: '4px' });
+    const wx = 1000, wy = 380, ww = 720, wh = 600; ctx.fillStyle = '#cfe3ea'; ctx.fillRect(wx, wy, ww, wh);
+    const k = E.io(inv(D * 0.3, D * 0.9, lt)), crest = lerp(wy + wh, wy + 60, k);
+    ctx.save(); ctx.beginPath(); ctx.rect(wx, wy, ww, wh); ctx.clip(); ctx.fillStyle = '#1f4e79'; ctx.beginPath(); ctx.moveTo(wx, wy + wh);
+    for (let x = 0; x <= ww; x += 20) ctx.lineTo(wx + x, crest + 60 * Math.sin(x / 90 + lt * 3) + (x / ww) * 80); ctx.lineTo(wx + ww, wy + wh); ctx.closePath(); ctx.fill(); ctx.restore();
+    ctx.strokeStyle = G.INK; ctx.lineWidth = 20; ctx.strokeRect(wx, wy, ww, wh); ctx.beginPath(); ctx.moveTo(wx + ww / 2, wy); ctx.lineTo(wx + ww / 2, wy + wh); ctx.stroke();
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.car_stuck = (ctx, s, lt, C) => { // 回到开头：精密仪表车卡在深坑里，撬棍断在旁边
+    const D = s.vizDur, gy = 760;
+    ctx.fillStyle = G.INK; ctx.fillRect(96, gy, 600, 16); ctx.fillRect(1220, gy, 604, 16); G.poly(ctx, [[696, gy], [1220, gy], [1140, 1000], [776, 1000]], rgba(G.INK, 0.85));
+    const k = E.io(inv(0, D * 0.4, lt)); b7car(ctx, 960, lerp(gy, 930, k), 150, G.CREAM, lerp(0, 0.35, k), 1.8);
+    ctx.save(); ctx.translate(1420, gy - 20); ctx.rotate(-0.1); ctx.fillStyle = G.CREAM; ctx.fillRect(0, -10, 200, 20); ctx.restore();
+    ctx.save(); ctx.translate(1640, gy - 26); ctx.rotate(0.5); ctx.fillStyle = G.CREAM; ctx.fillRect(0, -10, 150, 20); ctx.restore();
+    tag(ctx, '扛不住', 1520, 520, C, inv(D * 0.5, D * 0.8, lt), { px: 40, bg: G.CREAM, fg: PAL.red.t[3] });
+    vizCaption(ctx, s, lt, C);
+  };
+  // ── #14 正态分布 ── (bell curves; the loss tail is the LEFT tail, labelled 大亏 / 大跌)
+  const B7X0 = 300, B7X1 = 1620, B7YB = 920;
+  VIZ.balls_pile = (ctx, s, lt, C) => { // 一堆小球从上方落下，大多数堆在中间
+    const D = s.vizDur; ctx.fillStyle = rgba(C.fg, 0.4); ctx.fillRect(B7X0, B7YB, B7X1 - B7X0, 8);
+    b7balls(ctx, 14, B7X0 + 200, B7X1 - 200, B7YB, 20, b7N, inv(0.1, D * 0.9, lt), C.acc);
+    tag(ctx, '挤在中间', 1560, 420, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: C.acc, fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.normal_title = (ctx, s, lt, C) => { // 小球堆成钟形，屏幕标题「Normal Distribution」
+    const D = s.vizDur;
+    b7balls(ctx, 11, 560, 1360, 1000, 18, b7N, 1, rgba(G.CREAM, 0.75));
+    b6title(ctx, 'Normal Distribution', W / 2, 440, 110, C.fg, inv(0.05, D * 0.5, lt));
+  };
+  VIZ.bell_outline = (ctx, s, lt, C) => { // 小球的轮廓变成一条平滑的钟形曲线
+    const D = s.vizDur, k = inv(D * 0.2, D * 0.8, lt);
+    ctx.save(); ctx.globalAlpha = 1 - 0.75 * clamp(k); b7balls(ctx, 13, B7X0 + 120, B7X1 - 120, B7YB, 20, b7N, 1, PAL.purple.t[1]); ctx.restore();
+    ctx.fillStyle = rgba(G.INK, 0.5); ctx.fillRect(B7X0 - 60, B7YB, B7X1 - B7X0 + 120, 6);
+    b7curve(ctx, B7X0, B7X1, B7YB, 560, b7N, k, G.INK, 12, null, 3.6, 'left');
+    tag(ctx, '一口钟', 1560, 420, C, inv(D * 0.7, D * 0.95, lt), { px: 38, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.bell_peak = (ctx, s, lt, C) => { // 钟形中间高耸处标「普通的一天」
+    const D = s.vizDur;
+    b7curve(ctx, B7X0, B7X1, B7YB, 520, b7N, 1, G.CREAM, 10, rgba(G.CREAM, 0.25));
+    const p = pop(lt, D * 0.25, D * 0.6), px = (B7X0 + B7X1) / 2; if (p > 0) { ctx.fillStyle = G.CREAM; ctx.fillRect(px - 4, B7YB - 520 - 120 * p, 8, 120 * p); G.poly(ctx, [[px + 4, B7YB - 520 - 120 * p], [px + 70, B7YB - 520 - 95 * p], [px + 4, B7YB - 520 - 70 * p]], PAL.gold.t[2]); }
+    tag(ctx, '普通的一天', px, B7YB - 160, C, inv(D * 0.4, D * 0.75, lt), { px: 40, bg: G.CREAM, fg: PAL.green.t[3] });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.bell_tails = (ctx, s, lt, C) => { // 两边尾巴越来越细；左尾标「大亏」，右尾标「大赚」
+    const D = s.vizDur;
+    b7curve(ctx, B7X0, B7X1, B7YB, 500, b7N, 1, G.INK, 10, rgba(G.INK, 0.12));
+    const lp = inv(D * 0.2, D * 0.55, lt), rp = inv(D * 0.4, D * 0.75, lt);
+    if (lp > 0) b7area(ctx, B7X0, B7X1, B7YB, 500, b7N, B7X0, B7X0 + 300, rgba(PAL.red.t[2], clamp(lp)));
+    if (rp > 0) b7area(ctx, B7X0, B7X1, B7YB, 500, b7N, B7X1 - 300, B7X1, rgba(PAL.green.t[2], clamp(rp)));
+    tag(ctx, '大亏', B7X0 + 120, B7YB + 60, C, lp, { px: 38, bg: PAL.red.t[2], fg: G.CREAM }); b6down(ctx, B7X0 + 40, B7YB - 160, B7YB - 40, PAL.red.t[2], 8, lp);
+    tag(ctx, '大赚', B7X1 - 120, B7YB + 60, C, rp, { px: 38, bg: PAL.green.t[3], fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.calc_bell = (ctx, s, lt, C) => { // 一台计算器上贴着这条钟形曲线
+    const D = s.vizDur, cx = 1160, cy = 640, [sx, sy] = b7calc(ctx, cx, cy, 520, 680, G.INK, '#cfe3d4', rgba(G.CREAM, 0.6));
+    const p = pop(lt, D * 0.25, D * 0.6); if (p > 0) { ctx.save(); ctx.translate(sx, sy); ctx.rotate(-0.05); ctx.scale(p, p); ctx.fillStyle = G.CREAM; ctx.fillRect(-180, -70, 360, 140);
+      b7curve(ctx, -160, 160, 50, 100, b7N, 1, PAL.purple.t[2], 6, null); ctx.restore(); }
+    tag(ctx, '模型默认', 560, 640, C, inv(D * 0.5, D * 0.85, lt), { px: 40, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.calc_tick = (ctx, s, lt, C) => { // 计算器一按就出结果，屏幕打勾
+    const D = s.vizDur, cx = 760, cy = 640, [sx, sy] = b7calc(ctx, cx, cy, 520, 680, PAL.purple.t[2], '#cfe3d4', rgba(G.CREAM, 0.7));
+    const press = inv(D * 0.2, D * 0.35, lt); const fx = cx + 60, fy = lerp(cy + 120, cy + 170, Math.sin(Math.PI * clamp(press)));
+    ctx.fillStyle = G.INK; ctx.beginPath(); ctx.roundRect(fx - 30, fy - 200, 60, 220, 30); ctx.fill();
+    const tp = inv(D * 0.35, D * 0.6, lt); if (tp > 0) { ctx.save(); ctx.strokeStyle = PAL.green.t[3]; ctx.lineWidth = 18; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(sx - 60, sy); ctx.lineTo(sx - 15, sy + 40 * clamp(tp * 2)); if (tp > 0.5) ctx.lineTo(sx - 15 + 90 * (tp - 0.5) * 2, sy + 40 - 90 * (tp - 0.5) * 2); ctx.stroke(); ctx.restore(); }
+    tag(ctx, '算起来方便', 1400, 640, C, inv(D * 0.5, D * 0.85, lt), { px: 40, bg: PAL.green.t[3], fg: G.CREAM });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.dots_outliers = (ctx, s, lt, C) => { // 真实数据点散落在钟形曲线旁，几个点落在左边很远处
+    const D = s.vizDur;
+    b7curve(ctx, B7X0 + 200, B7X1, B7YB, 480, b7N, 1, G.CREAM, 8, null);
+    for (let i = 0; i < 40; i++) { const p = pop(lt, 0.1 + i * 0.03, 0.4 + i * 0.03); if (p <= 0) continue; const u = (b6rnd(i, 7) + b6rnd(i, 8) + b6rnd(i, 9) - 1.5) * 2.2;
+      const x = lerp(B7X0 + 200, B7X1, (u + 3.6) / 7.2), y = B7YB - 480 * b7N(u) * b6rnd(i, 3); G.disc(ctx, x, y - 10, 12 * p, G.INK); }
+    [[170, 900], [230, 880], [130, 910]].forEach(([x, y], i) => { const p = pop(lt, D * 0.45 + i * 0.2, D * 0.45 + i * 0.2 + 0.4); if (p > 0) { G.disc(ctx, x, y, 20 * p, G.CREAM); b7rings(ctx, x, y, 36, G.CREAM, 5, p); } });
+    tag(ctx, '左边很远', 260, 760, C, inv(D * 0.7, D * 0.95, lt), { px: 36, bg: G.CREAM, fg: PAL.red.t[3] });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.tail_shadow = (ctx, s, lt, C) => { // 钟形左侧尾巴被一层阴影加厚，留个悬念
+    const D = s.vizDur, k = E.io(inv(D * 0.25, D * 0.8, lt));
+    const fz = (u) => (u < 0 ? lerp(b7N(u), b7T(u), k) : b7N(u));
+    b7curve(ctx, B7X0, B7X1, B7YB, 500, fz, 1, null, 0, rgba(PAL.red.t[2], 0.45));
+    b7curve(ctx, B7X0, B7X1, B7YB, 500, b7N, 1, G.CREAM, 10, rgba(G.CREAM, 0.15));
+    ctx.save(); ctx.font = F.en(900, 120); ctx.fillStyle = rgba(G.CREAM, clamp(inv(D * 0.6, D * 0.9, lt))); ctx.textAlign = 'center'; ctx.fillText('?', B7X0 + 120, B7YB - 200); ctx.restore();
+    tag(ctx, '尾巴更厚', B7X0 + 260, B7YB + 60, C, inv(D * 0.5, D * 0.8, lt), { px: 38, bg: PAL.red.t[2], fg: G.CREAM });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  // ── #15 肥尾 ──
+  VIZ.calendar_circled = (ctx, s, lt, C) => { // 日历上标着「极少发生」的那一天，被圈了好几次
+    const D = s.vizDur, x0 = 560, y0 = 360, cell = 115;
+    b7cal(ctx, x0, y0, 7, 5, cell, '#fbf6ea', rgba(G.INK, 0.3), PAL.red.t[2]);
+    const cx = x0 + cell * 4.5, cy = y0 + 70 + cell * 2.5; ctx.save(); ctx.font = F.zh(900, 26); ctx.fillStyle = G.INK; ctx.textAlign = 'center'; ctx.fillText('极少发生', cx, cy + 9); ctx.restore();
+    for (let i = 0; i < 4; i++) b7rings(ctx, cx, cy, 62 + i * 9, PAL.red.t[2], 6, inv(D * 0.2 + i * 0.3, D * 0.2 + i * 0.3 + 0.5, lt), -0.2 + i * 0.15);
+    tag(ctx, '又来了', 1600, 940, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: PAL.red.t[2], fg: G.CREAM });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.fat_title = (ctx, s, lt, C) => { // 屏幕标题「Fat Tails」，一条钟形曲线的尾巴明显变粗
+    const D = s.vizDur, k = E.io(inv(D * 0.3, D * 0.9, lt)), fz = (u) => lerp(b7N(u), b7T(u), k);
+    b6title(ctx, 'Fat Tails', W / 2, 420, 150, C.fg, inv(0.05, D * 0.4, lt));
+    b7curve(ctx, 360, 1560, 960, 380, fz, 1, G.INK, 12, rgba(G.INK, 0.15));
+  };
+  VIZ.thin_bell = (ctx, s, lt, C) => { // 细尾巴的钟形曲线，两端几乎贴着地面
+    const D = s.vizDur;
+    ctx.fillStyle = rgba(G.INK, 0.5); ctx.fillRect(160, B7YB, 1600, 8);
+    b7curve(ctx, B7X0, B7X1, B7YB, 520, b7N, inv(0.1, D * 0.6, lt), G.CREAM, 10, null, 3.6, 'center');
+    [B7X0 + 90, B7X1 - 90].forEach((x, i) => b7rings(ctx, x, B7YB - 6, 60, G.INK, 5, inv(D * 0.5 + i * 0.2, D * 0.8 + i * 0.2, lt), 0));
+    tag(ctx, '贴着地面', 1560, 420, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: G.CREAM, fg: PAL.green.t[3] });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.balls_ends = (ctx, s, lt, C) => { // 真实数据小球不断落在两端，越堆越高
+    const D = s.vizDur;
+    b7curve(ctx, B7X0, B7X1, B7YB, 520, b7N, 1, rgba(G.CREAM, 0.6), 8, null);
+    ctx.fillStyle = rgba(C.fg, 0.4); ctx.fillRect(160, B7YB, 1600, 8);
+    [[B7X0 + 40, 0], [B7X1 - 80, 1]].forEach(([bx, side]) => { const n = Math.round(8 * E.io(inv(0.1 + side * 0.2, D * 0.85, lt)));
+      for (let j = 0; j < n; j++) for (let c = 0; c < 2; c++) G.disc(ctx, bx + c * 40 + (side ? 0 : 0), B7YB - 20 - j * 40, 18, side ? PAL.gold.t[2] : PAL.red.t[2]);
+      const fy = lerp(330, B7YB - 20 - n * 40, b6fr(lt * 1.3 + side * 0.5)); G.disc(ctx, bx + 20, fy, 18, side ? PAL.gold.t[2] : PAL.red.t[2]); });
+    tag(ctx, '两端越堆越高', W / 2, 400, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C, { x: 150, y: 220 });
+  };
+  VIZ.tails_overlay = (ctx, s, lt, C) => { // 两条曲线叠在一起：细尾虚线、粗尾实线
+    const D = s.vizDur;
+    ctx.save(); ctx.setLineDash([22, 18]); b7curve(ctx, B7X0, B7X1, B7YB, 520, b7N, inv(0.1, D * 0.5, lt), G.CREAM, 8, null); ctx.restore();
+    b7curve(ctx, B7X0, B7X1, B7YB, 520, b7T, inv(D * 0.3, D * 0.8, lt), PAL.gold.t[2], 12, null);
+    tag(ctx, '细尾', 1560, 440, C, inv(D * 0.3, D * 0.6, lt), { px: 34, bg: G.CREAM, fg: PAL.purple.t[3] });
+    tag(ctx, '粗尾', 1560, 530, C, inv(D * 0.6, D * 0.9, lt), { px: 34, bg: PAL.gold.t[2], fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.left_tail_drag = (ctx, s, lt, C) => { // 左侧亏损尾巴朝左下方拖长、加粗，标「大跌」
+    const D = s.vizDur, k = E.io(inv(D * 0.15, D * 0.8, lt)), n = 120, x0 = 760, x1 = 1620, yb = 760;
+    ctx.fillStyle = rgba(G.INK, 0.4); ctx.fillRect(160, yb, 1600, 6);
+    const pts = []; for (let i = 0; i <= n; i++) { const u = -3.6 + 7.2 * i / n; pts.push([lerp(x0, x1, i / n), yb - 420 * (u < 0 ? lerp(b7N(u), b7T(u), k) : b7N(u))]); }
+    const tail = []; for (let i = 0; i <= 30; i++) { const f = i / 30; tail.push([lerp(x0, lerp(x0, 200, k), f), lerp(pts[0][1], pts[0][1] + 220 * k, f * f)]); }
+    ctx.fillStyle = rgba(G.INK, 0.25); ctx.beginPath(); ctx.moveTo(x1, yb); pts.slice().reverse().forEach((p) => ctx.lineTo(p[0], p[1])); tail.forEach((p) => ctx.lineTo(p[0], p[1])); ctx.lineTo(tail[30][0], yb); ctx.closePath(); ctx.fill();
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = G.INK; ctx.lineWidth = 10; ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, p[0], p[1])); ctx.stroke();
+    ctx.lineWidth = lerp(10, 34, k); ctx.strokeStyle = G.CREAM; ctx.beginPath(); tail.forEach((p, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, p[0], p[1])); ctx.stroke(); ctx.restore();
+    tag(ctx, '大跌', lerp(x0, 320, k), yb - 90, C, inv(D * 0.5, D * 0.8, lt), { px: 40, bg: G.CREAM, fg: PAL.red.t[3] });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.threshold_q = (ctx, s, lt, C) => { // 一条门槛竖线，线外左侧粗尾区域被打上问号
+    const D = s.vizDur, tx = 640;
+    b7curve(ctx, B7X0, B7X1, B7YB, 520, b7T, 1, G.INK, 10, rgba(G.INK, 0.12));
+    const ap = inv(D * 0.4, D * 0.7, lt); if (ap > 0) b7area(ctx, B7X0, B7X1, B7YB, 520, b7T, B7X0, tx, rgba(PAL.red.t[2], 0.8 * clamp(ap)));
+    const lp = E.io(inv(0.1, D * 0.4, lt)); ctx.fillStyle = G.INK; ctx.fillRect(tx - 5, lerp(B7YB, 380, lp), 10, (B7YB - 380) * lp);
+    tag(ctx, '门槛', tx, 360, C, lp, { px: 34, bg: G.INK, fg: C.bg });
+    ctx.save(); ctx.font = F.en(900, 140); ctx.fillStyle = rgba(G.INK, clamp(inv(D * 0.55, D * 0.85, lt))); ctx.textAlign = 'center'; ctx.fillText('?', 440, 780); ctx.restore();
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.tail_zoom = (ctx, s, lt, C) => { // 镜头推进到门槛线外那块粗尾区域，颜色加深
+    const D = s.vizDur, z = lerp(1, 2.6, E.io(inv(0, D * 0.7, lt))), tx = 640, dk = inv(D * 0.4, D * 0.9, lt);
+    ctx.save(); ctx.translate(480, 860); ctx.scale(z, z); ctx.translate(-480, -860);
+    b7curve(ctx, B7X0, B7X1, B7YB, 520, b7T, 1, G.INK, 8, rgba(G.INK, 0.08));
+    b7area(ctx, B7X0, B7X1, B7YB, 520, b7T, B7X0, tx, mix ? mix(PAL.red.t[1], PAL.red.t[4] || PAL.red.deep, clamp(dk)) : PAL.red.t[3]);
+    ctx.fillStyle = G.INK; ctx.fillRect(tx - 4, 380, 8, B7YB - 380); ctx.restore();
+    tag(ctx, '藏在门槛外', 1500, 940, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.wall_push = (ctx, s, lt, C) => { // 一面写着「LTCM」的墙被一只从尾部伸出的手推倒
+    const D = s.vizDur, gy = 960, wx = 1180, k = E.i3(inv(D * 0.35, D * 0.9, lt)), a = k * 1.2;
+    b7curve(ctx, 140, 900, gy, 260, b7T, 1, G.CREAM, 8, rgba(G.CREAM, 0.15), 3.6);
+    const hp = E.io(inv(0.1, D * 0.4, lt)); b7hand(ctx, lerp(300, 880, hp), gy - 150, 120, G.CREAM, Math.PI / 2);
+    ctx.save(); ctx.translate(wx + 160, gy); ctx.rotate(a); ctx.fillStyle = '#b9a58a'; ctx.fillRect(-160, -520, 160, 520);
+    ctx.fillStyle = rgba(G.INK, 0.25); for (let r = 0; r < 10; r++) ctx.fillRect(-160, -520 + r * 52, 160, 4);
+    ctx.save(); ctx.translate(-80, -260); ctx.rotate(-Math.PI / 2); ctx.font = F.en(900, 90); ctx.fillStyle = G.INK; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('LTCM', 0, 4); ctx.restore(); ctx.restore();
+    vizCaption(ctx, s, lt, C, { x: 1770, y: 250, align: 'right' });
+  };
+  VIZ.calc_crack = (ctx, s, lt, C) => { // 计算器上「安全」两个字被一道裂缝划开
+    const D = s.vizDur, cx = 1100, cy = 640, [sx, sy] = b7calc(ctx, cx, cy, 560, 700, G.INK, '#cfe3d4', rgba(G.CREAM, 0.6));
+    G.maskText(ctx, '安全', sx, sy + 34, F.zh(900, 96), PAL.green.t[3], inv(0.1, D * 0.35, lt), { align: 'center', ls: '10px' });
+    const k = inv(D * 0.4, D * 0.85, lt); if (k > 0) { const pts = [[sx - 220, sy - 80], [sx - 120, sy - 10], [sx - 40, sy - 60], [sx + 30, sy + 40], [sx + 120, sy - 20], [sx + 220, sy + 90]], m = Math.max(1, Math.ceil(5 * k));
+      ctx.save(); ctx.strokeStyle = G.INK; ctx.lineWidth = 10; ctx.lineJoin = 'round'; ctx.beginPath(); pts.slice(0, m + 1).forEach((p, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, p[0], p[1])); ctx.stroke(); ctx.restore(); }
+    tag(ctx, '不代表真安全', 540, 640, C, inv(D * 0.6, D * 0.9, lt), { px: 38, bg: G.INK, fg: C.bg });
+    vizCaption(ctx, s, lt, C);
+  };
+  VIZ.calendar_two = (ctx, s, lt, C) => { // 回到日历：圈了好几次的那一天，旁边并排两条曲线，细尾和粗尾
+    const D = s.vizDur, x0 = 300, y0 = 420, cell = 90;
+    b7cal(ctx, x0, y0, 7, 5, cell, '#fbf6ea', rgba(G.INK, 0.3), PAL.red.t[2]);
+    const cx = x0 + cell * 4.5, cy = y0 + 70 + cell * 2.5; for (let i = 0; i < 3; i++) b7rings(ctx, cx, cy, 46 + i * 8, PAL.red.t[2], 5, 1, -0.2 + i * 0.15);
+    const p1 = inv(D * 0.2, D * 0.6, lt), p2 = inv(D * 0.4, D * 0.8, lt);
+    ctx.save(); ctx.setLineDash([16, 12]); b7curve(ctx, 1060, 1760, 600, 220, b7N, p1, G.CREAM, 8, null); ctx.restore();
+    b7curve(ctx, 1060, 1760, 900, 220, b7T, p2, PAL.gold.t[2], 10, null);
+    tag(ctx, '细尾', 1410, 650, C, p1, { px: 30, bg: G.CREAM, fg: G.INK }); tag(ctx, '粗尾', 1410, 950, C, p2, { px: 30, bg: PAL.gold.t[2], fg: G.INK });
+    vizCaption(ctx, s, lt, C);
+  };
   // ───────── finance-v003 scene library, batch 4 (CAPM long, 13 lines, 2026-10-30) ─────────
   // Metaphor (金融专家): companies = unnamed small buildings, the market = the ground they stand on.
   // Company trouble = smoke on one roof (diluted by owning many); market risk = the whole ground sinks.
