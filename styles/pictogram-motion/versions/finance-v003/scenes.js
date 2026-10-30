@@ -1744,6 +1744,218 @@
     vizCaption(ctx, s, lt, C, { y: 230 });
   };
 
+  // ───────── finance-v003 scene library, batch 5 (Sharpe long, 13 lines, 2026-10-30) ─────────
+  // Metaphor (台词教父 / 金融专家): two hypothetical portfolios 甲 / 乙 only (no real funds, no formulas).
+  // Return = a pillar above the zero line; the 国债 base is cut off the bottom; risk = how much the return
+  // line swings (drawn up AND down, losses below zero), carried as a sandbag (bigger bag = bigger swings).
+  // Screen shows 'Sharpe' (mixed case), the voice says 夏普比率.
+  Object.assign(VPAL, {
+    twin_q: 'ochre', score_sharpe: 'ink', baskets_8: 'cream', calm_wild: 'purple', pillars_cut: 'green',
+    remain_six: 'gold', swing_box: 'red', sandbags: 'cream', coin_stack: 'ink', score_fill: 'green',
+    card_fog: 'purple', ruler_chair: 'ochre', bag_pillars: 'gold',
+  });
+  const SHARPE = 'Sharpe';
+  const wigA = (u, lt) => 0.10 * Math.sin(u * 19 + lt * 1.5) + 0.06 * Math.sin(u * 41); // 甲: small ripples
+  const wigB = (u, lt) => 0.95 * Math.sin(u * 13 + 0.6 + lt * 1.2) + 0.35 * Math.sin(u * 31 + 1.3); // 乙: big swings
+  function zeroLine(ctx, x0, x1, y, col) { ctx.fillStyle = col; ctx.fillRect(x0, y - 2, x1 - x0, 4); }
+  function retLine(ctx, f, x0, x1, yc, amp, rev, w, col, lt) { // oscillating return line, y up = gain
+    ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath();
+    const n = Math.max(2, Math.round(160 * clamp(rev)));
+    for (let i = 0; i <= n; i++) { const u = i / 160, x = lerp(x0, x1, u), y = yc - f(u, lt) * amp; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke(); ctx.restore();
+  }
+  function sandbag(ctx, x, y, r, col, lab, labCol) { // tied sack, y = centre
+    ctx.save(); ctx.fillStyle = col; ctx.beginPath();
+    ctx.moveTo(x - r * 0.35, y - r * 0.9);
+    ctx.bezierCurveTo(x - r * 1.15, y - r * 0.5, x - r * 1.1, y + r * 0.95, x, y + r * 0.95);
+    ctx.bezierCurveTo(x + r * 1.1, y + r * 0.95, x + r * 1.15, y - r * 0.5, x + r * 0.35, y - r * 0.9);
+    ctx.closePath(); ctx.fill();
+    G.poly(ctx, [[x - r * 0.35, y - r * 0.9], [x + r * 0.35, y - r * 0.9], [x + r * 0.5, y - r * 1.25], [x - r * 0.5, y - r * 1.25]], col);
+    ctx.fillStyle = rgba(G.INK, 0.35); ctx.fillRect(x - r * 0.42, y - r * 0.98, r * 0.84, Math.max(4, r * 0.1));
+    if (lab) { ctx.font = F.zh(900, Math.max(22, r * 0.42)); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = labCol || G.INK; ctx.fillText(lab, x, y + r * 0.2); }
+    ctx.restore();
+  }
+  function scoreCard(ctx, x, y, w, h, p, o = {}) { // card with a 'Sharpe' header, (x,y) = top-left
+    if (p <= 0) return;
+    ctx.save(); ctx.globalAlpha = clamp(p * 1.6);
+    ctx.fillStyle = o.bg || G.CREAM; ctx.beginPath(); ctx.roundRect(x, y, w, h, 22); ctx.fill();
+    ctx.fillStyle = o.head || G.INK; ctx.beginPath(); ctx.roundRect(x, y, w, Math.min(130, h * 0.3), [22, 22, 0, 0]); ctx.fill();
+    ctx.restore();
+    G.maskText(ctx, o.title || SHARPE, x + w / 2, y + Math.min(130, h * 0.3) / 2 + (o.tpx || 64) * 0.36, F.en(900, o.tpx || 64), o.titleCol || GOLD, inv(0.1, 0.5, p * 1.2), { align: 'center', ls: '4px' });
+  }
+  function twoPillars(ctx, xs, yb, w, hs, cols, ps) {
+    xs.forEach((x, i) => { const hh = hs[i] * clamp(ps[i]); ctx.fillStyle = cols[i]; ctx.fillRect(x - w / 2, yb - hh, w, hh); });
+  }
+
+  VIZ.twin_q = (ctx, s, lt, C) => { // 两根一样高的收益柱子并排，中间一个问号
+    const D = s.vizDur, yb = 960, g = E.o3(inv(0.1, D * 0.45, lt));
+    zeroLine(ctx, 560, 1640, yb, rgba(C.fg, 0.5));
+    twoPillars(ctx, [800, 1400], yb, 230, [520, 520], [G.CREAM, rgba(G.INK, 0.85)], [g, g]);
+    ctx.save(); ctx.setLineDash([14, 12]); ctx.strokeStyle = rgba(C.fg, 0.6); ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(660, yb - 520 * g); ctx.lineTo(1540, yb - 520 * g); ctx.stroke(); ctx.restore();
+    tag(ctx, '甲', 800, yb - 520 * g - 50, C, inv(D * 0.3, D * 0.5, lt), { px: 40, bg: G.INK, fg: G.CREAM });
+    tag(ctx, '乙', 1400, yb - 520 * g - 50, C, inv(D * 0.35, D * 0.55, lt), { px: 40, bg: G.CREAM, fg: G.INK });
+    const q = E.oBack(inv(D * 0.4, D * 0.7, lt), 1.6), bob = Math.sin(lt * 3) * 10;
+    G.maskText(ctx, '?', 1100, 720 + bob, F.en(900, 300 * Math.max(0.01, q)), C.fg, q > 0 ? 1 : 0, { align: 'center' });
+    tag(ctx, '一样高', 1100, 420, C, inv(D * 0.55, D * 0.85, lt), { px: 40, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C, { y: 230 });
+  };
+  VIZ.score_sharpe = (ctx, s, lt, C) => { // 一张记分卡，卡头写「Sharpe」 — card tilts in from the right
+    const D = s.vizDur, p = E.oBack(inv(0.15, D * 0.45, lt), 1.2), x = 1000, y = 340, w = 640, h = 600;
+    ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(0.06 * (1 - p) + 0.012 * Math.sin(lt * 2)); ctx.translate(-(x + w / 2), -(y + h / 2));
+    scoreCard(ctx, x, y, w, h, p, { tpx: 76 });
+    ctx.fillStyle = rgba(G.INK, 0.18); for (let i = 0; i < 4; i++) ctx.fillRect(x + 60, y + 200 + i * 90, w - 120, 22);
+    ctx.restore();
+    tag(ctx, '比的是什么？', 560, 760, C, inv(D * 0.5, D * 0.8, lt), { px: 44, bg: GOLD, fg: G.INK });
+    vizCaption(ctx, s, lt, C, { y: 230 });
+  };
+  VIZ.baskets_8 = (ctx, s, lt, C) => { // 两个篮子贴「甲」「乙」，头顶各亮「+8%」，角标「假设」
+    const D = s.vizDur, gy = 900;
+    [[700, '甲', PAL.ochre.t[2]], [1300, '乙', PAL.purple.t[2]]].forEach(([x, lab, col], i) => {
+      const k = E.oBack(inv(0.1 + i * 0.2, 0.6 + i * 0.2, lt));
+      if (k <= 0) return;
+      ctx.save(); ctx.translate(x, gy); ctx.scale(k, k); ctx.translate(-x, -gy);
+      basket(ctx, x, gy - 260, 380, 260, col);
+      ctx.restore();
+      tag(ctx, lab, x, gy - 120, C, k, { px: 56, bg: G.CREAM, fg: G.INK });
+      G.maskText(ctx, '+8%', x, gy - 380, F.en(900, 110), PAL.green.t[3] || G.INK, inv(D * 0.35 + i * 0.1, D * 0.6 + i * 0.1, lt), { align: 'center' });
+    });
+    tag(ctx, '假设', 1660, 380, C, inv(D * 0.5, D * 0.75, lt), { px: 34, bg: G.INK, fg: G.CREAM });
+    vizCaption(ctx, s, lt, C, { y: 230 });
+  };
+  VIZ.calm_wild = (ctx, s, lt, C) => { // 两条收益线：甲贴着平线微微起伏，乙大起大落，跌的部分往下
+    const D = s.vizDur, x0 = 300, x1 = 1700, rev = E.io(inv(0.1, D * 0.7, lt));
+    const ya = 470, yb = 800;
+    [[ya, '甲', wigA, 120, G.CREAM], [yb, '乙', wigB, 150, GOLD]].forEach(([yc, lab, f, amp, col]) => {
+      zeroLine(ctx, x0, x1, yc, rgba(C.fg, 0.35));
+      ctx.save(); ctx.beginPath(); ctx.rect(x0, yc, x1 - x0, 260); ctx.clip();
+      ctx.fillStyle = rgba(PAL.red.t[2], 0.55); ctx.beginPath(); ctx.moveTo(x0, yc);
+      const n = Math.round(160 * rev); for (let i = 0; i <= n; i++) { const u = i / 160; ctx.lineTo(lerp(x0, x1, u), yc - f(u, lt) * amp); }
+      ctx.lineTo(lerp(x0, x1, n / 160), yc); ctx.closePath(); ctx.fill(); ctx.restore();
+      retLine(ctx, f, x0, x1, yc, amp, rev, 8, col, lt);
+      tag(ctx, lab, 200, yc, C, inv(0.1, 0.5, lt), { px: 44, bg: col, fg: G.INK });
+    });
+    tag(ctx, '稳', 1780, ya - 0, C, inv(D * 0.6, D * 0.8, lt), { px: 34, bg: G.CREAM, fg: G.INK });
+    tag(ctx, '乱晃', 1760, yb - 0, C, inv(D * 0.65, D * 0.85, lt), { px: 34, bg: GOLD, fg: G.INK });
+    vizCaption(ctx, s, lt, C, { y: 230 });
+  };
+  VIZ.pillars_cut = (ctx, s, lt, C) => { // 两根柱子底部各切下一小段，标「国债回报（起步价）」
+    const D = s.vizDur, yb = 960, base = 130, top = 390, cut = E.io3(inv(D * 0.3, D * 0.65, lt)), drop = 70 * cut;
+    zeroLine(ctx, 420, 1500, yb, rgba(G.INK, 0.5));
+    [700, 1200].forEach((x, i) => {
+      ctx.fillStyle = i ? rgba(G.INK, 0.85) : G.CREAM; ctx.fillRect(x - 115, yb - base - top - drop, 230, top);
+      ctx.fillStyle = PAL.gold.t[2]; ctx.fillRect(x - 115 + 30 * cut * (i ? 1 : -1), yb - base, 230, base);
+      tag(ctx, i ? '乙' : '甲', x, yb - base - top - drop - 50, C, inv(0.1, 0.5, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    });
+    ctx.save(); ctx.strokeStyle = G.INK; ctx.lineWidth = 5; ctx.setLineDash([18, 12]);
+    ctx.beginPath(); ctx.moveTo(540, yb - base - drop * 0.5); ctx.lineTo(1360, yb - base - drop * 0.5); ctx.stroke(); ctx.restore();
+    tag(ctx, '国债回报（起步价）', 1560, yb - 70, C, inv(D * 0.45, D * 0.75, lt), { px: 40, bg: G.INK, fg: GOLD });
+    G.typeText(ctx, '几乎没风险', 1460, yb - 190, F.zh(800, 38), rgba(G.INK, 0.7), inv(D * 0.6, D * 0.85, lt), { caret: false });
+    vizCaption(ctx, s, lt, { fg: G.INK, dim: rgba(G.INK, 0.6) }, { y: 230 });
+  };
+  VIZ.remain_six = (ctx, s, lt, C) => { // 切掉底部后剩下的两段一样高，各标「+6%」 — floating segments drop to zero
+    const D = s.vizDur, yb = 940, hh = 390, f = E.oBack(inv(0.1, D * 0.45, lt), 1.1), lift = 160 * (1 - f);
+    zeroLine(ctx, 400, 1520, yb, rgba(G.INK, 0.55));
+    [720, 1200].forEach((x, i) => {
+      ctx.fillStyle = i ? rgba(G.INK, 0.85) : G.CREAM; ctx.fillRect(x - 120, yb - hh - lift, 240, hh);
+      G.maskText(ctx, '+6%', x, yb - hh - lift - 40, F.en(900, 84), G.INK, inv(D * 0.35, D * 0.6, lt), { align: 'center' });
+    });
+    ctx.save(); ctx.strokeStyle = rgba(G.INK, 0.7); ctx.lineWidth = 4; ctx.setLineDash([12, 10]);
+    ctx.beginPath(); ctx.moveTo(560, yb - hh); ctx.lineTo(1380, yb - hh); ctx.stroke(); ctx.restore();
+    tag(ctx, '冒险换来的', 1600, 600, C, inv(D * 0.5, D * 0.8, lt), { px: 40, bg: G.INK, fg: GOLD });
+    tag(ctx, '一样多', 1600, 700, C, inv(D * 0.6, D * 0.85, lt), { px: 40, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, { fg: G.INK, dim: rgba(G.INK, 0.6) }, { y: 230 });
+  };
+  VIZ.swing_box = (ctx, s, lt, C) => { // 乙那条线的上下摆动被一个上下双箭头框住，标「晃动」
+    const D = s.vizDur, x0 = 200, x1 = 1380, yc = 660, amp = 230;
+    zeroLine(ctx, x0, x1, yc, rgba(C.fg, 0.35));
+    retLine(ctx, wigB, x0, x1, yc, amp, E.io(inv(0.05, D * 0.4, lt)), 9, G.CREAM, lt);
+    const bx = inv(D * 0.4, D * 0.7, lt), top = yc - amp * 1.25, bot = yc + amp * 1.25;
+    if (bx > 0) { ctx.save(); ctx.globalAlpha = clamp(bx * 2); ctx.strokeStyle = G.CREAM; ctx.lineWidth = 4; ctx.setLineDash([16, 10]); ctx.strokeRect(x0 - 20, top, x1 - x0 + 40, bot - top); ctx.restore(); }
+    arrowV(ctx, 1500, top, bot, G.CREAM, 8, bx);
+    tag(ctx, '晃动', 1660, yc, C, inv(D * 0.55, D * 0.8, lt), { px: 52, bg: G.CREAM, fg: PAL.red.t[2] });
+    tag(ctx, '乙', 160, yc - 0, C, inv(0.1, 0.4, lt), { px: 36, bg: G.INK, fg: G.CREAM });
+    G.typeText(ctx, '不是亏没亏', 1500, bot + 70, F.zh(800, 36), rgba(C.fg, 0.8), inv(D * 0.65, D * 0.9, lt), { caret: false, align: 'center' });
+    vizCaption(ctx, s, lt, C, { y: 230 });
+  };
+  VIZ.sandbags = (ctx, s, lt, C) => { // 甲背小沙袋、乙背大沙袋，手里拿同样大小的「+6%」 — bags on the backs
+    const D = s.vizDur, gy = 920, k = E.oBack(inv(0.2, D * 0.55, lt));
+    ctx.fillStyle = rgba(G.INK, 0.3); ctx.fillRect(220, gy, 1480, 6);
+    [[620, 70, '甲', 0], [1260, 170, '乙', 1]].forEach(([x, r, lab, i]) => {
+      const sway = Math.sin(lt * 2.4 + i) * 3, sq = i ? 22 : 0;  // the big bag bends 乙 forward
+      sandbag(ctx, x - 70 - r * 0.55, gy - 330 - r * 0.15 + sq * 0.5, r * Math.max(0.01, k), PAL.ochre.t[2], '晃', G.INK);
+      figAt(ctx, x, gy, 400, { torso: 8 + sq + sway, head: 10 + sq * 0.5, aL1: 70, aL2: 40, aR1: 80, aR2: 60, lL1: -10, lR1: 10 }, G.INK);
+      tag(ctx, '+6%', x + 190, gy - 240, C, inv(D * 0.4, D * 0.65, lt), { px: 46, font: F.en(900, 46), bg: PAL.green.t[2], fg: G.CREAM });
+      tag(ctx, lab, x + 150, gy - 40, C, inv(0.1, 0.4, lt), { px: 34, bg: G.INK, fg: G.CREAM });
+    });
+    tag(ctx, '甲更划算', 1600, 420, C, inv(D * 0.65, D * 0.9, lt), { px: 40, bg: G.INK, fg: GOLD });
+    vizCaption(ctx, s, lt, C, { y: 230 });
+  };
+  VIZ.coin_stack = (ctx, s, lt, C) => { // 记分卡上「Sharpe」下面：一份晃动对应一摞小硬币
+    const D = s.vizDur, x = 560, y = 340, w = 800, h = 640;
+    scoreCard(ctx, x, y, w, h, inv(0.05, 0.4, lt), { tpx: 64 });
+    const p = inv(D * 0.25, D * 0.5, lt);
+    if (p > 0) sandbag(ctx, x + 210, y + 400, 85 * E.oBack(clamp(p)), PAL.ochre.t[2], '1份', G.INK);
+    G.maskText(ctx, '→', x + w / 2, y + 430, F.en(900, 90), G.INK, inv(D * 0.4, D * 0.55, lt), { align: 'center' });
+    const n = Math.round(7 * E.o3(inv(D * 0.45, D * 0.85, lt)));
+    for (let i = 0; i < n; i++) { ctx.fillStyle = GOLD; ctx.beginPath(); ctx.ellipse(x + 600, y + 520 - i * 34, 80, 22, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = rgba(G.INK, 0.4); ctx.lineWidth = 3; ctx.stroke(); }
+    tag(ctx, '超额收益', x + 600, y + 150 + 60, C, inv(D * 0.6, D * 0.85, lt), { px: 34, bg: G.INK, fg: GOLD });
+    vizCaption(ctx, s, lt, C, { y: 230 });
+  };
+  VIZ.score_fill = (ctx, s, lt, C) => { // 甲的记分卡分数格更满，乙的少一截
+    const D = s.vizDur, y = 360, w = 520, h = 560;
+    [[480, '甲', 8], [1100, '乙', 4]].forEach(([x, lab, full], i) => {
+      scoreCard(ctx, x, y, w, h, inv(0.05 + i * 0.1, 0.45 + i * 0.1, lt), { tpx: 52 });
+      const f = E.o3(inv(D * 0.25, D * 0.75, lt)) * full;
+      for (let c = 0; c < 10; c++) { const cx = x + 40 + c * 45; ctx.fillStyle = c < f ? (i ? rgba(G.INK, 0.6) : PAL.green.t[2]) : rgba(G.INK, 0.12); ctx.fillRect(cx, y + 330, 34, 120); }
+      tag(ctx, lab, x + w / 2, y + 210, C, inv(0.2, 0.6, lt), { px: 40, bg: G.INK, fg: G.CREAM });
+    });
+    tag(ctx, '同样晃动，换回更多', W / 2 + 100, 990, C, inv(D * 0.6, D * 0.85, lt), { px: 34, bg: G.CREAM, fg: G.INK });
+    vizCaption(ctx, s, lt, C, { y: 230 });
+  };
+  VIZ.card_fog = (ctx, s, lt, C) => { // 记分卡背面是一本翻旧的账本，前方是一团雾
+    const D = s.vizDur, flip = E.io(inv(0.2, D * 0.45, lt)), x = 520, y = 640, w = 520, h = 380;
+    ctx.save(); ctx.translate(x, y); ctx.scale(Math.abs(Math.cos(flip * Math.PI)), 1);
+    if (flip < 0.5) { scoreCard(ctx, -w / 2, -h / 2, w, h, 1, { tpx: 52 }); }
+    else {
+      ctx.fillStyle = '#b89a6a'; ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, 16); ctx.fill();
+      ctx.fillStyle = '#e8dcc0'; ctx.fillRect(-w / 2 + 24, -h / 2 + 24, w / 2 - 34, h - 48); ctx.fillRect(10, -h / 2 + 24, w / 2 - 34, h - 48);
+      ctx.fillStyle = rgba(G.INK, 0.35); for (let i = 0; i < 6; i++) { ctx.fillRect(-w / 2 + 44, -h / 2 + 60 + i * 46, w / 2 - 80, 8); ctx.fillRect(30, -h / 2 + 60 + i * 46, w / 2 - 80, 8); }
+    }
+    ctx.restore();
+    tag(ctx, '过去', x, y + h / 2 + 50, C, inv(D * 0.45, D * 0.7, lt), { px: 38, bg: G.CREAM, fg: G.INK });
+    const fg = inv(D * 0.4, D * 0.85, lt);
+    for (let i = 0; i < 9; i++) { ctx.save(); ctx.globalAlpha = 0.22 * fg; G.disc(ctx, 1300 + Math.sin(i * 1.7 + lt * 0.5) * 220, 520 + (i % 3) * 150 + Math.cos(i + lt * 0.4) * 30, 150 + (i % 4) * 30, G.CREAM); ctx.restore(); }
+    G.maskText(ctx, '以后？', 1330, 700, F.zh(900, 90), rgba(C.fg, 0.75), inv(D * 0.6, D * 0.9, lt), { align: 'center' });
+    vizCaption(ctx, s, lt, C, { y: 230 });
+  };
+  VIZ.ruler_chair = (ctx, s, lt, C) => { // 一把放在桌上的尺子，旁边空着的椅子，没人替你按按钮
+    const D = s.vizDur, ty = 700;
+    ctx.fillStyle = rgba(G.INK, 0.8); ctx.fillRect(220, ty, 900, 26); ctx.fillRect(260, ty + 26, 22, 250); ctx.fillRect(1060, ty + 26, 22, 250);
+    const p = E.io(inv(0.05, 0.5, lt));
+    ctx.fillStyle = G.CREAM; ctx.fillRect(300, ty - 70, 620 * p, 70);
+    ctx.fillStyle = G.INK; for (let i = 0; i <= 15; i++) { const xx = 300 + i * 41; if (xx > 300 + 620 * p) break; ctx.fillRect(xx - 2, ty - 70, 4, i % 5 ? 20 : 40); }
+    tag(ctx, '把账比清楚', 610, ty - 160, C, inv(0.5, 1.0, lt), { px: 38, bg: G.CREAM, fg: G.INK });
+    // empty chair
+    const cx = 1480, cy = 975;
+    ctx.fillStyle = G.INK; ctx.fillRect(cx - 110, cy - 230, 220, 24); ctx.fillRect(cx + 86, cy - 470, 24, 264); ctx.fillRect(cx - 110, cy - 206, 20, 206); ctx.fillRect(cx + 90, cy - 206, 20, 206);
+    // button on the table edge, never pressed
+    G.disc(ctx, 1000, ty - 34, 34, PAL.red.t[2]); G.ring(ctx, 1000, ty - 34, 42, 6, G.INK);
+    tag(ctx, '空着', cx - 10, cy - 110, C, inv(D * 0.4, D * 0.65, lt), { px: 36, bg: G.INK, fg: G.CREAM });
+    tag(ctx, '你自己定', 1480, 420, C, inv(D * 0.6, D * 0.85, lt), { px: 44, bg: G.INK, fg: GOLD });
+    vizCaption(ctx, s, lt, C, { y: 230 });
+  };
+  VIZ.bag_pillars = (ctx, s, lt, C) => { // 回到开头两根一样高的柱子，这次各背着大小不同的沙袋
+    const D = s.vizDur, yb = 960;
+    zeroLine(ctx, 500, 1700, yb, rgba(G.INK, 0.5));
+    twoPillars(ctx, [820, 1380], yb, 220, [480, 480], [G.CREAM, rgba(G.INK, 0.85)], [1, 1]);
+    const k = E.oBack(inv(0.2, D * 0.5, lt));
+    if (k > 0) { sandbag(ctx, 820 + 150, yb - 480 + 20, 62 * k, PAL.ochre.t[2], '晃', G.INK); sandbag(ctx, 1380 + 190, yb - 480 + 70, 150 * k, PAL.ochre.t[2], '晃', G.INK); }
+    tag(ctx, '甲', 820, yb - 530, C, inv(0.1, 0.4, lt), { px: 38, bg: G.INK, fg: G.CREAM });
+    tag(ctx, '乙', 1380, yb - 530, C, inv(0.1, 0.4, lt), { px: 38, bg: G.CREAM, fg: G.INK });
+    tag(ctx, '每扛一份晃动，换回多少？', 1100, 400, C, inv(D * 0.5, D * 0.8, lt), { px: 40, bg: G.INK, fg: GOLD });
+    vizCaption(ctx, { zh: s.zh, en: s.en }, lt, { fg: G.INK, dim: rgba(G.INK, 0.6) }, { y: 230 });
+  };
+
   function vizScene(ctx, s, lt) {
     const sc = s.viz.scene, C = vcol(sc);
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);

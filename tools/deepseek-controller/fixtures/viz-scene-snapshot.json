@@ -1,0 +1,366 @@
+{
+ "_doc": "finance-v003 delivered films: per-line visual → scene (snapshot 2026-10-30 before batch 5). New RULES must keep every mapping.",
+ "films": {
+  "beta-v001": [
+   {
+    "line": "L01",
+    "visual": "两条线一起波动：细线是大盘，小幅下沉；粗线是个股，同一时刻猛地下坠一大截",
+    "scene": "plunge"
+   },
+   {
+    "line": "L02",
+    "visual": "两条线并排起伏，个股线的振幅明显大，中间标出“贝塔”两个字",
+    "scene": "swing_label"
+   },
+   {
+    "line": "L03",
+    "visual": "大盘线往上走一格，个股线跟着走两格，用格子刻度对齐",
+    "scene": "step_blocks"
+   },
+   {
+    "line": "L04",
+    "visual": "贝塔>1：个股线振幅比大盘大，像大浪压过小浪",
+    "scene": "waves"
+   },
+   {
+    "line": "L05",
+    "visual": "贝塔<1：个股线振幅比大盘小，像小船在平缓水面",
+    "scene": "boat"
+   },
+   {
+    "line": "L06",
+    "visual": "涨的时候粗线冲得高，跌的时候也砸得深，上下两段对称高亮",
+    "scene": "mirror_updown"
+   },
+   {
+    "line": "L07",
+    "visual": "一个人坐在过山车座椅上，过山车轨道就是那条粗线，镜头停在下坡前",
+    "scene": "coaster"
+   }
+  ],
+  "beta-v002": [
+   {
+    "line": "L01",
+    "visual": "两条线一起波动：细线是大盘，小幅下沉；粗线是个股，同一时刻猛地下坠一大截",
+    "scene": "plunge"
+   },
+   {
+    "line": "L02",
+    "visual": "两条线并排起伏，个股线的振幅明显大，中间标出“贝塔”两个字",
+    "scene": "swing_label"
+   },
+   {
+    "line": "L03",
+    "visual": "大盘线往上走一格，个股线跟着走两格，用格子刻度对齐",
+    "scene": "step_blocks"
+   },
+   {
+    "line": "L04",
+    "visual": "贝塔>1：个股线振幅比大盘大，像大浪压过小浪",
+    "scene": "waves"
+   },
+   {
+    "line": "L05",
+    "visual": "贝塔<1：个股线振幅比大盘小，像小船在平缓水面",
+    "scene": "boat"
+   },
+   {
+    "line": "L06",
+    "visual": "涨的时候粗线冲得高，跌的时候也砸得深，上下两段对称高亮",
+    "scene": "mirror_updown"
+   },
+   {
+    "line": "L07",
+    "visual": "一个人坐在过山车座椅上，过山车轨道就是那条粗线，镜头停在下坡前",
+    "scene": "coaster"
+   }
+  ],
+  "capm-long-v001": [
+   {
+    "line": "L01",
+    "visual": "一架天平：一边放「风险」，一边放「回报」，天平只翘起一半",
+    "scene": "balance_half"
+   },
+   {
+    "line": "L02",
+    "visual": "一把尺子：一头刻「风险」，一头刻「该要的回报」，尺子上标「CAPM」",
+    "scene": "ruler_capm"
+   },
+   {
+    "line": "L03",
+    "visual": "画面一分为二：左边一栋不写名字的小楼冒烟，右边先空着",
+    "scene": "split_smoke"
+   },
+   {
+    "line": "L04",
+    "visual": "一栋冒烟的小楼旁边排出一整排小楼，烟被稀释得几乎看不见",
+    "scene": "row_dilute"
+   },
+   {
+    "line": "L05",
+    "visual": "右边整片地面一起下沉，上面所有小楼一起往下走",
+    "scene": "ground_sink"
+   },
+   {
+    "line": "L06",
+    "visual": "小楼再多，地面下沉时全都跟着沉，一栋也没躲开",
+    "scene": "all_sink"
+   },
+   {
+    "line": "L07",
+    "visual": "左边的烟旁边放着一个空的奖励盒，盖子是开的，里面什么都没有",
+    "scene": "empty_box"
+   },
+   {
+    "line": "L08",
+    "visual": "一根回报柱子分成上下两段，先亮出分界线",
+    "scene": "pillar_split"
+   },
+   {
+    "line": "L09",
+    "visual": "柱子底下那段亮起，标「起步价（如国债）」",
+    "scene": "pillar_base"
+   },
+   {
+    "line": "L10",
+    "visual": "柱子上面那段随着一条晃动的曲线变高：晃得越猛，这段越高",
+    "scene": "pillar_wiggle"
+   },
+   {
+    "line": "L11",
+    "visual": "柱子变成虚线的「预期」，旁边实际的柱子有的矮一截、有的掉到零线以下",
+    "scene": "expect_dashed"
+   },
+   {
+    "line": "L12",
+    "visual": "那把 CAPM 尺子放在桌上，旁边一个水晶球被打叉",
+    "scene": "ruler_crystal"
+   },
+   {
+    "line": "L13",
+    "visual": "画面回到整片下沉的地面，天平这次稳稳地翘向「躲不掉的风险」一侧",
+    "scene": "balance_settle"
+   }
+  ],
+  "capm-v001": [
+   {
+    "line": "L01",
+    "visual": "一架天平：一边放「冒险」，一边放「回报」，天平只翘起一半",
+    "scene": "scale_half"
+   },
+   {
+    "line": "L02",
+    "visual": "一把尺子：一头量风险，一头量该要的回报，尺子上标「CAPM」",
+    "scene": "ruler"
+   },
+   {
+    "line": "L03",
+    "visual": "两种风险分开摆：一种能躲开的小雨，一种躲不掉的大风",
+    "scene": "rain_wind"
+   },
+   {
+    "line": "L04",
+    "visual": "篮子里只有一个鸡蛋，鸡蛋裂了",
+    "scene": "one_egg"
+   },
+   {
+    "line": "L05",
+    "visual": "篮子里放很多鸡蛋，裂一个影响很小",
+    "scene": "many_eggs"
+   },
+   {
+    "line": "L06",
+    "visual": "整个篮子被大浪一起打翻，鸡蛋再多也没用",
+    "scene": "basket_wave"
+   },
+   {
+    "line": "L07",
+    "visual": "大浪那一侧亮起「该多要回报」，旁边加一个「≠一定多赚」",
+    "scene": "wave_tag"
+   }
+  ],
+  "erm-v002": [
+   {
+    "line": "L01",
+    "visual": "一排部门小格子各自亮绿灯，下一秒整栋公司大楼一起冒烟",
+    "scene": "dept_smoke"
+   },
+   {
+    "line": "L02",
+    "visual": "所有部门格子收拢进同一个大框，框上标「全面风险管理」",
+    "scene": "frame_gather"
+   },
+   {
+    "line": "L03",
+    "visual": "几本分开的账本合成一本",
+    "scene": "ledgers_merge"
+   },
+   {
+    "line": "L04",
+    "visual": "左手抓钱袋往上举，右手举盾挡住飞来的雷",
+    "scene": "bag_shield"
+   },
+   {
+    "line": "L05",
+    "visual": "销售踩油门、风控拉手刹，同一辆车两只脚",
+    "scene": "car_pedals"
+   },
+   {
+    "line": "L06",
+    "visual": "一张圆桌，各部门的风险卡片摊在同一个桌面上",
+    "scene": "round_table"
+   },
+   {
+    "line": "L07",
+    "visual": "天平一端是整家公司，另一端是冲击，看秤杆撑不撑得住",
+    "scene": "beam_hold"
+   }
+  ],
+  "risk-appetite-v002": [
+   {
+    "line": "L01",
+    "visual": "一个人站在高台边，敢往下跳，但脚下的绳子很细",
+    "scene": "platform_rope"
+   },
+   {
+    "line": "L02",
+    "visual": "一根旋钮从小拨到大，旋钮上标「风险偏好」",
+    "scene": "knob"
+   },
+   {
+    "line": "L03",
+    "visual": "一个人举手说「我愿意」，身后是一条他自己划的线",
+    "scene": "hand_line"
+   },
+   {
+    "line": "L04",
+    "visual": "钱袋分成两堆，一堆拿去投资，一堆留在手里",
+    "scene": "bag_split"
+   },
+   {
+    "line": "L05",
+    "visual": "同一个人：头顶说「愿意」，脚下的地面在晃",
+    "scene": "ground_shake"
+   },
+   {
+    "line": "L06",
+    "visual": "一根扁担挑着重物，扁担弯到快断，标「风险承受能力」",
+    "scene": "carry_pole"
+   },
+   {
+    "line": "L07",
+    "visual": "一张床，人躺在上面，床头的数字在往下掉，他睁着眼",
+    "scene": "bed_awake"
+   }
+  ],
+  "var-long-v001": [
+   {
+    "line": "L01",
+    "visual": "大大的「100万」，下面一条线被打上叉，标「上限」",
+    "scene": "cap_crossed"
+   },
+   {
+    "line": "L02",
+    "visual": "一栋不写名字的银行大楼，楼前立着一张只有一个数字的报告卡，卡角标「VaR」",
+    "scene": "bank_report"
+   },
+   {
+    "line": "L03",
+    "visual": "三个格子依次亮起：钱袋、时钟、百分比刻度",
+    "scene": "three_slots"
+   },
+   {
+    "line": "L04",
+    "visual": "三个格子里填上「一天」「99%」「100万（假设）」",
+    "scene": "slots_filled"
+   },
+   {
+    "line": "L05",
+    "visual": "一百个日历方块排成十乘十，九十九个在门槛线下方，一个是红色",
+    "scene": "grid_10x10"
+   },
+   {
+    "line": "L06",
+    "visual": "那个红色方块越过门槛线，标「超线」",
+    "scene": "square_over"
+   },
+   {
+    "line": "L07",
+    "visual": "换成一整年的日历条，大约二百五十格，里面零散亮起两三个红格",
+    "scene": "year_strip"
+   },
+   {
+    "line": "L08",
+    "visual": "红格不再零散，而是几个挤在一起连着亮",
+    "scene": "red_cluster"
+   },
+   {
+    "line": "L09",
+    "visual": "门槛线下面没有底，一片看不到头的黑，红格往下掉",
+    "scene": "bottomless"
+   },
+   {
+    "line": "L10",
+    "visual": "一本旧账本翻开，数字飘出来拼成那条门槛线",
+    "scene": "old_ledger"
+   },
+   {
+    "line": "L11",
+    "visual": "天色骤变，门槛线开始抖动、变虚",
+    "scene": "sky_change"
+   },
+   {
+    "line": "L12",
+    "visual": "预期的两三个红格旁边，实际亮起一大片红格，没有任何机构名",
+    "scene": "expect_actual"
+   },
+   {
+    "line": "L13",
+    "visual": "镜头推到最深的几个红格，取平均画出一条更低的线，屏幕标「预期尾部损失 ES」",
+    "scene": "tail_dots_es"
+   },
+   {
+    "line": "L14",
+    "visual": "银行大楼立在门槛线上，低头看线下那片黑，画面停住",
+    "scene": "bank_on_line"
+   }
+  ],
+  "var-plain-v004": [
+   {
+    "line": "L01",
+    "visual": "大大的「100万」数字，旁边一个打叉的「最多」",
+    "scene": "big_number_x"
+   },
+   {
+    "line": "L02",
+    "visual": "一条水平门槛线，线上标「100万」和「风险价值」",
+    "scene": "threshold_line"
+   },
+   {
+    "line": "L03",
+    "visual": "一排日子方块落在门槛线下，安安稳稳",
+    "scene": "days_below"
+   },
+   {
+    "line": "L04",
+    "visual": "100个日历方块，99个绿色在线下，1个红色闪烁",
+    "scene": "calendar_100"
+   },
+   {
+    "line": "L05",
+    "visual": "那一个红色方块冲破门槛线，往下掉得很深",
+    "scene": "red_breach"
+   },
+   {
+    "line": "L06",
+    "visual": "门槛线亮着，线下面一片黑，打一个问号",
+    "scene": "dark_below"
+   },
+   {
+    "line": "L07",
+    "visual": "镜头往下推到最深的那几格红色方块，取平均画一条更低的线",
+    "scene": "tail_avg"
+   }
+  ]
+ }
+}

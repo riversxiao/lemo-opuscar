@@ -1500,6 +1500,12 @@ else
   bad "finance-term variable-length mock (see /tmp/dc_varlen_mock.log)"
 fi
 
+if env -u TOKENHARBOR_API_KEY -u OPENROUTER_API_KEY -u STEP_API_KEY -u ELEVENLABS_API_KEY -u DEEPSEEK_API_KEY python3 "$CTL/tests/sharpe_scenes_mock.py" >/tmp/dc_sharpe_mock.log 2>&1; then
+  ok "finance-v003 batch-5 Sharpe scenes: 13 distinct, lint clean, older films' scene mappings unchanged ($(tail -1 /tmp/dc_sharpe_mock.log))"
+else
+  bad "finance-v003 batch-5 Sharpe scenes mock (see /tmp/dc_sharpe_mock.log)"
+fi
+
 # budget ledger: tests write to \$DC_BUDGET_LEDGER, never the real fixtures ledger
 if PYTHONPATH="$CTL" python3 -c "
 import budget,os

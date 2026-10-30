@@ -31,6 +31,20 @@ from typing import Any
 # ───────── scene library (keyword rules, first match wins; most specific first) ─────────
 # Each rule: (scene id, all-of keyword groups). A group matches when any of its words occurs.
 RULES: list[tuple[str, list[list[str]]]] = [
+    # batch 5 (Sharpe long, 13 lines, 2026-10-30): before batch 4 (柱子/尺子) and batch 2 (篮子/账本/问号/尺子)
+    ("bag_pillars",    [["柱子"], ["沙袋"]]),
+    ("sandbags",       [["小沙袋", "大沙袋"], ["手里", "拿着"]]),
+    ("coin_stack",     [["一份晃动"], ["硬币"]]),
+    ("score_fill",     [["记分卡"], ["分数格"]]),
+    ("card_fog",       [["记分卡"], ["雾"]]),
+    ("score_sharpe",   [["记分卡"], ["卡头"]]),
+    ("twin_q",         [["两根一样高"], ["问号"]]),
+    ("baskets_8",      [["两个篮子"], ["甲"], ["+8%"]]),
+    ("calm_wild",      [["两条收益线"], ["大起大落"]]),
+    ("pillars_cut",    [["柱子"], ["切下", "切掉一小段"], ["国债"]]),
+    ("remain_six",     [["切掉底部", "剩下的两段"], ["+6%"]]),
+    ("swing_box",      [["双箭头"], ["晃动"]]),
+    ("ruler_chair",    [["尺子"], ["椅子"]]),
     # batch 4 (CAPM long, 13 lines, 2026-10-30): before batch 3 (预期/实际) and batch 2 (天平/尺子/冒烟)
     ("balance_settle", [["天平"], ["稳稳", "躲不掉"]]),
     ("balance_half",   [["天平"], ["翘起一半", "只翘起"], ["「风险」"]]),  # capm-v001 says 「冒险」 → scale_half

@@ -100,6 +100,11 @@ Still **one memory point per film**, speed 1.0, `PACING=calm`; duration is a cei
   cap_crossed · bank_report · three_slots · slots_filled · grid_10x10 · square_over · year_strip · red_cluster ·
   bottomless · old_ledger · sky_change · expect_actual · tail_dots_es · bank_on_line. Metaphor: 0 at the top,
   losses go down, the gold line is a threshold (never a floor); nothing below it has a drawn bottom.
+- Scene library finance-v003 batch 5 (13 scenes for the Sharpe long film, distinct from every delivered film):
+  twin_q · score_sharpe · baskets_8 · calm_wild · pillars_cut · remain_six · swing_box · sandbags · coin_stack ·
+  score_fill · card_fog · ruler_chair · bag_pillars. Metaphor: hypothetical 甲/乙 only, return = pillar above zero,
+  国债 base cut off the bottom, risk = swing (losses drawn below zero) carried as a sandbag; screen says `Sharpe`.
+  `tests/sharpe_scenes_mock.py` checks that every older film line in `fixtures/viz-scene-snapshot.json` keeps its scene.
 
 ## Files
 
