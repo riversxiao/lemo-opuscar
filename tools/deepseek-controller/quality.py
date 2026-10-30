@@ -174,8 +174,11 @@ def _homophone_tolerant_match(
     b = _homophone_tokenize(got, classes)
     if not (a or b):
         return (True, a, b, 1.0)
-    if re.findall(r"\d+", _norm_zh(want)) != re.findall(r"\d+", _norm_zh(got)):
-        return (False, a, b, 0.0)  # a different number is never a homophone
+    # Number check runs AFTER the homophone tokenize, so only lexicon-sanctioned pairs (e.g. 不灵/不零, where
+    # _norm_zh turns 零 into 0) can absorb a digit; any other different number is never a homophone.
+    _num = lambda t: re.findall(r"\d+", re.sub(r"«\d+»", "", t))  # noqa: E731
+    if _num(a) != _num(b):
+        return (False, a, b, 0.0)
     sm = difflib.SequenceMatcher
     ratio = sm(None, a, b).ratio()
     if a == b or ratio >= min_ratio:
