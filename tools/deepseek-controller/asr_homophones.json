@@ -488,10 +488,11 @@
       "members": [
         "远期",
         "远岐",
-        "远棋"
+        "远棋",
+        "远期约"
       ],
       "short": [],
-      "note": "yuǎn qī vs yuǎn qí (tone only, like 利息/利席); forward L02/L12 small heard 远棋/远岐"
+      "note": "yuan qi; exchange-vs-otc L08 2026-10-31"
     },
     {
       "members": [
@@ -514,10 +515,11 @@
         "期货",
         "奇祸",
         "其货",
-        "棋货"
+        "棋货",
+        "齐霍"
       ],
       "short": [],
-      "note": "qī huò vs qí huò (tone only); futures L02 small heard 奇祸; +其货 (basis small, 2026-10-30); +棋货 (contango small, 2026-10-30)"
+      "note": "qi huo; exchange-vs-otc L07 齐霍 2026-10-31"
     },
     {
       "members": [
@@ -559,10 +561,11 @@
         "棋权",
         "七拳",
         "齐权",
-        "七权"
+        "七权",
+        "期全"
       ],
       "short": [],
-      "note": "qī quán vs qí quán (tone only); option L02/L07 small; +棋权/七拳/齐权/七权 (pcp small, 2026-10-30)"
+      "note": "qi quan; exchange-vs-otc L07 2026-10-31"
     },
     {
       "members": [
@@ -749,6 +752,313 @@
       ],
       "short": [],
       "note": "xiang gei same pinyin; cds L01 small 2026-10-31"
+    },
+    {
+      "members": [
+        "场内",
+        "厂内"
+      ],
+      "short": [],
+      "note": "chang nei; exchange-vs-otc L09 2026-10-31"
+    },
+    {
+      "members": [
+        "场外",
+        "厂外"
+      ],
+      "short": [],
+      "note": "chang wai; exchange-vs-otc L09 2026-10-31"
+    },
+    {
+      "members": [
+        "货架",
+        "获价",
+        "货价"
+      ],
+      "short": [],
+      "note": "huo jia; exchange-vs-otc L09 货价 2026-10-31"
+    },
+    {
+      "members": [
+        "量身定做",
+        "粮身订做",
+        "量身订做"
+      ],
+      "short": [],
+      "note": "liang shen ding zuo; exchange-vs-otc L09 2026-10-31"
+    },
+    {
+      "members": [
+        "定做",
+        "订做"
+      ],
+      "short": [],
+      "note": "ding zuo; exchange-vs-otc L09 2026-10-31"
+    },
+    {
+      "members": [
+        "像超市",
+        "向超市"
+      ],
+      "short": [],
+      "note": "xiang chao shi; exchange-vs-otc L09 2026-10-31"
+    },
+    {
+      "members": [
+        "像量身",
+        "向量身",
+        "向粮身"
+      ],
+      "short": [],
+      "note": "xiang liang shen; exchange-vs-otc L09 2026-10-31"
+    },
+    {
+      "members": [
+        "场内像",
+        "场内向",
+        "厂内向"
+      ],
+      "short": [],
+      "note": "chang nei xiang; exchange-vs-otc L09 2026-10-31"
+    },
+    {
+      "members": [
+        "场外像",
+        "场外向",
+        "厂外向"
+      ],
+      "short": [],
+      "note": "chang wai xiang; exchange-vs-otc L09 2026-10-31"
+    },
+    {
+      "members": [
+        "预期",
+        "与其"
+      ],
+      "short": [],
+      "note": "yu qi; expected-shortfall L03 2026-10-31"
+    },
+    {
+      "members": [
+        "久期",
+        "酒旗",
+        "9期",
+        "走棋",
+        "久其",
+        "久奇",
+        "九旗",
+        "久气",
+        "九棋",
+        "狗旗"
+      ],
+      "short": [],
+      "note": "jiu qi; duration/dv01/convexity"
+    },
+    {
+      "members": [
+        "百分之五",
+        "5%",
+        "百分之5"
+      ],
+      "short": [],
+      "note": "bai fen zhi wu; duration L05 2026-10-31"
+    },
+    {
+      "members": [
+        "一阶近似",
+        "一接近似",
+        "一阶近思"
+      ],
+      "short": [],
+      "note": "yi jie jin si; duration L06 2026-10-31"
+    },
+    {
+      "members": [
+        "价格变动",
+        "加加变动"
+      ],
+      "short": [],
+      "note": "duration L07 2026-10-31"
+    },
+    {
+      "members": [
+        "凸性",
+        "突性",
+        "特性",
+        "复突性",
+        "负凸性",
+        "忒性"
+      ],
+      "short": [],
+      "note": "fu tu xing"
+    },
+    {
+      "members": [
+        "记忆点",
+        "知一点",
+        "字典",
+        "记一点"
+      ],
+      "short": [],
+      "note": "ji yi dian"
+    },
+    {
+      "members": [
+        "斜率",
+        "车律",
+        "斜律",
+        "邪律"
+      ],
+      "short": [],
+      "note": "xie lv"
+    },
+    {
+      "members": [
+        "弯度",
+        "湾道",
+        "弯道"
+      ],
+      "short": [],
+      "note": "convexity L09"
+    },
+    {
+      "members": [
+        "弯曲",
+        "弯取",
+        "湾区"
+      ],
+      "short": [],
+      "note": "wan qu; convexity L03 2026-10-31"
+    },
+    {
+      "members": [
+        "画成",
+        "化成"
+      ],
+      "short": [],
+      "note": "hua cheng"
+    },
+    {
+      "members": [
+        "利率变动",
+        "利利变得",
+        "利率变得"
+      ],
+      "short": [],
+      "note": "convexity L04"
+    },
+    {
+      "members": [
+        "只靠久期",
+        "只靠旗"
+      ],
+      "short": [],
+      "note": "convexity L04"
+    },
+    {
+      "members": [
+        "提前偿付",
+        "提前常复",
+        "提前偿付风险"
+      ],
+      "short": [],
+      "note": "ti qian chang fu"
+    },
+    {
+      "members": [
+        "那集",
+        "那即"
+      ],
+      "short": [],
+      "note": "na ji; convexity L08"
+    },
+    {
+      "members": [
+        "看斜率",
+        "汗斜率",
+        "汉车律",
+        "看车律",
+        "看邪律"
+      ],
+      "short": [],
+      "note": "kan xie lv"
+    },
+    {
+      "members": [
+        "看弯度",
+        "汗弯度",
+        "汉湾道",
+        "看湾道"
+      ],
+      "short": [],
+      "note": "convexity L09"
+    },
+    {
+      "members": [
+        "交易台",
+        "交一台",
+        "交椅台"
+      ],
+      "short": [],
+      "note": "jiao yi tai; dv01 L08"
+    },
+    {
+      "members": [
+        "它和",
+        "他和"
+      ],
+      "short": [],
+      "note": "ta he; dv01 L05"
+    },
+    {
+      "members": [
+        "倒挂",
+        "道挂"
+      ],
+      "short": [],
+      "note": "dao gua; yield-curve"
+    },
+    {
+      "members": [
+        "钱借",
+        "前界"
+      ],
+      "short": [],
+      "note": "qian jie; yield-curve L01"
+    },
+    {
+      "members": [
+        "基点",
+        "积点"
+      ],
+      "short": [],
+      "note": "ji dian; dv01"
+    },
+    {
+      "members": [
+        "百分之零点零一",
+        "0.01%",
+        "百分之0.01",
+        "0点01%"
+      ],
+      "short": [],
+      "note": "dv01 L03 number spelling"
+    },
+    {
+      "members": [
+        "不问变",
+        "不问便"
+      ],
+      "short": [],
+      "note": "bu wen bian"
+    },
+    {
+      "members": [
+        "问变",
+        "问便"
+      ],
+      "short": [],
+      "note": "wen bian"
     }
   ]
 }

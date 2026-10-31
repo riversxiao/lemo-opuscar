@@ -100,3 +100,9 @@
 {"film": "mbs-v001", "provider": "openrouter", "model": "nvidia/nemotron-3.5-lightning:free", "cny": 0.0, "allowPaid": true, "note": "batch12 #38 delivered"}
 {"film": "covered-interest-parity-v001", "provider": "openrouter", "model": "nvidia/nemotron-3.5-lightning:free", "cny": 0.0, "allowPaid": true, "note": "batch12 #37 delivered"}
 {"film": "ccp-v001", "provider": "openrouter-or-prior", "cny": 0.0, "allowPaid": true, "note": "batch12 #36 delivered"}
+{"film": "exchange-vs-otc-v001", "provider": "openrouter", "model": "nvidia/nemotron-3.5-lightning:free", "cny": 0.0, "allowPaid": true, "note": "batch13 #41 delivered"}
+{"film": "expected-shortfall-v001", "provider": "openrouter", "model": "nvidia/nemotron-3.5-lightning:free", "cny": 0.0, "allowPaid": true, "note": "batch13 #43 delivered"}
+{"film": "duration-v001", "provider": "openrouter", "model": "nvidia/nemotron-3.5-lightning:free", "cny": 0.0, "allowPaid": true, "note": "batch13 #44 delivered"}
+{"film": "convexity-v001", "provider": "openrouter", "model": "nvidia/nemotron-3.5-lightning:free", "cny": 0.0, "allowPaid": true, "note": "batch13 #45 delivered; L09 say/asr Mandarin retake"}
+{"film": "dv01-v001", "provider": "openrouter", "model": "nvidia/nemotron-3.5-lightning:free", "cny": 0.0, "allowPaid": true, "note": "batch13 #46 delivered"}
+{"film": "yield-curve-v001", "provider": "openrouter", "model": "nvidia/nemotron-3.5-lightning:free", "cny": 0.0, "allowPaid": true, "note": "batch13 #47 delivered"}
