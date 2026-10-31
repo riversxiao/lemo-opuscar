@@ -14,5 +14,9 @@
   "Use three"
  ],
  "frame_sec": 12.0,
- "dur": 0
+ "dur": 0,
+ "aspects": [
+  "16:9"
+ ],
+ "portrait": "reframe"
 }

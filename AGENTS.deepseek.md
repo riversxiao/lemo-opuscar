@@ -88,15 +88,18 @@ write TREATMENT.md
 控制器、真实 VO 排期、统一验收与能力补强见 [`docs/NEXT-ROUND.md`](docs/NEXT-ROUND.md)。
 MVP CLI：[`tools/deepseek-controller/README.md`](tools/deepseek-controller/README.md)（`validate` → `adapt` → `schedule` → `quality`）。Flash 输出严格 JSON 计划，不要直接改引擎核心。
 
+**画幅 `aspect`：** 计划可选 `"aspect": "16:9"`（默认，1920x1080）或 `"9:16"`（竖屏，1080x1920）。只有 manifest `aspects` 列出的风格可用竖屏（caption-news、swiss-motion、pictogram-motion 都支持），否则 `validate` 拒绝。竖屏项目的 still / video / readcheck / events 一律带 `--size 1080x1920`（照抄 `PROJECT.md`），不要为了竖屏去改引擎核心。
+
 ## VO / TTS（所有供应商）
 
 - 默认中文旁白：`python core/tts/tts_zh.py`（edge-tts 云希/晓晓）或 `python core/tts/tts_router.py … --provider edge`。
-- 第二条真路径：**kokoro**（离线；`.venv-voice` 或 `LEMO_TTS_PYTHON`）。`python core/tts/tts_router.py --list` 看 ready。
+- 第二条真路径：**kokoro**（离线；`.venv-voice` 或 `WORDFILM_TTS_PYTHON`）。`python core/tts/tts_router.py --list` 看 ready。
 - 控制器：`python3 tools/deepseek-controller/cli.py tts --project <film> [--provider auto|kokoro|edge|stepaudio]`。`tts` 先查 `dialogue-check` PASS **且** `evidence/dialogue-loop.json` PASS（sha 锁定台词）；任一不满足即拒绝。
-- `stepaudio`：阶跃星辰 **限时免费预览** `stepaudio-3-gen-preview`（`/v1/audio/generate`，按文字描述设定音色）；只在显式 `--provider stepaudio` 时用，不进 auto。Key 只读环境变量 `STEPFUN_API_KEY`。**禁止**调付费 TTS（`/v1/audio/speech`、`stepaudio-3-tts`、`step-tts-*`）与 ASR；代码里已白名单拒绝。预览接口**没有音色锁定**：文档写明 gen-preview 不支持 `voice`/`voice_label`，reference_to_audio「暂未开放」，复刻音色只给付费 TTS；实测传 `voice`（boyinnansheng / qinqienvsheng）HTTP 200 但被忽略（女声 id 出来仍是同一男声，embedding 0.885–0.953）。逐句请求 = 每句一个新说话人（speaker 门禁 0.746/0.589 FAIL）。所以默认 **session 模式**（`LEMO_TTS_STEPAUDIO_MODE=session`）：全片台词作为同一说话人的连续 scripts **一次请求**（≤1000 字），本地 faster-whisper 字级时间对齐 + 停顿处切句（`providers/vo_split.py`，对齐 <85% 直接失败）；实测 speaker 0.887/0.784 PASS（Yunxi 0.866/0.785）。`per-line` 模式（按中位音高重录）仅作对照。可用 `LEMO_TTS_STEPAUDIO_SPEED` 调速以塞进目标时长。
+- `stepaudio`：阶跃星辰 **限时免费预览** `stepaudio-3-gen-preview`（`/v1/audio/generate`，按文字描述设定音色）；只在显式 `--provider stepaudio` 时用，不进 auto。Key 只读环境变量 `STEPFUN_API_KEY`。**禁止**调付费 TTS（`/v1/audio/speech`、`stepaudio-3-tts`、`step-tts-*`）与 ASR；代码里已白名单拒绝。预览接口**没有音色锁定**：文档写明 gen-preview 不支持 `voice`/`voice_label`，reference_to_audio「暂未开放」，复刻音色只给付费 TTS；实测传 `voice`（boyinnansheng / qinqienvsheng）HTTP 200 但被忽略（女声 id 出来仍是同一男声，embedding 0.885–0.953）。逐句请求 = 每句一个新说话人（speaker 门禁 0.746/0.589 FAIL）。所以默认 **session 模式**（`WORDFILM_TTS_STEPAUDIO_MODE=session`）：全片台词作为同一说话人的连续 scripts **一次请求**（≤1000 字），本地 faster-whisper 字级时间对齐 + 停顿处切句（`providers/vo_split.py`，对齐 <85% 直接失败）；实测 speaker 0.887/0.784 PASS（Yunxi 0.866/0.785）。`per-line` 模式（按中位音高重录）仅作对照。可用 `WORDFILM_TTS_STEPAUDIO_SPEED` 调速以塞进目标时长。
 - `elevenlabs`：ElevenLabs 云端 TTS（`eleven_multilingual_v2`，适合中文旁白）。只在显式 `--provider elevenlabs` 时用，不进 auto。Key 只读 `ELEVENLABS_API_KEY`（别名 `ELEVEN_API_KEY`）；音色 `ELEVENLABS_VOICE_ID`（默认 `21m00Tcm4TlvDq8ikWAM` / Rachel）。无 key 时 `--list` 报 `needs-key`。密钥从不打印。
 - `elevenlabs-dialogue`：ElevenLabs **Text-to-Dialogue** 多说话人（`POST /v1/text-to-dialogue`，模型优先 `eleven_v4` 回退 `eleven_v3`）。只在显式 `--provider elevenlabs-dialogue` 时用。台词需带 `speaker`；音色用 `ELEVENLABS_VOICE_HOST` / `ELEVENLABS_VOICE_GUEST` 或 `ELEVENLABS_VOICE_MAP`。与单声线 `elevenlabs`（`/v1/text-to-speech`）分开；这是对话 TTS 层，不是完整播客流水线。
 - 配乐：`cli.py mix --project <film> --bed-source stepaudio` 调 `stepaudio-3-music-preview`（限时免费，`instrumental:true` 纯器乐），原始 1–3 min 输出存 `music/stepaudio_raw.wav`，裁到片长 + 淡入淡出 + RMS 对齐 → 走原有 ducking。有缓存，不重复请求。
-- `qwen3` / `omnivoice`：HTTP 客户端已接；仅当设置 `LEMO_TTS_QWEN3_BASE` / `LEMO_TTS_OMNIVOICE_BASE` 时为 ready（不臆造 Key）。见 [`tools/tts_router.md`](tools/tts_router.md)。
+- `qwen3` / `omnivoice`：HTTP 客户端已接；仅当设置 `WORDFILM_TTS_QWEN3_BASE` / `WORDFILM_TTS_OMNIVOICE_BASE` 时为 ready（不臆造 Key）。见 [`tools/tts_router.md`](tools/tts_router.md)。
+- 上面的 `WORDFILM_TTS_*` / `WORDFILM_SPK_PYTHON` 在未设置时仍读上游旧名 `LEMO_TTS_*` / `LEMO_SPK_PYTHON`。
 - **「中文跳过 ASR 词对齐」只影响词级时间事件，不影响语音内容完整性检查。** 无论哪个 provider：`lines.json` 每句都要有非静音 WAV + `dur.json`；成片混音须保留这些语音；画面/字幕中文与朗读内容一致（可标点），禁止默默缩短意译。
 - 无旁白片可在质量报告里把 ASR 标为 `NOT_APPLICABLE`；有旁白片不得用「缺依赖」冒充通过。

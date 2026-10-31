@@ -2,7 +2,7 @@
 
 模型：`openrouter/deepseek/deepseek-v4.1-flash`  
 规程：`$LIB/AGENTS.deepseek.md`「实测调教」五条 + 各片 `BRIEF.md` 引擎锁定  
-库：`/workspace/lemo-opuscar-deepseek`  
+库：本仓库（`$LIB` = WordFilm 检出目录；当时的录制在 `/workspace` 下的一个 clone 里跑）  
 宿主：OpenCode `run --auto --standalone`（`-s` ASCII session；中文仅在 `--title`）
 
 ## 总表

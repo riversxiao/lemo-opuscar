@@ -1,7 +1,7 @@
 """No-network tests for the ElevenLabs TTS provider.
 
 Spins a local mock of the ElevenLabs TTS API on 127.0.0.1 and points
-LEMO_TTS_ELEVENLABS_BASE at it; a fake key is used. Asserts: missing-key
+WORDFILM_TTS_ELEVENLABS_BASE at it; a fake key is used. Asserts: missing-key
 probe/state, xi-api-key header, multilingual model, pcm_24000 decode → wavs.
 """
 import io
@@ -67,7 +67,7 @@ except SystemExit as e:
 srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 os.environ["ELEVENLABS_API_KEY"] = "el-mock-key"
-os.environ["LEMO_TTS_ELEVENLABS_BASE"] = f"http://127.0.0.1:{srv.server_port}/v1"
+os.environ["WORDFILM_TTS_ELEVENLABS_BASE"] = f"http://127.0.0.1:{srv.server_port}/v1"
 os.environ.pop("ELEVEN_API_KEY", None)
 
 assert probe_elevenlabs().state == "ready"

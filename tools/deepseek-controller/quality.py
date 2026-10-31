@@ -12,7 +12,7 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
-from common import ROOT, dump_json, load_json
+from common import ROOT, dump_json, load_json, project_size, size_arg
 
 
 from pacing_profile import OUTRO_MAX_SEC
@@ -541,7 +541,8 @@ def run_readcheck(project: Path, *, style: str = "") -> dict[str, Any]:
 
     try:
         proc = subprocess.run(
-            ["node", str(script), str(project)],
+            # viewport follows the project aspect (content/engine.lock.json size)
+            ["node", str(script), str(project), "--size", size_arg(project_size(project))],
             capture_output=True,
             text=True,
             timeout=300,
@@ -937,7 +938,7 @@ def _dialogue_loop_check(project: Path) -> dict[str, Any]:
 
 def _spk_python() -> str | None:
     import shutil
-    cands = [os.environ.get("LEMO_SPK_PYTHON"), str(_repo_root() / ".venv-spk" / "bin" / "python"),
+    cands = [os.environ.get("WORDFILM_SPK_PYTHON"), os.environ.get("LEMO_SPK_PYTHON"), str(_repo_root() / ".venv-spk" / "bin" / "python"),
              str(_repo_root() / ".venv-voice" / "bin" / "python"), shutil.which("python3")]
     for c in cands:
         if c and Path(c).exists():
@@ -982,10 +983,10 @@ def run_visual_check_gate(project: Path, media: Path | None, delivery: bool) -> 
     return check("visual_check", "FAIL", f"severity=high: {fs}, {len(hi)} high ({', '.join(kinds)}){tail}", required=req)
 
 def _tp_max(project: Path) -> float:
-    """True-peak ceiling: env LEMO_TP_MAX_DBTP, else −2 dBTP for finance-v003 (per-line visual)
+    """True-peak ceiling: env WORDFILM_TP_MAX_DBTP (legacy LEMO_TP_MAX_DBTP), else −2 dBTP for finance-v003 (per-line visual)
     series films (content/viz.json present), else the legacy −1 dBTP."""
-    import os
-    v = os.environ.get("LEMO_TP_MAX_DBTP")
+    from common import env_setting  # noqa: PLC0415
+    v = env_setting("TP_MAX_DBTP")
     if v:
         return float(v)
     return -2.0 if (Path(project) / "content" / "viz.json").is_file() else -1.0
@@ -1021,7 +1022,10 @@ def run_viz_gates(project: Path, media: Path | None) -> list[dict[str, Any]]:
             c = (r.get("closest") or [{}])[0]
             det = (f"{len(r.get('keyframes') or [])} keyframes vs {r.get('comparedFilms')}; {len(r.get('duplicates') or [])} near-dup; "
                    f"closest {c.get('a')}~{c.get('b')} ham={c.get('ham')} corr={c.get('corr')}")
-            out.append(check("visual_duplicate", "PASS" if r.get("status") == "PASS" else "FAIL", det, required=True))
+            st = r.get("status")
+            if st == "WARN":
+                det += f"; no series film found under {r.get('filmsRoot')} (missing {r.get('missingFilms')})"
+            out.append(check("visual_duplicate", st if st in ("PASS", "WARN") else "FAIL", det, required=True))
     return out
 
 
@@ -1053,7 +1057,7 @@ def run_speaker_check(project: Path, has_vo: bool) -> dict[str, Any]:
         return check("speaker_consistency", "NOT_CHECKED",
                      "resemblyzer not installed (python -m venv .venv-spk && .venv-spk/bin/pip install torch "
                      "--index-url https://download.pytorch.org/whl/cpu resemblyzer webrtcvad-wheels librosa); "
-                     "or LEMO_SPK_PYTHON", required=True)
+                     "or WORDFILM_SPK_PYTHON", required=True)
     script = _repo_root() / "core" / "tts" / "speaker_check.py"
     try:
         r = subprocess.run([py, str(script), str(voices), "--ids", ",".join(ids)],
@@ -1076,7 +1080,7 @@ def run_speaker_check(project: Path, has_vo: bool) -> dict[str, Any]:
 
 def _lid_python() -> str | None:
     import shutil
-    cands = [os.environ.get("LEMO_LID_PYTHON"), str(_repo_root() / ".venv-spk" / "bin" / "python"),
+    cands = [os.environ.get("WORDFILM_LID_PYTHON"), os.environ.get("LEMO_LID_PYTHON"), str(_repo_root() / ".venv-spk" / "bin" / "python"),
              str(_repo_root() / ".venv-voice" / "bin" / "python"), shutil.which("python3")]
     for c in cands:
         if c and Path(c).exists():
@@ -1116,7 +1120,7 @@ def run_dialect_check(project: Path, has_vo: bool) -> dict[str, Any]:
     py = _lid_python()
     if not py:
         return check("dialect_mandarin", "NOT_CHECKED",
-                     "torch + transformers missing (.venv-spk/bin/pip install transformers) or LEMO_LID_PYTHON",
+                     "torch + transformers missing (.venv-spk/bin/pip install transformers) or WORDFILM_LID_PYTHON",
                      required=True)
     script = _repo_root() / "core" / "tts" / "dialect_check.py"
     cmd = [py, str(script), str(voices), "--ids", ",".join(ids)] + (["--langs", langs] if langs else [])

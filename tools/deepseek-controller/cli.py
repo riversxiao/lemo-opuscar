@@ -59,7 +59,10 @@ def cmd_scaffold(args: argparse.Namespace) -> int:
     except (ValueError, FileExistsError, FileNotFoundError, RuntimeError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
-    print(f"OK scaffold {info.get('style')} mode={info.get('mode')} → {info['project']}")
+    print(
+        f"OK scaffold {info.get('style')} mode={info.get('mode')} "
+        f"size={info.get('size')} aspect={info.get('aspect')} → {info['project']}"
+    )
     if info.get("protectedSha256"):
         for name, h in info["protectedSha256"].items():
             print(f"  lock {name}: {h[:16]}…")
@@ -327,12 +330,20 @@ def cmd_handoff(args: argparse.Namespace) -> int:
     from tools.handoff.openfilm import export_openfilm
     from tools.handoff.hyperframes import export_hyperframes
     from tools.handoff.premiere import export_premiere
+    from tools.handoff.common import parse_fps, parse_size
 
     from budget import log_local_step
 
     film = Path(args.project)
     target = args.target
     infos = {}
+    try:
+        size = parse_size(args.size) if getattr(args, "size", None) else None
+        fps = parse_fps(args.fps) if getattr(args, "fps", None) else None
+    except ValueError as e:
+        print(f"handoff: {e}", file=_sys.stderr)
+        return 2
+    wh = {"width": size[0], "height": size[1]} if size else {}
     t0 = _time.perf_counter()
     if target in ("openfilm", "both", "all"):
         infos["openfilm"] = export_openfilm(
@@ -340,6 +351,8 @@ def cmd_handoff(args: argparse.Namespace) -> int:
             name=args.name,
             out_dir=Path(args.out) if args.out and target == "openfilm" else None,
             extract_shots=args.extract_shots,
+            fps=fps,
+            **wh,
         )
     if target in ("hyperframes", "both", "all"):
         infos["hyperframes"] = export_hyperframes(
@@ -348,16 +361,19 @@ def cmd_handoff(args: argparse.Namespace) -> int:
             out_dir=Path(args.out) if args.out and target == "hyperframes" else None,
             try_init_cli=args.try_init_cli,
             run_lint=args.lint,
+            **wh,
         )
     if target in ("premiere", "all"):
         infos["premiere"] = export_premiere(
             film,
             name=args.name,
             out_dir=Path(args.out) if args.out and target == "premiere" else None,
+            fps=fps,
+            **wh,
         )
     # both also gets premiere when --with-premiere
     if target == "both" and getattr(args, "with_premiere", False):
-        infos["premiere"] = export_premiere(film, name=args.name)
+        infos["premiere"] = export_premiere(film, name=args.name, fps=fps, **wh)
 
     if not getattr(args, "no_budget", False):
         log_local_step(
@@ -372,7 +388,10 @@ def cmd_handoff(args: argparse.Namespace) -> int:
         print(json.dumps(infos, ensure_ascii=False, indent=2))
     else:
         for k, info in infos.items():
-            print(f"OK handoff {k} → {info['out']} shots={info['shotCount']} ({info['shotSource']})")
+            print(
+                f"OK handoff {k} → {info['out']} shots={info['shotCount']} ({info['shotSource']})"
+                f" frame={info['width']}x{info['height']} ({info['sizeSource']})"
+            )
             if k == "hyperframes" and info.get("lintOk") is True:
                 print("  lint: PASS")
             elif k == "hyperframes" and info.get("lintOk") is False:
@@ -558,7 +577,7 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--voice", default=None)
     t.add_argument("--rate", default=None, help="edge rate (default: pacing profile edgeRate, standard +10%%)")
     t.add_argument("--speed", type=float, default=None,
-                   help="stepaudio speed (default: env LEMO_TTS_STEPAUDIO_SPEED, else pacing profile)")
+                   help="stepaudio speed (default: env WORDFILM_TTS_STEPAUDIO_SPEED or LEMO_TTS_STEPAUDIO_SPEED, else pacing profile)")
     t.add_argument("--pacing", default=None, help="fast|standard|calm (default plan.json pacing / content_type)")
     t.add_argument("--no-trim", action="store_true", help="skip pause_trim after synthesis")
     t.add_argument("--pitch", default="+0Hz")
@@ -704,6 +723,17 @@ def build_parser() -> argparse.ArgumentParser:
     ho.add_argument("--name", default=None)
     ho.add_argument("-o", "--out", default=None, help="override out dir (single-target only)")
     ho.add_argument("--extract-shots", action="store_true")
+    ho.add_argument(
+        "--size",
+        default=None,
+        metavar="WxH",
+        help="frame size, e.g. 1080x1920 (default: ffprobe of the master, else 1920x1080)",
+    )
+    ho.add_argument(
+        "--fps",
+        default=None,
+        help="frame rate, e.g. 24 or 30000/1001 (default: ffprobe, else 24)",
+    )
     ho.add_argument("--try-init-cli", action="store_true", help="hyperframes: try npx init --video")
     ho.add_argument("--lint", action="store_true", help="hyperframes: run lint after export")
     ho.add_argument(
@@ -779,7 +809,7 @@ def build_parser() -> argparse.ArgumentParser:
     bgi.add_argument(
         "--db",
         default=None,
-        help="default: /home/box/.local/share/opencode/opencode.db",
+        help="default: $WORDFILM_OPENCODE_DB (or $LEMO_OPENCODE_DB) or ~/.local/share/opencode/opencode.db",
     )
     bgi.add_argument(
         "--filter",

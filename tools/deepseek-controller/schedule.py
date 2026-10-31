@@ -82,6 +82,16 @@ def load_durations(
     return durs
 
 
+def shots_past(parsed_shots: list[dict[str, Any]], limit: float) -> str:
+    """'trim shots: c7 (28.50-32.25s), ...' for the shots that end after limit."""
+    late = [s for s in parsed_shots if float(s["t1"]) > limit + 1e-6]
+    if not late:
+        return "trim shots: none end past the limit"
+    return "trim shots: " + ", ".join(
+        f"{s['id']} ({float(s['t0']):.2f}-{float(s['t1']):.2f}s)" for s in late
+    )
+
+
 def schedule(
     *,
     lines: list[dict[str, Any]],
@@ -97,6 +107,8 @@ def schedule(
     line_gap: float = 0.2,
     pacing: dict[str, Any] | None = None,
     outro_sec: float = 0.0,
+    locked_duration: float | None = None,
+    locked_label: str = "locked engine",
 ) -> tuple[dict[str, Any], list[str]]:
     """Return (timeline, errors). Over-target → error (no silent K-scale).
 
@@ -108,6 +120,12 @@ def schedule(
 
     `pacing` (pacing_profile.profile()) overrides enter/exit/settle/line_gap and adds
     beatPauseSec after lines marked "beat": true.
+
+    locked_duration: picture length the engine cannot change (Caption News
+    main.js DUR). Copy whose content end passes it is a hard error even when
+    the target (plan or --target) would allow it, because the render stops at
+    the lock and the tail captions/VO would be cut. The outro is clamped to the
+    time left before the lock (WARN when clamped).
     """
     errors: list[str] = []
     beat_pause = 0.0
@@ -196,7 +214,17 @@ def schedule(
     under_before_pad = False
     applied_outro = 0.0
     if outro_sec and parsed_shots and not pad_under_target:
-        applied_outro = round(min(outro_sec, max(0.0, target_duration - total)), 4)
+        room = target_duration - total
+        if locked_duration is not None and locked_duration > 0 and locked_duration - total < room:
+            # the render stops at the lock: an outro past it would be dropped silently
+            room = locked_duration - total
+            if outro_sec > max(0.0, room) + 1e-6:
+                errors.append(
+                    f"WARN: outro clamped {outro_sec:.2f}s -> {max(0.0, room):.2f}s: content "
+                    f"{content_duration:.2f}s + outro would pass the {locked_label} timeline "
+                    f"({locked_duration:.2f}s); trim copy to keep the full end-card hold"
+                )
+        applied_outro = round(min(outro_sec, max(0.0, room)), 4)
         if applied_outro > 0:
             last = parsed_shots[-1]
             last["t1"] = round(last["t1"] + applied_outro, 4)
@@ -229,8 +257,24 @@ def schedule(
     if total > target_duration + 1e-6:
         hard_errors.append(
             f"scheduled duration {total:.2f}s exceeds target {target_duration:.2f}s — "
-            f"cut copy / drop a shot (controller will not silent K-scale as final)"
+            f"cut copy / drop a shot (controller will not silent K-scale as final); "
+            f"{shots_past(parsed_shots, target_duration)}"
         )
+    lock_overrun = 0.0
+    if locked_duration is not None and locked_duration > 0:
+        lock_overrun = round(max(0.0, content_duration - locked_duration), 4)
+        if lock_overrun > 1e-6:
+            hard_errors.append(
+                f"copy overruns the {locked_label} timeline by {lock_overrun:.2f}s: "
+                f"content {content_duration:.2f}s > locked {locked_duration:.2f}s; "
+                f"{shots_past(parsed_shots, locked_duration)}. Trim captions/VO and "
+                f"re-run schedule before rendering (the render stops at the lock)"
+            )
+        elif total > locked_duration + 1e-6:
+            errors.append(
+                f"WARN: scheduled {total:.2f}s runs past the {locked_label} timeline "
+                f"({locked_duration:.2f}s); the render stops at the lock"
+            )
 
     warns = [e for e in errors if e.startswith("WARN:")]
     all_errors = hard_errors + warns
@@ -250,6 +294,8 @@ def schedule(
         "underTargetBeforePad": under_before_pad,
         "beatGridSec": beat_grid,
         "fitsTarget": total <= target_duration + 1e-6,
+        "lockedDurationSec": locked_duration,
+        "lockOverrunSec": lock_overrun,
         "requireVo": bool(require_all_vo),
         "ok": ok,
         "errors": list(hard_errors),
@@ -366,6 +412,15 @@ def main(argv: list[str] | None = None) -> int:
     voices_dir = Path(args.voices_dir) if args.voices_dir else project / "voices"
     durs = load_durations(lines, dur_path if dur_path.is_file() else None, voices_dir)
 
+    # Caption News renders exactly main.js DUR (locked demo or style version), so
+    # caption copy past it is cut at render time whatever the target says. An
+    # unlocked main.js with timeline.json syncShots takes DUR from the schedule.
+    locked = None
+    if style == "caption-news":
+        from apply_caption_timeline import locked_engine_dur
+
+        locked = locked_engine_dur(project)
+
     plan_d = pp.load_plan(project)
     try:
         prof = pp.profile(project, args.pacing, plan_d)
@@ -383,6 +438,8 @@ def main(argv: list[str] | None = None) -> int:
         pad_under_target=bool(args.pad_under_target) and not args.no_pad,
         pacing=prof,
         outro_sec=outro,
+        locked_duration=locked,
+        locked_label="locked caption-news",
     )
     out = Path(args.output) if args.output else project / "timeline.parsed.json"
     dump_json(out, timeline)

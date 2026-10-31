@@ -8,11 +8,12 @@
 
 ```bash
 git clone https://github.com/riversxiao/wordfilm.git
-cd lemo-opuscar
+cd wordfilm
 
 # 可选：钉死 DeepSeek 控制层提交（完整 40 字符 SHA 或 tag；勿用裸上游 413a6bd）
 # 413a6bd 是引擎/上游基线，不含本 fork 覆盖层；setup 钉到无覆盖层的提交会失败退出
-export LEMO_OPUSCAR_PIN=f3d2e1c934be18ac4cb816ecaa5e9d27176afaae
+# 改名前的 LEMO_OPUSCAR_PIN / LEMO_OPUSCAR_HOME / LEMO_OPUSCAR_REPO 仍然有效（WORDFILM_* 优先）
+export WORDFILM_PIN=f3d2e1c934be18ac4cb816ecaa5e9d27176afaae
 
 sh plugin/skills/lemo-deepseek/scripts/setup.sh
 sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
@@ -78,13 +79,14 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
 
 - 目录与用法：[`tools/deepseek-controller/README.md`](tools/deepseek-controller/README.md)
 - 计划：`python3 tools/deepseek-controller/cli.py validate|adapt|schedule|quality …`
+- 竖屏：计划加 `"aspect": "9:16"`（默认 `"16:9"`），渲染 1080x1920；caption-news / swiss-motion / pictogram-motion 都支持（原生竖屏版式）。`PROJECT.md` 的渲染命令自动带 `--size`。
 - 下一轮范围：[`docs/NEXT-ROUND.md`](docs/NEXT-ROUND.md)
 
 Flash 仍须先复制官方 `demo/` 引擎；控制器**只写** `content/` 与时间表/质量报告，不改引擎核心。
 
 ## 安全提示
 
-- 默认 `setup.sh` 在 managed clone 上会拉远端；本 DeepSeek 技能默认指向 **本 fork**，并支持 `LEMO_OPUSCAR_PIN`（完整 SHA 优先）。**无 DeepSeek 覆盖层的库或 PIN 会非零退出**。引擎基线提交与控制层 fork 提交应分别记录（见 `docs/NEXT-ROUND.md`）。
+- 默认 `setup.sh` 在 managed clone 上会拉远端；本 DeepSeek 技能默认指向 **本 fork**，并支持 `WORDFILM_PIN`（旧名 `LEMO_OPUSCAR_PIN` 仍有效；完整 SHA 优先）。**无 DeepSeek 覆盖层的库或 PIN 会非零退出**。引擎基线提交与控制层 fork 提交应分别记录（见 `docs/NEXT-ROUND.md`）。
 - 中文旁白 `tts_zh.py` 走微软 edge-tts（出网）；可改用离线 Kokoro。
 - 不要把含密钥的环境变量暴露给会执行 shell 的 agent。
 

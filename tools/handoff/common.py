@@ -36,43 +36,175 @@ def find_master_mp4(film_dir: Path) -> Path:
     )
 
 
-def probe_fps(path: Path, default: int = 24) -> int:
-    """Integer timebase of the master's video stream (30 for our 30fps renders); falls back
-    to `default` when ffprobe is missing or the rate is unreadable."""
-    if not shutil.which("ffprobe"):
-        return default
-    try:
-        out = subprocess.check_output(
-            ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate",
-             "-of", "default=nk=1:nw=1", str(path)], text=True, stderr=subprocess.DEVNULL).strip()
-        num, _, den = out.partition("/")
-        fps = float(num) / float(den or 1)
-        return int(round(fps)) if fps > 0 else default
-    except (subprocess.SubprocessError, OSError, ValueError, ZeroDivisionError):
-        return default
+DEFAULT_WIDTH = 1920
+DEFAULT_HEIGHT = 1080
+DEFAULT_FPS = 24.0
+DEFAULT_DURATION = 30.0
 
 
-def probe_duration(path: Path) -> float:
+def parse_size(spec: str) -> tuple[int, int]:
+    """Parse 'WxH' like core/render/page.mjs takeSize: even ints in 16..8192."""
+    s = str(spec).strip().lower()
+    parts = s.split("x")
+    if len(parts) != 2 or not all(p.isdigit() for p in parts):
+        raise ValueError(f"--size expects WxH (e.g. 1080x1920), got {spec!r}")
+    w, h = int(parts[0]), int(parts[1])
+    for v in (w, h):
+        if v < 16 or v > 8192 or v % 2:
+            raise ValueError(
+                f"--size {spec!r}: width and height must be even integers in 16..8192"
+            )
+    return w, h
+
+
+def parse_fps(spec: str | float | int) -> float:
+    """Parse '24', '29.97' or '30000/1001' into a positive float."""
+    if isinstance(spec, (int, float)):
+        val = float(spec)
+    else:
+        s = str(spec).strip()
+        try:
+            if "/" in s:
+                num, den = s.split("/", 1)
+                val = float(num) / float(den)
+            else:
+                val = float(s)
+        except (ValueError, ZeroDivisionError):
+            raise ValueError(f"--fps expects a number or N/D, got {spec!r}") from None
+    if not (0 < val <= 240):
+        raise ValueError(f"--fps out of range (0, 240]: {spec!r}")
+    return val
+
+
+def fps_timebase(fps: float) -> tuple[int, bool]:
+    """Integer timebase + NTSC flag for xmeml/EDL (29.97 -> (30, True))."""
+    tb = max(1, int(round(fps)))
+    ntsc = abs(fps - tb) > 0.005 and abs(fps * 1.001 - tb) < 0.01
+    return tb, ntsc
+
+
+def _ffprobe_json(path: Path) -> dict[str, Any] | None:
     if not shutil.which("ffprobe"):
-        return 30.0
+        return None
     try:
         out = subprocess.check_output(
             [
                 "ffprobe",
                 "-v",
                 "error",
+                "-select_streams",
+                "v:0",
                 "-show_entries",
-                "format=duration",
+                "stream=width,height,r_frame_rate:format=duration",
                 "-of",
-                "default=nk=1:nw=1",
+                "json",
                 str(path),
             ],
             text=True,
             stderr=subprocess.DEVNULL,
-        ).strip()
-        return float(out)
-    except (subprocess.CalledProcessError, ValueError):
-        return 30.0
+        )
+        return json.loads(out)
+    except (subprocess.CalledProcessError, ValueError, OSError):
+        return None
+
+
+def probe_video(path: Path) -> dict[str, Any]:
+    """Return {width, height, fps, duration, probed, fpsProbed} for the first video stream.
+
+    Falls back to 1920x1080 @ 24fps / 30s (probed=False) when ffprobe is
+    missing or the file cannot be read. Fields that ffprobe does return are
+    kept even if others are missing. ``probed`` covers width/height and
+    ``fpsProbed`` the frame rate: a stream with a size but an unusable
+    r_frame_rate (``0/0``, or above 240 for VFR) keeps the 24fps default with
+    fpsProbed=False.
+    """
+    info: dict[str, Any] = {
+        "width": DEFAULT_WIDTH,
+        "height": DEFAULT_HEIGHT,
+        "fps": DEFAULT_FPS,
+        "duration": DEFAULT_DURATION,
+        "probed": False,
+        "fpsProbed": False,
+    }
+    data = _ffprobe_json(path)
+    if not data:
+        return info
+    streams = data.get("streams") or []
+    st = streams[0] if streams else {}
+    try:
+        w, h = int(st.get("width") or 0), int(st.get("height") or 0)
+        if w > 0 and h > 0:
+            info["width"], info["height"] = w, h
+            info["probed"] = True
+    except (TypeError, ValueError):
+        pass
+    rate = st.get("r_frame_rate")
+    if rate:
+        try:
+            info["fps"] = round(parse_fps(rate), 3)
+            info["fpsProbed"] = True
+        except ValueError:
+            pass
+    try:
+        dur = float((data.get("format") or {}).get("duration"))
+        if dur > 0:
+            info["duration"] = dur
+    except (TypeError, ValueError):
+        pass
+    return info
+
+
+def probe_duration(path: Path) -> float:
+    return float(probe_video(path)["duration"])
+
+
+def probe_fps(path: Path, default: int = 24) -> int:
+    """Integer timebase of the master's frame rate (30 for a 30fps render), via
+    probe_video; `default` when ffprobe is missing or the rate is unreadable.
+    Handoff writers use resolve_frame (keeps 29.97 as NTSC); this is the
+    integer shorthand upstream callers expect."""
+    pv = probe_video(path)
+    return fps_timebase(float(pv["fps"]))[0] if pv["fpsProbed"] else default
+
+
+def resolve_frame(
+    mp4: Path,
+    *,
+    size: tuple[int, int] | None = None,
+    fps: float | None = None,
+) -> dict[str, Any]:
+    """Resolve width/height/fps: explicit flag > ffprobe of master > default.
+
+    Returns {width, height, fps, duration, sizeSource, fpsSource} where the
+    sources are 'flag' | 'probe' | 'default'.
+    """
+    pv = probe_video(mp4)
+    if size:
+        w, h = size
+        size_src = "flag"
+    elif pv["probed"]:
+        w, h = pv["width"], pv["height"]
+        size_src = "probe"
+    else:
+        w, h = DEFAULT_WIDTH, DEFAULT_HEIGHT
+        size_src = "default"
+    if fps:
+        f = float(fps)
+        fps_src = "flag"
+    elif pv["fpsProbed"]:
+        f = float(pv["fps"])
+        fps_src = "probe"
+    else:
+        f = DEFAULT_FPS
+        fps_src = "default"
+    return {
+        "width": int(w),
+        "height": int(h),
+        "fps": f,
+        "duration": float(pv["duration"]),
+        "sizeSource": size_src,
+        "fpsSource": fps_src,
+    }
 
 
 def _shot_from_dict(d: dict[str, Any], idx: int) -> dict[str, Any]:
@@ -212,14 +344,23 @@ def write_cmx3600_edl(
     *,
     title: str,
     shots: list[dict[str, Any]],
-    fps: int = 24,
+    fps: float = 24,
 ) -> None:
-    """Minimal CMX3600-style EDL (picture events only; reel MASTER)."""
+    """Minimal CMX3600-style EDL (picture events only; reel MASTER).
+
+    Frames are counted at the real rate (round(sec * 29.97)), the same count
+    write_xmeml uses, and labelled as non-drop timecode on the integer
+    timebase (29.97 -> 30). So for NTSC masters the EDL and premiere.xml from
+    one export name the same frames; the timecode runs 0.1% behind the wall
+    clock, as non-drop NTSC timecode always does.
+    """
+    real = float(fps)
+    tb = fps_timebase(real)[0]
 
     def tc(sec: float) -> str:
-        total = max(0, int(round(sec * fps)))
-        ff = total % fps
-        total //= fps
+        total = max(0, int(round(float(sec) * real)))
+        ff = total % tb
+        total //= tb
         ss = total % 60
         total //= 60
         mm = total % 60

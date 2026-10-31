@@ -9,7 +9,7 @@ hanzi, so without language_code the model guesses per request. In the 贝塔 pil
 Whisper LID cannot either (large-v3-turbo scores Cantonese edge-tts WanLung as zh 0.98).
 
 Model: Meta MMS-LID-256 (wav2vec2 audio classifier, labels incl. cmn/yue/nan/hak/wuu/…):
-default /workspace/_models/mms-lid-256 (box copy) or env LEMO_DIALECT_MODEL, else facebook/mms-lid-256.
+default /workspace/_models/mms-lid-256 (box copy) or env WORDFILM_DIALECT_MODEL (old name LEMO_DIALECT_MODEL), else facebook/mms-lid-256.
 Needs torch + transformers (use .venv-spk/bin/python; quality.py shells out to it).
 Calibration 2026-10-29: edge Yunxi cmn 1.000/0.999, edge WanLung (粤) yue 1.000/1.000,
 Tex v4 Mandarin lines cmn ≥0.999, Tex L06 (heard as 粤语 by wen hao) yue 0.997,
@@ -27,7 +27,7 @@ Exit 0 PASS/WARN, 1 FAIL, 2 could not run.
 import argparse, json, os, re, sys
 
 _LOCAL = "/workspace/_models/mms-lid-256"
-DEFAULT_MODEL = os.environ.get("LEMO_DIALECT_MODEL") or (_LOCAL if os.path.isfile(_LOCAL + "/model.safetensors")
+DEFAULT_MODEL = os.environ.get("WORDFILM_DIALECT_MODEL") or os.environ.get("LEMO_DIALECT_MODEL") or (_LOCAL if os.path.isfile(_LOCAL + "/model.safetensors")
                                                          else "facebook/mms-lid-256")
 ZH_DIALECTS = {"yue", "nan", "hak", "wuu", "hsn", "cpx", "cdo", "czh", "mnp", "gan", "cjy"}
 MIN_SEG_SEC = 0.6

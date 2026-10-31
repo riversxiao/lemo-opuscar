@@ -15,14 +15,17 @@ from typing import Any, Iterable
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_LEDGER = ROOT / "fixtures" / "budget-ledger.jsonl"
+# $WORDFILM_BUDGET_LEDGER (or the upstream name $DC_BUDGET_LEDGER) points runs and
+# the test harness at another ledger so they do not append to the tracked fixture.
+# Read at call time, so a test can set it after import.
+LEDGER_ENV = ("WORDFILM_BUDGET_LEDGER", "DC_BUDGET_LEDGER")
 SHANGHAI = timezone(timedelta(hours=8))
 
-# OpenCode session DB on this box (optional seed import).
+# OpenCode session DB of the current user (optional seed import).
 DEFAULT_OPENCODE_DB = Path(
-    os.environ.get(
-        "LEMO_OPENCODE_DB",
-        "/home/box/.local/share/opencode/opencode.db",
-    )
+    os.environ.get("WORDFILM_OPENCODE_DB")
+    or os.environ.get("LEMO_OPENCODE_DB")
+    or Path.home() / ".local" / "share" / "opencode" / "opencode.db"
 )
 
 
@@ -31,9 +34,11 @@ def now_iso_shanghai() -> str:
 
 
 def ledger_path(path: Path | None = None) -> Path:
-    """Explicit path > $DC_BUDGET_LEDGER (tests point this at /tmp) > fixtures ledger."""
-    if path is None and os.environ.get("DC_BUDGET_LEDGER"):
-        path = Path(os.environ["DC_BUDGET_LEDGER"])
+    """Explicit path > $WORDFILM_BUDGET_LEDGER > $DC_BUDGET_LEDGER > fixtures ledger."""
+    if path is None:
+        env = next((os.environ[k] for k in LEDGER_ENV if os.environ.get(k)), None)
+        if env:
+            path = Path(env)
     return (path or DEFAULT_LEDGER).resolve()
 
 

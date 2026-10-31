@@ -6,13 +6,13 @@ logs secrets. Explicit opt-in only (not in `--provider auto`).
 
 Env (preferred name first):
   ELEVENLABS_API_KEY          required (alias: ELEVEN_API_KEY)
-  ELEVENLABS_VOICE_ID         voice uuid (alias: LEMO_TTS_ELEVENLABS_VOICE);
+  ELEVENLABS_VOICE_ID         voice uuid (alias: WORDFILM_TTS_ELEVENLABS_VOICE);
                               default 21m00Tcm4TlvDq8ikWAM (Rachel, public demo voice)
-  LEMO_TTS_ELEVENLABS_MODEL   default eleven_multilingual_v2
-  LEMO_TTS_ELEVENLABS_BASE    default https://api.elevenlabs.io/v1
-  LEMO_TTS_ELEVENLABS_LANGUAGE  default language for lines without `lang` (auto: CJK → zh, else en)
-  LEMO_TTS_ELEVENLABS_MIXED   single (default) | split — how `lang: mixed` lines are synthesized
-  LEMO_TTS_ELEVENLABS_SEED    optional integer seed (best-effort determinism)
+  WORDFILM_TTS_ELEVENLABS_MODEL   default eleven_multilingual_v2
+  WORDFILM_TTS_ELEVENLABS_BASE    default https://api.elevenlabs.io/v1
+  WORDFILM_TTS_ELEVENLABS_LANGUAGE  default language for lines without `lang` (auto: CJK → zh, else en)
+  WORDFILM_TTS_ELEVENLABS_MIXED   single (default) | split — how `lang: mixed` lines are synthesized
+  WORDFILM_TTS_ELEVENLABS_SEED    optional integer seed (best-effort determinism)
 
 Language (Cantonese drift fix, 贝塔 pilot 2026-10-29): eleven_v4 supports both Mandarin (`zh`)
 and Cantonese (`yue`); both are written in hanzi, so without `language_code` the model guesses
@@ -41,7 +41,7 @@ from typing import Any
 import numpy as np
 import soundfile as sf
 
-from . import http_speech
+from . import env, http_speech
 
 SR = 24000
 DEFAULT_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"  # Rachel — public multilingual demo voice
@@ -62,7 +62,7 @@ def api_key() -> str | None:
 
 
 def base_url() -> str:
-    return (os.environ.get("LEMO_TTS_ELEVENLABS_BASE") or DEFAULT_BASE).rstrip("/")
+    return (env("TTS_ELEVENLABS_BASE") or DEFAULT_BASE).rstrip("/")
 
 
 def voice_id(explicit: str | None = None) -> str:
@@ -71,13 +71,13 @@ def voice_id(explicit: str | None = None) -> str:
         return str(explicit).strip()
     return (
         os.environ.get("ELEVENLABS_VOICE_ID")
-        or os.environ.get("LEMO_TTS_ELEVENLABS_VOICE")
+        or env("TTS_ELEVENLABS_VOICE")
         or DEFAULT_VOICE_ID
     ).strip()
 
 
 def model_id() -> str:
-    return (os.environ.get("LEMO_TTS_ELEVENLABS_MODEL") or DEFAULT_MODEL).strip()
+    return (env("TTS_ELEVENLABS_MODEL") or DEFAULT_MODEL).strip()
 
 
 def _decode_pcm24(raw: bytes) -> np.ndarray:
@@ -174,9 +174,9 @@ def line_lang(L: dict[str, Any], text: str) -> str:
     lg = str(L.get("lang") or "").strip().lower()
     if lg in ("zh", "en", "mixed", "yue"):
         return lg
-    env = (os.environ.get("LEMO_TTS_ELEVENLABS_LANGUAGE") or "").strip().lower()
-    if env:
-        return env
+    default = env("TTS_ELEVENLABS_LANGUAGE").strip().lower()
+    if default:
+        return default
     return "zh" if CJK_RE.search(text) else "en"
 
 
@@ -239,11 +239,11 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
     voice = voice_id(norm_voice(opts.get("voice")))
     model = str(opts.get("model") or model_id())
     speed = opts.get("speed")
-    if speed is None and os.environ.get("LEMO_TTS_ELEVENLABS_SPEED"):
-        speed = float(os.environ["LEMO_TTS_ELEVENLABS_SPEED"])
-    seed = os.environ.get("LEMO_TTS_ELEVENLABS_SEED")
-    seed = int(seed) if seed not in (None, "") else None
-    mixed_mode = (os.environ.get("LEMO_TTS_ELEVENLABS_MIXED") or "single").strip().lower()
+    if speed is None and env("TTS_ELEVENLABS_SPEED"):
+        speed = float(env("TTS_ELEVENLABS_SPEED"))
+    seed = env("TTS_ELEVENLABS_SEED")
+    seed = int(seed) if seed else None
+    mixed_mode = (env("TTS_ELEVENLABS_MIXED") or "single").strip().lower()
     os.makedirs(out_dir, exist_ok=True)
     dur: dict[str, float] = {}
     spoken: dict[str, str] = {}
@@ -296,9 +296,9 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
 def spoken_text(L: dict[str, Any]) -> str:
     """say (or text); in Chinese lines Arabic numbers are spelled in Chinese words
     (97.5% → 百分之九十七点五) — ElevenLabs voices otherwise read them in English.
-    LEMO_TTS_ELEVENLABS_ZH_NUMBERS=0 turns this off."""
+    WORDFILM_TTS_ELEVENLABS_ZH_NUMBERS=0 (legacy LEMO_TTS_ELEVENLABS_ZH_NUMBERS) turns this off."""
     text = str(L.get("say") or L.get("text") or "")
-    if os.environ.get("LEMO_TTS_ELEVENLABS_ZH_NUMBERS", "1") != "0" and re.search(r"[\u4e00-\u9fff]", text):
+    if env("TTS_ELEVENLABS_ZH_NUMBERS", "1") != "0" and re.search(r"[\u4e00-\u9fff]", text):
         try:
             import zh_num  # noqa: PLC0415  (core/tts on sys.path via tts_router)
         except ImportError:
@@ -307,6 +307,6 @@ def spoken_text(L: dict[str, Any]) -> str:
         text = zh_num.spell_numbers(text)
         # say spells acronyms for StepAudio (V-A-R, E-S); eleven_v4 reads the hyphens as Chinese
         # syllables (E-S → "意义 S" in ASR) but plain capitals letter by letter (ES → ES).
-        if os.environ.get("LEMO_TTS_ELEVENLABS_JOIN_LETTERS", "1") != "0":
+        if env("TTS_ELEVENLABS_JOIN_LETTERS", "1") != "0":
             text = re.sub(r"(?<![A-Za-z])[A-Z](?:-[A-Z])+(?![A-Za-z])", lambda m: m.group(0).replace("-", ""), text)
     return text

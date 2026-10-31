@@ -18,7 +18,7 @@ from .common import (
     find_master_mp4,
     html_escape,
     load_shots,
-    probe_duration,
+    resolve_frame,
 )
 
 
@@ -47,7 +47,14 @@ PACKAGE_JSON = {
 }
 
 
-def _index_html(name: str, dur: float, shots: list[dict[str, Any]], video_src: str) -> str:
+def _index_html(
+    name: str,
+    dur: float,
+    shots: list[dict[str, Any]],
+    video_src: str,
+    width: int = 1920,
+    height: int = 1080,
+) -> str:
     # A-roll: full master. Shot markers on track 1 as short title cards (edit hints).
     markers = []
     for sh in shots:
@@ -65,12 +72,12 @@ def _index_html(name: str, dur: float, shots: list[dict[str, Any]], video_src: s
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=1920, height=1080" />
+    <meta name="viewport" content="width={width}, height={height}" />
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
     <style>
       * {{ margin: 0; padding: 0; box-sizing: border-box; }}
       html, body {{
-        margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #000;
+        margin: 0; width: {width}px; height: {height}px; overflow: hidden; background: #000;
       }}
       .marker {{ pointer-events: none; }}
     </style>
@@ -81,8 +88,8 @@ def _index_html(name: str, dur: float, shots: list[dict[str, Any]], video_src: s
       data-composition-id="main"
       data-start="0"
       data-duration="{dur:.3f}"
-      data-width="1920"
-      data-height="1080"
+      data-width="{width}"
+      data-height="{height}"
     >
       <video
         id="a-roll"
@@ -114,6 +121,8 @@ def export_hyperframes(
     out_dir: Path | None = None,
     try_init_cli: bool = False,
     run_lint: bool = False,
+    width: int | None = None,
+    height: int | None = None,
 ) -> dict[str, Any]:
     film_dir = film_dir.resolve()
     name = name or film_dir.name
@@ -125,7 +134,9 @@ def export_hyperframes(
     assets.mkdir()
 
     mp4 = find_master_mp4(film_dir)
-    dur = probe_duration(mp4)
+    frame = resolve_frame(mp4, size=(width, height) if width and height else None)
+    width, height = frame["width"], frame["height"]
+    dur = frame["duration"]
     shots, shot_src, _ = load_shots(film_dir)
     if not shots:
         shots = [
@@ -190,13 +201,13 @@ def export_hyperframes(
     pkg["name"] = f"lemo-hf-{name}"[:64]
     (out / "package.json").write_text(json.dumps(pkg, indent=2) + "\n", encoding="utf-8")
     (out / "meta.json").write_text(
-        json.dumps({"id": name, "name": name, "source": "lemo-opuscar-handoff"}, indent=2)
+        json.dumps({"id": name, "name": name, "source": "wordfilm-handoff"}, indent=2)
         + "\n",
         encoding="utf-8",
     )
 
     (out / "index.html").write_text(
-        _index_html(name, dur, shots, video_src), encoding="utf-8"
+        _index_html(name, dur, shots, video_src, width, height), encoding="utf-8"
     )
 
     lemo_manifest = {
@@ -206,6 +217,9 @@ def export_hyperframes(
         "sourceFilm": str(film_dir),
         "sourceMp4": str(mp4),
         "durationSec": round(dur, 3),
+        "width": width,
+        "height": height,
+        "sizeSource": frame["sizeSource"],
         "shotSource": shot_src,
         "shotCount": len(shots),
         "shots": shots,
@@ -239,6 +253,7 @@ Export-only package from a finished lemo mux. **Not** Opuscar Studio.
 
 - source: `{mp4}`
 - duration: {dur:.3f}s
+- frame: {width}x{height} (from {frame['sizeSource']})
 - shots: **{len(shots)}** (`{shot_src}`) with on-screen markers
 
 ## Runs on this box (no account)
@@ -288,6 +303,9 @@ motion or a bake-off against an already-muxed lemo MP4.
         "out": str(out),
         "mp4": str(mp4),
         "durationSec": round(dur, 3),
+        "width": width,
+        "height": height,
+        "sizeSource": frame["sizeSource"],
         "shotCount": len(shots),
         "shotSource": shot_src,
         "lintOk": lint_ok,

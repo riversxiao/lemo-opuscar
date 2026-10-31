@@ -9,13 +9,13 @@ Limits (official): ≤10 unique voice_ids; keep total characters across
 
 Env:
   ELEVENLABS_API_KEY / ELEVEN_API_KEY     required (shared with single-speaker)
-  LEMO_TTS_ELEVENLABS_BASE                default https://api.elevenlabs.io/v1
-  LEMO_TTS_ELEVENLABS_DIALOGUE_MODEL      preferred eleven_v4 (fallback eleven_v3)
+  WORDFILM_TTS_ELEVENLABS_BASE                default https://api.elevenlabs.io/v1
+  WORDFILM_TTS_ELEVENLABS_DIALOGUE_MODEL      preferred eleven_v4 (fallback eleven_v3)
   ELEVENLABS_VOICE_MAP                    JSON object {"host":"<id>","guest":"<id>",…}
   ELEVENLABS_VOICE_MAP_FILE               path to the same JSON
   ELEVENLABS_VOICE_<SPEAKER>              e.g. ELEVENLABS_VOICE_HOST / _GUEST
   ELEVENLABS_VOICE_ID                     fallback default voice
-  LEMO_TTS_ELEVENLABS_CONTENT_TYPE        market|concept|personal|english → guest voice
+  WORDFILM_TTS_ELEVENLABS_CONTENT_TYPE    market|concept|personal|english → guest voice
                                           (explicit ELEVENLABS_VOICE_GUEST / map still win)
 
 Defaults when nothing is set: host = Tex; guest picked by content type
@@ -44,7 +44,7 @@ import numpy as np
 import soundfile as sf
 
 from . import elevenlabs as EL
-from . import http_speech
+from . import env, http_speech
 
 SR = EL.SR
 MAX_CHARS = 2000
@@ -94,7 +94,7 @@ def normalize_content_type(ct: str | None) -> str:
 
 def content_type_from_env(explicit: str | None = None) -> str:
     return normalize_content_type(
-        explicit or os.environ.get("LEMO_TTS_ELEVENLABS_CONTENT_TYPE") or None
+        explicit or env("TTS_ELEVENLABS_CONTENT_TYPE") or None
     )
 
 
@@ -104,7 +104,7 @@ def guest_voice_for(content_type: str | None) -> str:
 
 def dialogue_model() -> str:
     return (
-        os.environ.get("LEMO_TTS_ELEVENLABS_DIALOGUE_MODEL")
+        env("TTS_ELEVENLABS_DIALOGUE_MODEL")
         or PREFERRED_MODEL
     ).strip()
 
@@ -289,7 +289,7 @@ def synthesize(lines: list[dict[str, Any]], out_dir: str, **opts: Any) -> dict[s
     if not turns:
         sys.exit("tts_router: elevenlabs-dialogue: empty script")
 
-    language = opts.get("language_code") or os.environ.get("LEMO_TTS_ELEVENLABS_LANGUAGE") or None
+    language = opts.get("language_code") or env("TTS_ELEVENLABS_LANGUAGE") or None
     model = opts.get("model") or dialogue_model()
     chunks = chunk_turns(turns)
     os.makedirs(out_dir, exist_ok=True)

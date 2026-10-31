@@ -14,5 +14,10 @@
   "Event openers"
  ],
  "frame_sec": 65.44,
- "dur": 163.6
+ "dur": 163.6,
+ "aspects": [
+  "16:9",
+  "9:16"
+ ],
+ "portrait": "native"
 }

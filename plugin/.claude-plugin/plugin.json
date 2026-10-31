@@ -1,8 +1,8 @@
 {
-  "name": "lemo-opuscar",
-  "description": "Make a film in one of the library's code-rendered styles: your agent directs, draws, scores and mixes it.",
-  "author": { "name": "Lemomo", "url": "https://github.com/lemomo-ai" },
-  "homepage": "https://lemomo-ai.github.io/lemo-opuscar/",
-  "repository": "https://github.com/lemomo-ai/lemo-opuscar",
+  "name": "wordfilm",
+  "description": "Make a film in one of the WordFilm library's code-rendered styles: your agent directs, draws, scores and mixes it.",
+  "author": { "name": "riversxiao", "url": "https://github.com/riversxiao" },
+  "homepage": "https://riversxiao.github.io/wordfilm/",
+  "repository": "https://github.com/riversxiao/wordfilm",
   "license": "MIT"
 }

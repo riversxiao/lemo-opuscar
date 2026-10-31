@@ -1,7 +1,10 @@
 # finance-term — FRM core100 per-term template films
 
-Worked examples: **#42 风险价值 VaR** v001 → `/workspace/films/var-template-v001/` (`examples/042-var.lines.json`);
-**v002** (台词教父 FINAL marks + brand/glossary) → `/workspace/films/var-template-v002/` (+ `-el.mp4` backup) (`examples/042-var-v002.lines.json`).
+Worked examples: **#42 风险价值 VaR** v001 → `$WORDFILM_FILMS/var-template-v001/` (`examples/042-var.lines.json`);
+**v002** (台词教父 FINAL marks + brand/glossary) → `$WORDFILM_FILMS/var-template-v002/` (+ `-el.mp4` backup) (`examples/042-var-v002.lines.json`).
+
+Film paths below use `$WORDFILM_FILMS`, the films root (scripts resolve it as `$WORDFILM_FILMS`, else
+`<repo>/films` when it exists, else `/workspace/films`, where the worked examples were made).
 
 Source list: `/workspace/finance/frm_core100.csv` (box only; 100 rows,
 `序号,英文术语,中文,科目归类`). Not committed — pass its path to `init`.
@@ -14,11 +17,11 @@ Per-term eyebrow + end card via `plan.brand` / `lines.json` `brand` (also CSV co
 
 ## Style finance-v003 + ElevenLabs narration + StepAudio bed (series from 贝塔 pilot, 2026-10-29)
 
-Pilot: **#4 贝塔 Beta** → `/workspace/films/beta-v001/` (`examples/004-beta-v001.lines.json`).
+Pilot: **#4 贝塔 Beta** → `$WORDFILM_FILMS/beta-v001/` (`examples/004-beta-v001.lines.json`).
 
 ```bash
 TTS_PROVIDER=elevenlabs STYLE_VERSION=finance-v003 \
-  bash tools/deepseek-controller/templates/finance-term/build_term.sh /workspace/films/_<term>-term /workspace/films/<name>
+  bash tools/deepseek-controller/templates/finance-term/build_term.sh $WORDFILM_FILMS/_<term>-term $WORDFILM_FILMS/<name>
 # picture/gate fix only (no new EL characters):  REUSE_VOICES=1 … same command
 ```
 
@@ -36,24 +39,26 @@ TTS_PROVIDER=elevenlabs STYLE_VERSION=finance-v003 \
   beats.py cuts at the outro instead of a CSS reframe; pacing density metrics use the spoken part (D − outro).
 - **Duplicate-visual gate**: `visual_dupe.py --project P` grabs one keyframe per shot → `<film>/keyframes/*.png`,
   dHash + layout correlation vs. own shots and the series (erm, var-plain, risk-appetite, var-template-v002 +
-  `/workspace/films/_visual-index/finance.json`); near-duplicate → FAIL. `--register` adds a PASSed film to the index.
+  `<films>/_visual-index/finance.json`); near-duplicate → FAIL. `--register` adds a PASSed film to the index.
+  `<films>` = `--films`, else `$WORDFILM_FILMS`, else the project's own parent or the default films root, whichever
+  holds the series. No comparison film found → WARN with `missingFilms` (never a PASS with nothing compared).
   (Calibration: the old pose-card films FAIL against each other — ham 1–9, corr 0.85–0.95.)
-- **Music**: StepAudio bed from `/workspace/films/_music-library/finance-calm-01` (`--music-library`, raw copied into
+- **Music**: StepAudio bed from `$WORDFILM_FILMS/_music-library/finance-calm-01` (`--music-library`, raw copied into
   `<film>/music/`, no new request; usage recorded in its `meta.json`). Ducked mix → mux −14 LUFS,
-  `LEMO_TP_CEIL=-2.8` + retry above −2.0; quality requires TP ≤ −2 dBTP for v003 films.
+  `WORDFILM_TP_CEIL=-2.8` + `WORDFILM_TP_RETRY_ABOVE=-2.0` (upstream `LEMO_TP_*` names still work); quality requires TP ≤ −2 dBTP for v003 films.
 - quality adds required `visual_content` + `visual_duplicate` once `content/viz.json` exists.
 - **Language (粤语 drift fix, 2026-10-29)**: eleven_v4 speaks both Mandarin and Cantonese from the same hanzi and guessed
   per request (beta-v001 L06 came out Cantonese). The provider now sends `language_code` on every line plus
   `previous_text`/`next_text`. Per-line `lang` in lines.json: `zh` (default for any line with hanzi) · `en` (no hanzi →
   automatic) · `mixed` (Chinese line with English terms: one `zh` request — Tex still reads the English words naturally,
-  seamless). `LEMO_TTS_ELEVENLABS_MIXED=split` = opt-in per-run split (zh/en runs, 40 ms crossfade). `yue` only if a
-  line explicitly asks for it. `LEMO_TTS_ELEVENLABS_SEED` optional.
+  seamless). `WORDFILM_TTS_ELEVENLABS_MIXED=split` = opt-in per-run split (zh/en runs, 40 ms crossfade). `yue` only if a
+  line explicitly asks for it. `WORDFILM_TTS_ELEVENLABS_SEED` optional (`LEMO_` spellings still work).
 - **Dialect gate** `dialect_mandarin` (required when VO exists): `core/tts/dialect_check.py`, Meta MMS-LID-256
-  (`/workspace/_models/mms-lid-256`, or `LEMO_DIALECT_MODEL`; runs in `.venv-spk`). Chinese (zh/mixed) lines FAIL when
+  (`/workspace/_models/mms-lid-256`, or `WORDFILM_DIALECT_MODEL`; runs in `.venv-spk`). Chinese (zh/mixed) lines FAIL when
   a non-Mandarin Chinese label (yue/nan/hak/wuu/…) wins with p ≥ 0.5; `en` lines never fail (WARN if not heard as
   English). Whisper LID cannot tell yue from zh — don't use it. Evidence: `evidence/dialect-check.json`.
   Fix a FAIL by re-TTS of that film (language_code makes it deterministic); never re-word the line.
-- **Draft copy**: `batch_terms.py from-draft --draft /workspace/films/dialogue-drafts/<name>.lines.json --term <term>`
+- **Draft copy**: `batch_terms.py from-draft --draft $WORDFILM_FILMS/dialogue-drafts/<name>.lines.json --term <term>`
   copies `visual`/`lang`/voice into `<term>/src/lines.json` only if every text/say equals the approved line
   (draft folder never written). `elevenlabs:<id>` voice prefix accepted.
 - Same-term earlier takes (beta-v001 when building beta-v002) are skipped by `visual_dupe.py`; a delivered film is
@@ -92,7 +97,7 @@ Still **one memory point per film**, speed 1.0, `PACING=calm`; duration is a cei
   Top tier sizing: Tex ≈ 4.0 字/s + ≈0.6 s/shot + 1.5 s outro → 17 lines ≈ 14.6 s overhead → ≈ 300 字 of speech
   (≈ 17–18 字/line). Ceiling only: a 15-line film that reads in 70 s stays 70 s.
 - `init --lines N` writes an N-line skeleton. An approved 台词教父 draft becomes a term folder with
-  `batch_terms.py init-from-draft --draft /workspace/films/dialogue-drafts/<name>.lines.json --term <term>
+  `batch_terms.py init-from-draft --draft $WORDFILM_FILMS/dialogue-drafts/<name>.lines.json --term <term>
   --approved-by "金融专家 …" [--meta <other-term>/src/term.json] [--cards cards.json]` — reads the draft only
   (refuses a `--term` inside dialogue-drafts), copies say/visual/lang/voice verbatim, one shot per line.
   `cards.json` = `{"cards": {"p0": {"zh": "…", "en": "…"}}, "brand": {…}, "glossary": {…}}` (card `en` ≤40, ASCII `-` not `–`, no `?`).
@@ -123,13 +128,13 @@ blurs (VaR → `V-A-R`, verified ASR "VAR"); captions, srt and ASR expectations 
 ## Batch steps
 
 ```bash
-cd /workspace/lemo-opuscar-deepseek
+cd "$LIB"                                          # the library root
 python3 tools/deepseek-controller/batch_terms.py init --csv /workspace/finance/frm_core100.csv \
-  --out /workspace/films/frm --skip 42              # 99 skeletons: <out>/<NNN>-<slug>/src/lines.json
+  --out $WORDFILM_FILMS/frm --skip 42              # 99 skeletons: <out>/<NNN>-<slug>/src/lines.json
 # 金融专家 fills src/lines.json per term and sets approvedBy/approvedAt (no LLM writes wording)
-python3 tools/deepseek-controller/batch_terms.py plan --term /workspace/films/frm/043-es
-bash tools/deepseek-controller/templates/finance-term/build_term.sh /workspace/films/frm/043-es
-python3 tools/deepseek-controller/batch_terms.py status --out /workspace/films/frm
+python3 tools/deepseek-controller/batch_terms.py plan --term $WORDFILM_FILMS/frm/043-es
+bash tools/deepseek-controller/templates/finance-term/build_term.sh $WORDFILM_FILMS/frm/043-es
+python3 tools/deepseek-controller/batch_terms.py status --out $WORDFILM_FILMS/frm
 ```
 
 States: `awaiting-expert-lines` → `approved` → `planned` → `delivered` (quality PASS) / `quality-FAIL`.
@@ -143,8 +148,8 @@ States: `awaiting-expert-lines` → `approved` → `planned` → `delivered` (qu
   (build_term.sh skips the call while the evidence sha still matches).
 - StepAudio `stepaudio-3-gen-preview` (限时免费), one session request = script chars incl. punctuation + an 8-char tone prefix
   (VaR: 168). Never paid StepFun TTS/ASR. A failed split re-uses the cached take
-  (`voices/_session.json` sha) and retries a second local ASR pass; `LEMO_TTS_STEPAUDIO_REUSE=0`
-  forces a new take.
+  (`voices/_session.json` sha) and retries a second local ASR pass; `WORDFILM_TTS_STEPAUDIO_REUSE=0`
+  forces a new take (`LEMO_TTS_STEPAUDIO_*` spellings still work; `WORDFILM_` wins).
 - Expect ~28–32 s at standard pacing for 7 lines of ~18 字; 14 lines ≈ 60–70 s calm, 17 lines ≈ 85–90 s (duration is a ceiling, never padded).
 - `quality --delivery` must PASS; pacing WARN is report-only.
 
@@ -153,8 +158,8 @@ States: `awaiting-expert-lines` → `approved` → `planned` → `delivered` (qu
 | FAIL | fix |
 |---|---|
 | asr_check: acronym/number misheard | add `say` (pronunciation only) → new check-only → tts |
-| asr_check: a slurred word in the take | `LEMO_TTS_STEPAUDIO_REUSE=0` re-take (free) |
-| asr_check: session take keeps mishearing a phrase (e.g. 多少钱→多大险) | `LEMO_TTS_STEPAUDIO_MODE=line` re-take (still speed 1.0); speaker gate must PASS |
+| asr_check: a slurred word in the take | `WORDFILM_TTS_STEPAUDIO_REUSE=0` re-take (free) |
+| asr_check: session take keeps mishearing a phrase (e.g. 多少钱→多大险) | `WORDFILM_TTS_STEPAUDIO_MODE=line` re-take (still speed 1.0); speaker gate must PASS |
 | pacing interLineGapMax | shots are VO-driven (`beats` 4 minimum); never raise `beats` |
 | pacing shot/frozen | `cli.py pacing-rework --project P --media M` |
 | visual_content (v003) | fix the scene library / data, or a `--override` agreed with 金融专家; never edit the drafts |

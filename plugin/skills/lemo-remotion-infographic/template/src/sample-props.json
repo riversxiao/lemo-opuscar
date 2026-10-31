@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "fps": 24,
+  "aspect": "16:9",
+  "width": 1920,
+  "height": 1080,
+  "durationInFrames": 720,
+  "language": "zh",
+  "topic": "流动性",
+  "transparent": false,
+  "palette": {
+    "bg": "#0E0E0C",
+    "ink": "#F7F5EF",
+    "accent": "#FFC21A",
+    "muted": "#4F4F4C"
+  },
+  "fonts": {
+    "text": "\"Inter Tight\", \"Noto Sans SC\", sans-serif",
+    "display": "\"Inter Tight\", \"Noto Sans SC\", sans-serif"
+  },
+  "scenes": [
+    {
+      "id": "c1",
+      "kind": "title",
+      "role": "hook",
+      "lines": [
+        [
+          {
+            "text": "流动性",
+            "accent": false
+          }
+        ],
+        [
+          {
+            "text": "是什么",
+            "accent": true
+          }
+        ]
+      ],
+      "voText": "钱在账上，不等于随时能用。",
+      "from": 0,
+      "durationInFrames": 119
+    },
+    {
+      "id": "c2",
+      "kind": "compare",
+      "role": "explain",
+      "lines": [],
+      "voText": "现金最快，房产最慢。",
+      "items": [
+        {
+          "label": "现金",
+          "tag": "快",
+          "value": 0.0
+        },
+        {
+          "label": "房产",
+          "tag": "慢",
+          "value": 90.0
+        }
+      ],
+      "from": 119,
+      "durationInFrames": 108
+    },
+    {
+      "id": "c3",
+      "kind": "chart",
+      "role": "evidence",
+      "lines": [
+        [
+          {
+            "text": "周转",
+            "accent": false
+          }
+        ],
+        [
+          {
+            "text": "先断",
+            "accent": true
+          }
+        ]
+      ],
+      "voText": "市场紧张时，先缺的是周转。",
+      "series": [
+        12.0,
+        18.0,
+        27.0,
+        41.0
+      ],
+      "from": 227,
+      "durationInFrames": 120
+    },
+    {
+      "id": "c4",
+      "kind": "caption",
+      "role": "contrast",
+      "lines": [
+        [
+          {
+            "text": "时机",
+            "accent": false
+          }
+        ],
+        [
+          {
+            "text": "改变价格",
+            "accent": true
+          }
+        ]
+      ],
+      "voText": "同一资产，不同时机流动性差很远。",
+      "from": 347,
+      "durationInFrames": 146
+    },
+    {
+      "id": "c5",
+      "kind": "caption",
+      "role": "payoff",
+      "lines": [
+        [
+          {
+            "text": "留一点",
+            "accent": false
+          }
+        ],
+        [
+          {
+            "text": "活钱",
+            "accent": true
+          }
+        ]
+      ],
+      "voText": "留一点随时能用的钱，是保护自己。",
+      "from": 493,
+      "durationInFrames": 146
+    },
+    {
+      "id": "c6",
+      "kind": "end",
+      "role": "end",
+      "lines": [
+        [
+          {
+            "text": "流动性",
+            "accent": false
+          }
+        ]
+      ],
+      "voText": "流动性",
+      "from": 639,
+      "durationInFrames": 81
+    }
+  ],
+  "credits": {
+    "title": "流动性",
+    "author": "riversxiao",
+    "year": "2026",
+    "license": "CC BY 4.0"
+  }
+}

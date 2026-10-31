@@ -1,4 +1,4 @@
-# Directing a Lemo-Opuscar film
+# Directing a WordFilm film
 
 The directing method behind every film in this library. Pair it with one `styles/<slug>/STYLE.md` (the style), [`DIALOGUE.md`](DIALOGUE.md) (spoken lines / VO), and [`TECHNIQUE.md`](TECHNIQUE.md) (how to build).
 
@@ -11,7 +11,7 @@ You are the director, not a tech demo. A film is judged in this order: **sound, 
 The user gives a style and a topic, sometimes more (length, language, voice, must-have shots, brand rules). Everything else is your decision. Ask once, in a single message (AGENTS.md, Workflow), then no more questions. Defaults:
 
 - Length **30–60 s**; shorter and tight beats padded. Beyond two or three minutes multiplies time and token cost: tell the user.
-- 1920×1080 at 24 fps by default; an output frame rate set in the style's `STYLE.md` (30 or 60 fps, for example) wins, and is what you pass to `--fps` and `mux.sh`; other sizes (vertical 1080×1920, for example) with `--size WxH` on the render tools.
+- 1920×1080 at 24 fps by default; an output frame rate set in the style's `STYLE.md` (30 or 60 fps, for example) wins, and is what you pass to `--fps` and `mux.sh`; other sizes (vertical 1080×1920, for example) with `--size WxH` on the render tools. Vertical is a layout of its own, not a crop: use a style whose `style.json` says `"portrait": "native"` (Caption News, Swiss Motion, Pictogram Motion), or lay the page out again for the tall frame and render with `--native`. Other styles' demos are only reframed for 9:16 (the whole 16:9 picture letterboxed over a blurred fill, `core/README.md`): fine for a preview of the look, not a vertical film.
 - Voice and subtitles in the language the user writes in. Subtitles burned in and exported as `.srt`.
 - Loudness −14 LUFS.
 

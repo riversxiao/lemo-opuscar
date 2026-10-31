@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the Claude plugin directory edition of Lemo-Opuscar from main.
+"""Build the Claude plugin directory edition of WordFilm from main.
 
     python3 tools/directory.py <version>                 build into .release/directory/
     python3 tools/directory.py <version> --into <dir>    then sync it into <dir> (a worktree of the `directory` branch);
@@ -14,9 +14,9 @@ import hashlib, json, os, re, shutil, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, '.release', 'directory')
-LIB = 'skills/lemo-opuscar/library'          # where the bundled library sits inside the plugin
-REPO = 'https://github.com/lemomo-ai/lemo-opuscar'
-GALLERY = 'https://lemomo-ai.github.io/lemo-opuscar/'
+LIB = 'skills/lemo-opuscar/library'          # where the bundled library sits inside the plugin (the skill keeps its folder name)
+REPO = 'https://github.com/riversxiao/wordfilm'
+GALLERY = 'https://riversxiao.github.io/wordfilm/'
 
 # what the library keeps (git pathspecs); core/assets/polyhaven models are only used by demo code, which isn't bundled
 KEEP = ['AGENTS.md', 'DIRECTOR.md', 'TECHNIQUE.md', 'MY-STYLES.md', 'LICENSE', 'package.json', 'package-lock.json',
@@ -64,7 +64,8 @@ EDITS = [
     ('core/README.md', '| `… setup.sh demo <slug>` | adds one style\'s demo source and poster (to read, not to render) |\n', ''),
     ('core/README.md', '| edge-tts (Microsoft), online; same outputs as `tts.py`.',
      '| edge-tts (Microsoft), online: sends the text to Microsoft, use it only with the user\'s consent; same outputs as `tts.py`.'),
-    ('core/README.md', '(default `~/lemo-opuscar`)', '(default `~/.lemo-opuscar`)'),
+    ('core/README.md', '(default `~/wordfilm`; an existing `~/lemo-opuscar` library is still used when `~/wordfilm` does not exist)',
+     '(default `~/.wordfilm`; an existing `~/.lemo-opuscar` folder is still used when `~/.wordfilm` does not exist)'),
     # the portal holds a doc that names bundled font files, as a script could run them: say which fonts, not which files
     ('core/fonts/OFL.md', 'The `f0`–`f7.woff2` files are **subsets**', 'The font files in this folder are **subsets**'),
     ('core/fonts/OFL.md', '| `f0.woff2` |', '| one file (see `fonts.css`) |'),
@@ -158,12 +159,12 @@ def build(version):
             p = os.path.join(d, n); h.update(os.path.relpath(p, OUT).encode()); h.update(open(p, 'rb').read())
     write(f'{LIB}/.edition', f'{version}-{h.hexdigest()[:12]}\n')
     plugin = {
-        'name': 'lemo-opuscar',
-        'displayName': 'Lemo-Opuscar',
+        'name': 'wordfilm',
+        'displayName': 'WordFilm',
         'version': version,
         'description': f'{styles} film styles, each with a short film made entirely in code. Pick a style, bring your own story, '
                        'and let Claude direct the film. No video model, no stock footage.',
-        'author': {'name': 'Lemomo', 'url': 'https://github.com/lemomo-ai'},
+        'author': {'name': 'riversxiao', 'url': 'https://github.com/riversxiao'},
         'homepage': REPO,
         'repository': REPO,
         'documentationUrl': f'{REPO}#how-to-use',                     # else the portal picks the first link in our README

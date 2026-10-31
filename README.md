@@ -40,10 +40,11 @@ Use this path day-to-day. Do **not** install the upstream Claude Code plugin.
 
 ```sh
 git clone https://github.com/riversxiao/wordfilm.git
-cd lemo-opuscar
+cd wordfilm
 
 # Optional: pin a DeepSeek control-layer commit (full 40-char SHA; not bare upstream 413a6bd)
-export LEMO_OPUSCAR_PIN=f3d2e1c934be18ac4cb816ecaa5e9d27176afaae
+# (the pre-rename name LEMO_OPUSCAR_PIN still works; likewise WORDFILM_HOME / WORDFILM_REPO)
+export WORDFILM_PIN=f3d2e1c934be18ac4cb816ecaa5e9d27176afaae
 
 sh plugin/skills/lemo-deepseek/scripts/setup.sh
 sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
@@ -79,6 +80,20 @@ Loop: TREATMENT → `setup.sh demo <slug>` → content layer only → still → 
   - **Official DeepSeek API (recommended if you have a key)**: in OpenCode run `/connect` → choose `deepseek` → paste `DEEPSEEK_API_KEY` (from [platform.deepseek.com](https://platform.deepseek.com)) → model `deepseek-flash` (or `deepseek-v4-pro`); base URL `https://api.deepseek.com`
   - **OpenRouter fallback**: `openrouter/deepseek/deepseek-v4.1-flash`
   - **OpenCode free tier**: `opencode/deepseek-v4.1-flash-free` (may run out of quota — switch to one of the above)
+
+### Vertical 9:16
+
+- Render tools take `--size 1080x1920` (`still.mjs`, `events.mjs`, `readcheck.mjs`, `video.mjs`); pages lay out from `innerWidth` × `innerHeight`.
+- Native portrait layouts (their own composition, not a crop): **Caption News** (1080×1560 footage band, two-line caption card under it) **Swiss Motion** (page on top, poster below, wrapped statements) and **Pictogram Motion** (figure on its sun in the upper half, titles stacked below inside the platform safe area, long titles stepped down or wrapped to two lines). Each style lists its frames in `style.json` `aspects` and says `"portrait": "native"` or `"reframe"`.
+- Every other style is **reframed** for 9:16: the demo renders at 1920×1080 and the whole 16:9 picture (nothing cropped, all text kept) sits in the middle of the tall frame over a blurred copy of itself (or a flat `portraitFill` colour). `still.mjs` and `video.mjs` do this on their own and say so in one line; `--native` renders the page at the portrait size instead. A style gets a native layout by branching on `innerWidth` / `innerHeight` like Caption News' `P(land, port)` helper (see `core/README.md`, **Portrait reframe**).
+- Controller plans: `"aspect": "9:16"` (default `"16:9"`) for all three engines (Caption News, Swiss Motion, Pictogram Motion).
+- NLE handoff: `handoff --size 1080x1920 --fps 30`, or leave them out and the size and fps are read from the master with ffprobe.
+
+### Coming from Lemo-Opuscar
+
+- **Plugin id changed.** The plugin is now `wordfilm@wordfilm` (marketplace `riversxiao/wordfilm`); an install named `lemo-opuscar@lemolab` does not get this fork's updates. Switch with `claude plugin uninstall lemo-opuscar@lemolab`, `claude plugin marketplace add riversxiao/wordfilm`, `claude plugin install wordfilm@wordfilm` (then `claude plugin marketplace remove lemolab` if nothing else uses it).
+- **Library clones made by `setup.sh`** (marked `lemo.managed`, e.g. `~/lemo-opuscar`) keep their folder, but on the next run their `origin` moves to this fork and they are reset to its `main`. Nothing of yours should live in them; copy out any edits first. To stay on the upstream, set `WORDFILM_REPO=https://github.com/lemomo-ai/lemo-opuscar.git` (the Claude skill only: the DeepSeek skill needs this fork's overlay). Clones you made yourself are never reset.
+- **Environment.** `LEMO_OPUSCAR_HOME` / `_REPO` / `_PIN` still work; the `WORDFILM_*` names win when both are set.
 
 ---
 

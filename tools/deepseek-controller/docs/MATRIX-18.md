@@ -1,7 +1,7 @@
 # 18-film comparison matrix (full factorial)
 
 **Epic:** same vocab card × style × path — full factorial 3×3×2 = **18** cells.  
-**Library:** `/workspace/lemo-opuscar-deepseek`  
+**Library:** this repo (`$LIB` = the WordFilm checkout; the recorded runs used a clone under `/workspace`)  
 **Film root:** `/workspace/films/`  
 **Canonical dir:** `/workspace/films/matrix-{topic}-{style}-{path}/`  
 **Tracker:** [`../fixtures/matrix-18.json`](../fixtures/matrix-18.json) · CLI: `python3 tools/deepseek-controller/cli.py matrix`
@@ -87,6 +87,55 @@ Retrofits (metadata / evidence only, no re-render):
 
 Honest misses: Flash wrote longer caption copy than the locked 30s caption timeline allows. No K-scale / no fake pass — M14/M16 stay **muxed** until copy is cut and re-rendered.
 
+Root-cause fixes landed (no re-render yet, status unchanged):
+
+- **Overrun guard.** The schedule already failed (32.25s / 31.25s > 30s), but nothing stopped the pipeline from applying the cues and rendering anyway: the Flash run backed up/restored `timeline.json` around `schedule` and the render went ahead. Now `schedule` for caption-news also checks the copy against the locked `main.js` `DUR` (even when `targetDurationSec` or `--target` would allow more) and names the shots to trim, e.g. `copy overruns the locked caption-news timeline by 2.25s: content 32.25s > locked 30.00s; trim shots: c7 (30.00-32.25s)`. `apply_caption_timeline.py` refuses a failed or overrunning `timeline.parsed.json` unless `--force` (diagnostics only). Covered by `tests/test_mvp.sh` (32.25s plan against a 30s lock).
+- **ASR lexicon.** `asr_homophones.json` now lists 复立 in the 复利 class, so `--asr-mode=zh-homophone-tolerant` clears the M14 L05 residual (复利 heard as 复立). Covered by `tests/test_mvp.sh`.
+- **Trimmed copy (in-repo).** [`../fixtures/matrix-18/m14-trimmed/`](../fixtures/matrix-18/m14-trimmed/) and [`../fixtures/matrix-18/m16-trimmed/`](../fixtures/matrix-18/m16-trimmed/) hold the cut copy as the controller writes it (`content/plan.json`, `lines.json` with DIALOGUE.md `function`/`want`, `timeline_content.json`, ...) plus `voices/dur.json` measured from edge `zh-CN-YunxiNeural` at +0% (2026-10-29). See **M14 / M16 trimmed copy** below.
+- **Still to do:** M14 and M16 need a re-render with the trimmed copy (and a fresh `--delivery` gate) on a machine that has the film files under the films root (`$WORDFILM_FILMS`, `<repo>/films` or `/workspace/films`). Until then they stay **muxed**: the fixtures prove the copy fits, not that the film passes.
+
+### M14 / M16 trimmed copy
+
+Budget: the seed `main.js` locks `DUR = 30`. Under the default `standard` pacing profile (`pacing_profile.py`, docs/PACING.md) each caption shot costs its VO plus 0.40s (enter 0.15 + settle 0.15 + exit 0.10), snapped up to the 0.25s grid; the end card (c6, no VO) takes its reading time on the grid, and the schedule adds the profile's 1.0s end-card outro after it. The target is a ceiling: nothing pads the film up to 30s. The cut copy was written when a shot cost VO + 0.95s (enter 0.35 + settle 0.35 + exit 0.25) and the schedule padded to the target; the "old rule" column keeps those numbers. `dialogue-check` estimates at the profile's 5.3 字/s, so it passes these lines both with `--target 20` and against the whole 30s.
+
+| cell | VO | 字 | measured VO | content, old rule | content (standard pacing) | scheduled (with outro) | dialogue-check `--target 20` |
+|---|---|---|---|---|---|---|---|
+| M14 fuli | 一块钱存着不动，三十年后会变成多少？ / 利息滚回本金，第二年连利息一起生利息。 / 按年利率百分之七算，三十年后接近七块六。 / 中途取出花掉，后面的雪球就滚不动了。 / 复利靠的不是押对一次，是时间不被打断。 | 84 | 22.34s | 29.50s (was 32.25s), padded to 30.00s | **26.25s** | 27.25s | PASS |
+| M16 fensan | 分散投资，不是把鸡蛋随手乱撒。 / 股票、债券和现金，涨跌往往不同步。 / 全押一类资产，一次下跌就全部砸中。 / 多配一类走势不同的资产，就少一次同时踩坑。 / 分散省不掉风险，但能给你留下回旋余地。 | 78 | 21.41s | 29.00s (was 31.25s), padded to 30.00s | **25.50s** | 26.50s | PASS |
+
+The measured VO is edge at +0%; a re-render now speaks at the profile's edge rate (+10%), so the real lines come out shorter still.
+
+The 7% figure is arithmetic (1.07^30 ≈ 7.61). `tests/test_mvp.sh` (21c) validates both plans, runs `dialogue-check --target 20` and `schedule --require-vo` against a `DUR = 30` lock and requires content ≤ 29.50s, scheduled ≤ 30s with no pad and no lock overrun.
+
+Re-render on a machine with the films (run from the library root; `F` is the films root):
+
+```bash
+LIB=$(git rev-parse --show-toplevel); cd "$LIB"
+F=${WORDFILM_FILMS:-$LIB/films}             # or /workspace/films
+CTL=tools/deepseek-controller
+for cell in m14:fuli m16:fensan; do
+  id=${cell%%:*}; topic=${cell#*:}
+  P="$F/matrix-$topic-caption-flash"
+  mkdir -p "$P/content/flash-overrun" && cp -f "$P"/content/*.json "$P/content/flash-overrun/"   # keep the 32.25s / 31.25s copy as evidence
+  cp -f "$CTL/fixtures/matrix-18/$id-trimmed/content/"{plan,lines,timeline_content}.json "$P/content/"
+  python3 $CTL/cli.py validate "$P/content/plan.json"
+  python3 $CTL/cli.py dialogue-check --project "$P" --target 20
+  python3 $CTL/cli.py dialogue-loop --project "$P" --target 20 --item "matrix $id trimmed"   # needs DEEPSEEK_API_KEY; tts refuses lines without a loop PASS
+  python3 $CTL/cli.py tts --project "$P" --provider edge --voice zh-CN-YunxiNeural --target 20
+  mkdir -p "$P/audio/vo" && cp -f "$P"/voices/*.wav "$P/voices/dur.json" "$P/audio/vo/"
+  python3 $CTL/post_tts.py --project "$P"
+  python3 $CTL/cli.py schedule --project "$P" --require-vo     # must print OK; content <= 30s, no lock overrun
+  python3 $CTL/mix_vo_only.py --project "$P"
+  node core/render/still.mjs "$P" 1.0 12.0 24.0 29.0 --out "$P/out/still" --prefix k_
+  node core/render/video.mjs "$P" --fps 30 --workers 3 --out "$P/out/video.mp4"
+  sh core/render/mux.sh "$P/out/video.mp4" "$P/out/mix.wav" "$P/matrix-$topic-caption-flash.mp4" 30 0
+  python3 $CTL/cli.py quality --project "$P" --media "$P/matrix-$topic-caption-flash.mp4" \
+    --delivery --asr-mode zh-homophone-tolerant
+done
+```
+
+Checked here (2026-10-29, no films, no DeepSeek key): `validate`, `dialogue-check --target 20` and `schedule` pass on both fixtures; `cli.py tts` stops at the dialogue-loop gate without a key, as designed. If the loop revises a line, keep it within the same 字 count or `schedule` will fail on the lock. Compare the new `voices/dur.json` with the fixture: a different Edge voice build can move a line by a few tenths of a second, and `schedule` will name the shot to cut if it does. When `quality --delivery` passes, set the cell to `delivery-pass` in [`../fixtures/matrix-18.json`](../fixtures/matrix-18.json) with the evidence path and update the tables above.
+
 ### Improved siblings (not separate matrix cells)
 
 | Better cut | Related cell | Why |
@@ -147,8 +196,8 @@ python3 tools/deepseek-controller/cli.py matrix --path flash  # only flash cells
 
 **Matrix 18/18 filled, 16/18 delivery-pass** (2026-10-29 Asia/Shanghai). Follow-ups:
 
-1. **M14** fuli×caption×flash: cut VO/copy to fit 30s (schedule 32.25s) + ASR lexicon 复立→复利, re-render, re-gate
-2. **M16** fensan×caption×flash: trim copy to fit 30s (schedule 31.25s), re-render, re-gate
+1. **M14** fuli×caption×flash: copy cut to fit 30s (was 32.25s, now 29.50s under the old shot overhead and 26.25s under standard pacing: `fixtures/matrix-18/m14-trimmed/`); re-render and re-gate per **M14 / M16 trimmed copy** above. ASR lexicon 复立→复利 is in `asr_homophones.json`.
+2. **M16** fensan×caption×flash: copy cut to fit 30s (was 31.25s, now 29.00s under the old shot overhead and 25.50s under standard pacing: `fixtures/matrix-18/m16-trimmed/`); re-render and re-gate the same way
 3. Optional polish: Caption Commons packs for diversify/compound cells; Swiss German-poster literal rebrand
 4. See [BUDGET.md](BUDGET.md) · [EXPERTS.md](EXPERTS.md)
 

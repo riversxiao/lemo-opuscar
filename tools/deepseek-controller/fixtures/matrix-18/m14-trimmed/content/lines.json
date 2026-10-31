@@ -1,0 +1,47 @@
+[
+  {
+    "id": "L01",
+    "text": "一块钱存着不动，三十年后会变成多少？",
+    "shotId": "c1",
+    "voice": "zh-CN-YunxiNeural",
+    "speed": 1.0,
+    "want": "设问开场",
+    "function": "hook"
+  },
+  {
+    "id": "L02",
+    "text": "利息滚回本金，第二年连利息一起生利息。",
+    "shotId": "c2",
+    "voice": "zh-CN-YunxiNeural",
+    "speed": 1.0,
+    "want": "讲清机制",
+    "function": "evidence"
+  },
+  {
+    "id": "L03",
+    "text": "按年利率百分之七算，三十年后接近七块六。",
+    "shotId": "c3",
+    "voice": "zh-CN-YunxiNeural",
+    "speed": 1.0,
+    "want": "给出数字",
+    "function": "evidence"
+  },
+  {
+    "id": "L04",
+    "text": "中途取出花掉，后面的雪球就滚不动了。",
+    "shotId": "c4",
+    "voice": "zh-CN-YunxiNeural",
+    "speed": 1.0,
+    "want": "反面",
+    "function": "turn"
+  },
+  {
+    "id": "L05",
+    "text": "复利靠的不是押对一次，是时间不被打断。",
+    "shotId": "c5",
+    "voice": "zh-CN-YunxiNeural",
+    "speed": 1.0,
+    "want": "收束",
+    "function": "payoff"
+  }
+]

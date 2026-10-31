@@ -9,15 +9,29 @@
   python3 tools/release.py pack      build the asset packs in .release/ and write tools/assets.json (their size and sha256)
   python3 tools/release.py upload    upload what the releases lack: packs whose sha256 differs, films and web cuts whose size differs
   python3 tools/release.py verify    list what upload would do; exit 1 if anything is missing or different. Changes nothing
+  python3 tools/release.py pages [owner/repo]
+                                is GitHub Pages on for the repo (default REPO) and deployed by GitHub Actions (pages.yml)?
+                                exit 0 only then; otherwise says what a repo admin has to switch on. pages.yml runs it first
 
 Needs the GitHub CLI (`gh auth login`) for upload and verify. Usually run through tools/publish.sh.
+
+Which GitHub repo: films and web cuts go to $WORDFILM_RELEASE_REPO (default riversxiao/wordfilm, this fork). The asset
+packs stay on the repo that already hosts them, the `repo` field of tools/assets.json (today the upstream
+lemomo-ai/lemo-opuscar, which tools/fetch.sh downloads from); `pack` keeps that field. Only an explicitly set
+WORDFILM_RELEASE_REPO moves the packs: then pack writes it into assets.json and upload/verify use it for the packs too.
+Films the upstream already hosts keep their upstream links: upload/verify compare each film and web cut against the repo
+tools/films.json names for it (the file's default, the upstream, when it is not listed) and push to REPO only what that host
+lacks or holds at another size. upload records each film it puts on REPO in tools/films.json (commit it; verify warns while
+it is uncommitted), styleboard/build.py links every full film from there, and pages.yml lays REPO's web cuts over the
+upstream's and checks that every full-quality link is on its release.
 """
 import glob, hashlib, json, os, re, shutil, subprocess, sys, tarfile, tempfile
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-REPO = 'lemomo-ai/lemo-opuscar'
+REPO = os.environ.get('WORDFILM_RELEASE_REPO') or 'riversxiao/wordfilm'   # films and web cuts
 OUT = os.path.join(ROOT, '.release')
 MANIFEST = os.path.join(ROOT, 'tools', 'assets.json')
+FILM_HOSTS = os.path.join(ROOT, 'tools', 'films.json')   # {default: repo, films: {slug: repo}}: where each full film is
 MAX_MB = 5
 SAMPLE_LIBS = ('freepats', 'karoryfer', 'salamander', 'vcsl', 'vsco2ce')
 
@@ -27,6 +41,7 @@ PACKS = {
     'hdri': ['core/assets/polyhaven/lythwood_lounge_2k.hdr', 'core/assets/polyhaven/photo_studio_loft_hall_2k.hdr'],
     **{f'instruments-{lib}': ['core/audio/instruments/index.json', f'core/audio/instruments/{lib}'] for lib in SAMPLE_LIBS},
 }
+ASPECT = re.compile(r'[1-9][0-9]*:[1-9][0-9]*')
 STYLE_FIELDS = ('slug', 'en', 'cn', 'category_en', 'category_cn', 'film', 'line', 'line_cn', 'frame_sec')
 SIGN_OFF = re.compile(r'(?i:lemolab)|Opus 5\.5|Sign-off')
 # a home folder may be `Alice Smith` (up to three words, none ending in a dot, so a sentence isn't swallowed); /root/ counts when a path follows it
@@ -43,7 +58,7 @@ def git(*a):
     if os.path.isdir(os.path.join(ROOT, '.git')):
         cmd = ['git', '-C', ROOT]
     else:
-        gd = os.path.join(tempfile.gettempdir(), 'lemo-opuscar-probe.git')
+        gd = os.path.join(tempfile.gettempdir(), 'wordfilm-probe.git')
         if not os.path.isdir(gd): subprocess.run(['git', 'init', '-q', '--bare', gd], check=True)
         cmd = ['git', f'--git-dir={gd}', f'--work-tree={ROOT}']
     return subprocess.run(cmd + list(a), cwd=ROOT, capture_output=True, text=True, check=True).stdout.split('\0')
@@ -108,6 +123,16 @@ def style_format(slugs, bad):
             miss = [k for k in STYLE_FIELDS if meta.get(k) in (None, '')]
             if miss: probs.append('style.json lacks ' + ', '.join(miss))
             elif meta['slug'] != slug: probs.append(f'style.json says slug "{meta["slug"]}"')
+            asp = meta.get('aspects')   # optional: the frame shapes the demo has its own layout for (default ["16:9"])
+            if asp is not None and not (isinstance(asp, list) and asp and all(isinstance(a, str) and ASPECT.fullmatch(a) for a in asp)):
+                probs.append('style.json aspects must be a non-empty list like ["16:9", "9:16"]')
+            # portrait: "native" = the demo has its own 9:16 layout, "reframe" = core/render/reframe.mjs letterboxes the 16:9 frame
+            por, has916 = meta.get('portrait'), '9:16' in (asp or [])
+            if por not in ('native', 'reframe'): probs.append('style.json portrait must be "native" or "reframe"')
+            elif (por == 'native') != has916: probs.append('style.json portrait "native" goes with "9:16" in aspects, "reframe" without it')
+            fill = meta.get('portraitFill')
+            if fill is not None and not (fill == 'blur' or (isinstance(fill, str) and re.fullmatch(r'#[0-9a-fA-F]{6}', fill))):
+                probs.append('style.json portraitFill must be "blur" or a colour like "#101010"')
         except FileNotFoundError: pass
         except ValueError as e: probs.append(f'style.json is not valid JSON ({e})')
         if os.path.isfile(os.path.join(d, 'STYLE.md')):
@@ -294,28 +319,42 @@ def pack():
         dst = tar(f'{name}.tar', paths)
         man[name] = dict(file=f'{name}.tar', size=os.path.getsize(dst), sha256=sha(dst))
         print(f'  {name}.tar  {man[name]["size"] / 1e6:.0f} MB')
-    json.dump(dict(repo=REPO, tag='assets', packs=man), open(MANIFEST, 'w'), indent=1)
+    json.dump(dict(repo=asset_repo(), tag='assets', packs=man), open(MANIFEST, 'w'), indent=1)
     print(f'→ {os.path.relpath(MANIFEST, ROOT)}')
 
 
-def gh(*a, check=True):
-    r = subprocess.run(['gh', *a, '--repo', REPO], cwd=ROOT, capture_output=True, text=True)
+def asset_repo():
+    """the repo hosting the asset packs: an explicit $WORDFILM_RELEASE_REPO, else the one tools/assets.json names, else REPO."""
+    return os.environ.get('WORDFILM_RELEASE_REPO') or load('tools/assets.json', {}).get('repo') or REPO
+
+
+def gh(*a, check=True, repo=None):
+    r = subprocess.run(['gh', *a, '--repo', repo or REPO], cwd=ROOT, capture_output=True, text=True)
     if check and r.returncode: sys.exit(f'✗ gh {" ".join(a[:3])} failed: {(r.stderr or r.stdout).strip()[:300]}')
     return r
 
 
-def remote(tag):
-    """{name: (size, sha256 or None)} of a release; {} when the release doesn't exist yet."""
-    r = gh('release', 'view', tag, '--json', 'assets', check=False)
+def remote(tag, repo=None):
+    """{name: (size, sha256 or None)} of a release (on REPO, or asset_repo() for the packs); {} when it doesn't exist yet."""
+    r = gh('release', 'view', tag, '--json', 'assets', check=False, repo=repo or (asset_repo() if tag == 'assets' else REPO))
     if r.returncode: return {}
     return {a['name']: (a['size'], (a.get('digest') or '').removeprefix('sha256:') or None) for a in json.loads(r.stdout).get('assets', [])}
 
 
+def film_host(slug):
+    """the repo whose films/web releases host <slug> today: its tools/films.json entry, else the file's default."""
+    hosts = load('tools/films.json', {})
+    return hosts.get('films', {}).get(slug) or hosts.get('default') or 'lemomo-ai/lemo-opuscar'
+
+
 def plan():
     """[(tag, local path, why)] of everything the releases lack. Packs are compared by sha256 (a changed tar is often the
-    same size), films and web cuts by size."""
+    same size), films and web cuts by size, against the repo tools/films.json names for that film: a film its host (the
+    upstream, say) already has at this size is left there; one it lacks, or holds at another size, goes to REPO."""
     if not shutil.which('gh'): sys.exit('✗ the GitHub CLI (gh) is needed: https://cli.github.com, then gh auth login')
     rel = {t: remote(t) for t in ('assets', 'films', 'web')}
+    hosted = {}                                                          # (tag, repo) -> remote(tag, repo), fetched once
+    def on(tag, repo): return rel[tag] if repo == REPO else hosted.setdefault((tag, repo), remote(tag, repo))
     todo = []
     styles = style_slugs()
     features = [os.path.basename(f)[:-4] for f in glob.glob(os.path.join(OUT, 'films', '*.mp4')) if os.path.basename(f)[:-4] not in styles]
@@ -324,8 +363,15 @@ def plan():
         if not os.path.isfile(film): continue                            # unfinished, or its film is on another machine
         for tag, path in (('films', film), ('web', os.path.join(OUT, 'web', slug + '.mp4'))):
             if not os.path.isfile(path): todo.append((tag, None, f'{slug}.mp4: no local file (sh tools/web_cuts.sh)')); continue
-            have = rel[tag].get(slug + '.mp4')
-            if not have or have[0] != os.path.getsize(path): todo.append((tag, path, 'missing' if not have else 'size differs'))
+            host = film_host(slug)
+            have = on(tag, host).get(slug + '.mp4')
+            if have and have[0] == os.path.getsize(path): continue
+            if host != REPO:                                             # not on its host as it is here: does REPO have it?
+                have = rel[tag].get(slug + '.mp4')
+                if have and have[0] == os.path.getsize(path):
+                    if tag == 'films': todo.append(('films.json', path, f'on {REPO} but tools/films.json names {host}'))
+                    continue
+            todo.append((tag, path, 'missing' if not have else 'size differs'))
     for p in load('tools/assets.json', {}).get('packs', {}).values():
         have, path = rel['assets'].get(p['file']), os.path.join(OUT, p['file'])
         if have and (have[1] == p['sha256'] if have[1] else have[0] == p['size']): continue
@@ -339,22 +385,101 @@ def upload():
     blocked = [w for t, p, w in todo if p is None]
     if blocked: sys.exit('✗ nothing uploaded; first fix:\n  ' + '\n  '.join(blocked))
     for tag, title in (('assets', 'Assets (fetched by tools/fetch.sh)'), ('films', 'Films (full quality)'), ('web', 'Web cuts (720p, copied into the gallery)')):
-        if gh('release', 'view', tag, check=False).returncode:
-            gh('release', 'create', tag, '--title', title, '--notes', 'Rolling release, updated by tools/publish.sh.', '--latest=false')
+        repo = asset_repo() if tag == 'assets' else REPO
+        if gh('release', 'view', tag, check=False, repo=repo).returncode:
+            gh('release', 'create', tag, '--title', title, '--notes', 'Rolling release, updated by tools/publish.sh.', '--latest=false', repo=repo)
     for tag, path, why in sorted(todo, key=lambda x: x[0] == 'assets'):   # films first: the gallery streams them
+        if tag == 'films.json': record_film_host(os.path.basename(path)[:-4]); continue   # already uploaded, just not recorded
         if tag == 'assets' and sha(path) != next(p['sha256'] for p in load('tools/assets.json', {})['packs'].values() if p['file'] == os.path.basename(path)):
             sys.exit(f'✗ {path} changed since `pack`: run python3 tools/release.py pack again')
         print(f'  ↑ {tag}/{os.path.basename(path)}  {os.path.getsize(path) / 1e6:.0f} MB  ({why})')
-        gh('release', 'upload', tag, path, '--clobber')
+        gh('release', 'upload', tag, path, '--clobber', repo=asset_repo() if tag == 'assets' else REPO)
+        if tag == 'films': record_film_host(os.path.basename(path)[:-4])
     print('  ✓ releases up to date')
+
+
+def record_film_host(slug, repo=None):
+    """note in tools/films.json that REPO's films release now hosts <slug>.mp4 (the gallery links it from there)."""
+    repo = repo or REPO
+    hosts = json.load(open(FILM_HOSTS, encoding='utf-8')) if os.path.isfile(FILM_HOSTS) else {'default': 'lemomo-ai/lemo-opuscar', 'films': {}}
+    films = hosts.setdefault('films', {})
+    if films.get(slug) == repo or (slug not in films and hosts.get('default') == repo): return
+    films[slug] = repo
+    hosts['films'] = dict(sorted(films.items()))
+    with open(FILM_HOSTS, 'w', encoding='utf-8') as f: json.dump(hosts, f, indent=1, ensure_ascii=False); f.write('\n')
+    print(f'  → tools/films.json: {slug} on {repo} (commit it so the gallery links the film there)')
 
 
 def verify():
     todo = plan()
     for tag, path, why in todo: print(f'  ✗ {tag}: ' + (f'{os.path.basename(path)} {why}' if path else why))
+    if any(x.strip() for x in git('status', '--porcelain', '--', 'tools/films.json')):   # upload just recorded films there
+        print('  ! tools/films.json has uncommitted changes: commit it with this release, or the gallery keeps linking those'
+              ' films to a repo that does not host them')
     if todo: sys.exit(1)
     print('  ✓ the releases hold every pack in tools/assets.json and every film and web cut on this machine')
 
 
+PAGES_FIX = ('a repo admin opens https://github.com/{repo}/settings/pages and sets Build and deployment > Source to'
+             ' "GitHub Actions" (or runs: gh api -X POST repos/{repo}/pages -f build_type=workflow), then re-runs the'
+             ' gallery workflow; the site is then https://{owner}.github.io/{name}/')
+
+
+def pages_status(repo):
+    """(state, info) of the repo's GitHub Pages site: state is 'workflow' (deployed by pages.yml), 'legacy' (built from a
+    branch, so pages.yml's deploy is ignored), 'disabled' (404: Pages is off), 'served' (no gh: the site answers, build
+    type unknown) or 'unknown' (403, network, no gh and no site...)."""
+    if shutil.which('gh'):
+        r = subprocess.run(['gh', 'api', f'repos/{repo}/pages'], cwd=ROOT, capture_output=True, text=True)
+        out, err = r.stdout.strip(), (r.stderr or '').strip()
+        if r.returncode == 0:
+            try: info = json.loads(out)
+            except ValueError: return 'unknown', {'error': f'gh api returned no JSON: {out[:200]}'}
+            return ('workflow' if info.get('build_type') == 'workflow' else 'legacy'), info
+        code = re.search(r'HTTP (\d{3})', err + out)
+        code = int(code.group(1)) if code else None
+    else:
+        # no gh: the REST endpoint answers 404 to anonymous callers even when Pages is on, so only the site itself can be
+        # probed. That tells served or not, never how it is built.
+        import urllib.error, urllib.request
+        owner, _, name = repo.partition('/')
+        url = f'https://{owner.lower()}.github.io/{name}/'
+        try:
+            urllib.request.urlopen(urllib.request.Request(url, method='HEAD'), timeout=15)
+            return 'served', {'html_url': url}
+        except urllib.error.HTTPError as e:
+            return 'unknown', {'http': e.code, 'error': f'no gh CLI, and {url} answers HTTP {e.code}'}
+        except OSError as e:
+            return 'unknown', {'error': f'no gh CLI, and {url} could not be fetched: {e}'}
+    if code == 404: return 'disabled', {'http': 404}
+    return 'unknown', {'http': code, 'error': err[:300]}
+
+
+def pages():
+    """python3 tools/release.py pages [owner/repo]: is GitHub Pages on, and deployed by pages.yml? exit 0 only then."""
+    repo = next((a for a in sys.argv[2:] if not a.startswith('--')), None) or REPO
+    owner, _, name = repo.partition('/')
+    fix = PAGES_FIX.format(repo=repo, owner=owner.lower(), name=name)
+    def fail(msg):
+        if os.environ.get('GITHUB_ACTIONS'): print('::error title=GitHub Pages::' + msg.removeprefix('✗ '))
+        sys.exit(msg)
+    state, info = pages_status(repo)
+    if state == 'workflow':
+        print(f'  ✓ GitHub Pages is on for {repo}, deployed by GitHub Actions (pages.yml): {info.get("html_url") or "?"}')
+        return
+    if state == 'served':
+        print(f'  ✓ {info["html_url"]} is served (no gh CLI, so whether pages.yml deploys it is not checked; gh auth login'
+              ' and re-run to see the build type)')
+        return
+    if state == 'legacy':
+        src = info.get('source') or {}
+        fail(f'✗ GitHub Pages on {repo} builds from the branch {src.get("branch")}:{src.get("path")} (build_type '
+             f'{info.get("build_type")}), so the gallery pages.yml deploys are not served: {fix}')
+    if state == 'disabled':
+        fail(f'✗ GitHub Pages is not enabled for {repo} (GET repos/{repo}/pages: 404): {fix}')
+    fail(f'✗ cannot tell whether GitHub Pages is on for {repo} ({info.get("http") or "no answer"}: '
+         f'{info.get("error") or "?"}). Check https://github.com/{repo}/settings/pages; to enable it: {fix}')
+
+
 if __name__ == '__main__':
-    {'check': check, 'pack': pack, 'upload': upload, 'verify': verify}[sys.argv[1] if len(sys.argv) > 1 else 'check']()
+    {'check': check, 'pack': pack, 'upload': upload, 'verify': verify, 'pages': pages}[sys.argv[1] if len(sys.argv) > 1 else 'check']()

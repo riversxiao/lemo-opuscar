@@ -1,4 +1,5 @@
-// Dump the page's on-screen text registry: node texts_dump.mjs <film> [--step 0.1] [--times 1,2.5] [--size 1920x1080]
+// Dump the page's on-screen text registry: node texts_dump.mjs <film> [--step 0.1] [--times 1,2.5] [--size WxH]
+// --size defaults to 1920x1080; visual_check.py passes the project's render size (content/engine.lock.json aspect).
 // Prints JSON {dur, W, H, frames:[{t, texts:[{id,text,x0,y0,x1,y1}]}]} using the same window.TEXTS(t)
 // contract readcheck.mjs uses (core/render/readcheck.mjs header). Read-only; engine files untouched.
 import { openDemo, closeServer, requireDemo, takeSize } from '../../core/render/page.mjs';

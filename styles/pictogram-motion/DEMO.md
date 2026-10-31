@@ -180,6 +180,24 @@ Pitfalls we hit (several are tied to this demo's props):
 - **Horizontal poses** (swimming) need the stage moved right (`wide`: disc at 1370, text max width 700) or the arms cross the title.
 - **Official identity**: the demo imitates a real event's identity closely. That is tolerable only in an unofficial fan piece; a film made from this code must replace it, see [Replacing the event elements](#replacing-the-event-elements).
 
+### Portrait (9:16)
+
+The page lays itself out for the frame it is opened in: a portrait viewport (height above width, e.g. `--size 1080x1920`) sets `G.PORT`, a 1080×1920 canvas and the safe area `G.SAFE` (top 220 px and bottom 320 px left to platform UI, 72 px side margins); any landscape viewport keeps the 1920×1080 frame exactly as before (landscape stills are byte-identical to the pre-portrait code). `G.LP(land, port)` picks a value per frame shape (`G.P` is taken by the pose props). Render portrait with the core tools, which open the page at the size you ask for (`style.json` says `"portrait": "native"`):
+
+```bash
+node core/render/still.mjs styles/pictogram-motion/demo 24.8 62.9 153 --size 1080x1920 --q lang=ej --out films/pm-port
+node core/render/video.mjs styles/pictogram-motion/demo --fps 60 --size 1080x1920 --q lang=ej --out films/pm-port.mp4
+```
+
+(`render.mjs` / `shot.mjs` stay 1920×1080.) What changes in portrait:
+
+- **Cards**: figure on its sun in the upper half (sun centre y 600 to 740 by layout), text stacked below it from y ≈ 1070: meta, title (one or two lines), second language, JP, tag (`textBlockPort`). A and M keep their left / right alignment, B keeps the ghost title behind the figure with the info stacked under it, C turns the side panel into a panel rising from the bottom.
+- **Track long take**: the same horizontal pan, one station per 1080 px; text block at the top, sun and runner above a track that starts at y 1240; the figure layer is masked below the text (`stageFigure` mask `y0`).
+- **Chapter card**: a taller ink band (y 560 on), number on top, then label, title, second language and JP stacked; the band grows when a title wraps.
+- **Opening**: the title band and count-up are centred stacks; ON YOUR MARKS wraps to two lines. **Ending**: a 5×9 icon grid (sun in the middle cell, year left of it); slogan and end card stacked under the raised sun.
+- **HUD** sits under the top platform UI (y 262 / 288) with one shrunk size for all four corner lines; the 43 ticks sit just above the bottom UI. Transitions (rows, cols, quarter, flip, iris) cover the tall frame.
+- **Text fit**: `G.fitLines(ctx, text, font, px, maxW, {ls, floor, wrap})` steps the size down 4 % at a time to a floor, trying one line and then two (split at a ` · ` separator, else the space nearest the middle, else the middle CJK character). If a line is still too wide at the floor it logs `[pictogram] text does not fit ...` with `console.warn` (`still.mjs` prints page warnings); text is never cut silently. Inter Tight and DM Mono fall back to Noto Sans SC, so Chinese titles from a controller plan are drawn rather than shown as boxes.
+
 ## Engine reference
 
 ### `engine.js` (window.G)

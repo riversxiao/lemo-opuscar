@@ -4,7 +4,7 @@ Two layers, both free:
 
 1. Deterministic (local: ffmpeg + OpenCV + RapidOCR, no network)
    - samples frames per shot (3 positions from timeline.parsed.json) + one per VO line + one per caption
-   - whole-video luma scan (160x90): black runs, flat/blank runs, frozen runs, single-frame corrupt spikes,
+   - whole-video luma scan (160x90; 90x160 for a portrait video): black runs, flat/blank runs, frozen runs, single-frame corrupt spikes,
      plus ffmpeg decode errors
    - OCR each sampled frame and compare with what the schedule says should be on screen:
      window.TEXTS(t) registry (texts_dump.mjs) + timeline caps/hook captions → missing / wrong characters
@@ -50,8 +50,15 @@ from typing import Any
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
-W, H = 1920, 1080
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
+from common import project_size, size_arg  # noqa: E402
+
+# Frame geometry is never fixed: the window.TEXTS registry is in page px (the W/H that
+# texts_dump.mjs reports, else the project's render size from content/engine.lock.json:
+# 1920x1080 for 16:9, 1080x1920 for 9:16) and is scaled to each sampled frame's real size.
 SAFE = 0.05
+EDGE_PX = 5  # OCR box within this many px of the frame edge = clipped text
 
 # ---------------------------------------------------------------- small helpers
 
@@ -102,6 +109,16 @@ def issue(sev: str, kind: str, t: float | None, detail: str, **kw) -> dict:
 
 # ---------------------------------------------------------------- schedule model
 
+def page_size(project: Path, texts: dict | None) -> tuple[int, int]:
+    """Page px the registry boxes are in: texts_dump's W/H, else the project's render size."""
+    t = texts or {}
+    try:
+        w, h = int(t.get("W") or 0), int(t.get("H") or 0)
+    except (TypeError, ValueError):
+        w = h = 0
+    return (w, h) if w > 0 and h > 0 else project_size(project)
+
+
 class Schedule:
     """Everything the film *should* show, from project files only."""
 
@@ -124,6 +141,7 @@ class Schedule:
         self.caps = [c for c in (self.tl.get("caps") or []) if "t0" in c and "t1" in c]
         self.hook = self.tl.get("hook") if isinstance(self.tl.get("hook"), dict) else None
         self.texts = texts or {"frames": []}
+        self.W, self.H = page_size(project, self.texts)
         self._tf = [(float(f["t"]), f["texts"]) for f in self.texts.get("frames", [])]
         self.uses_subs = sum(1 for c in self.caps if c.get("en")) >= max(1, len(self.caps) // 2)
 
@@ -236,9 +254,19 @@ def grab_frames(media: Path, times: list[float], out_dir: Path) -> dict[float, P
     return res
 
 
-def luma_scan(media: Path, fps: float) -> dict:
+def scan_size(vw: int, vh: int) -> tuple[int, int]:
+    """Luma-scan raster: 160x90 for landscape, 90x160 for portrait (same pixel count)."""
+    return (160, 90) if vw >= vh else (90, 160)
+
+
+def sheet_tile(vw: int, vh: int) -> tuple[int, int]:
+    """Contact-sheet tile: 640x360 for landscape, 360x640 for portrait."""
+    return (640, 360) if vw >= vh else (360, 640)
+
+
+def luma_scan(media: Path, fps: float, size: tuple[int, int] = (160, 90)) -> dict:
     import numpy as np
-    w, h = 160, 90
+    w, h = size
     proc = subprocess.run(["ffmpeg", "-v", "error", "-i", str(media), "-vf", f"scale={w}:{h},format=gray",
                            "-f", "rawvideo", "-"], capture_output=True)
     buf = np.frombuffer(proc.stdout, dtype=np.uint8)
@@ -412,7 +440,7 @@ def text_issues(sch: Schedule, frames: dict[float, Path], whys: dict[float, str]
         boxes = ocr(path)
         img = cv2.imread(str(path))
         fh, fw = img.shape[:2]
-        sx, sy = fw / W, fh / H
+        sx, sy = fw / sch.W, fh / sch.H
         expected: list[dict] = []
         reg_boxes = [{"text": b["text"], **{k: b[k] * (sx if k[0] == "x" else sy) for k in ("x0", "y0", "x1", "y1")}} for b in sch.registry(t)]
         for b in sch.stable_registry(t):
@@ -459,7 +487,9 @@ def text_issues(sch: Schedule, frames: dict[float, Path], whys: dict[float, str]
         for b in boxes:
             if len(norm(b["text"])) < 2 or b["score"] < 0.5:
                 continue
-            edge = b["x0"] <= 2 or b["y0"] <= 2 or b["x1"] >= fw - 3 or b["y1"] >= fh - 3
+            # OCR detector quads sit a few px inside the glyphs (RapidOCR 1.4.4 reports
+            # x1=956 for text cut at the right edge of a 960px frame), so allow EDGE_PX.
+            edge = b["x0"] <= EDGE_PX or b["y0"] <= EDGE_PX or b["x1"] >= fw - 1 - EDGE_PX or b["y1"] >= fh - 1 - EDGE_PX
             unsafe = b["x0"] < SAFE * fw or b["y0"] < SAFE * fh or b["x1"] > (1 - SAFE) * fw or b["y1"] > (1 - SAFE) * fh
             key = (norm(b["text"]), edge)
             if edge and key not in seen_clip:
@@ -470,7 +500,7 @@ def text_issues(sch: Schedule, frames: dict[float, Path], whys: dict[float, str]
                 out.append(issue("medium", "outside_title_safe", t, f"OCR text {b['text']!r} inside the 5% margin", frame=str(path), box=[round(b[k]) for k in ("x0", "y0", "x1", "y1")]))
         # registry boxes partly outside the frame = clipped text
         for b in sch.registry(t):
-            if b["x0"] < -1 or b["y0"] < -1 or b["x1"] > W + 1 or b["y1"] > H + 1:
+            if b["x0"] < -1 or b["y0"] < -1 or b["x1"] > sch.W + 1 or b["y1"] > sch.H + 1:
                 key = ("tx", b["id"])
                 if key not in seen_clip:
                     seen_clip.add(key)
@@ -563,7 +593,7 @@ def _dedupe(items: list[dict]) -> list[dict]:
 
 # ---------------------------------------------------------------- contact sheets + evidence shots
 
-def contact_sheets(sch: Schedule, frames: dict[float, Path], out_dir: Path) -> dict[str, str]:
+def contact_sheets(sch: Schedule, frames: dict[float, Path], out_dir: Path, tile: tuple[int, int] = (640, 360)) -> dict[str, str]:
     from PIL import Image, ImageDraw
     out_dir.mkdir(parents=True, exist_ok=True)
     res = {}
@@ -574,7 +604,7 @@ def contact_sheets(sch: Schedule, frames: dict[float, Path], out_dir: Path) -> d
         if len(ts) > 6:
             idx = [round(i * (len(ts) - 1) / 5) for i in range(6)]
             ts = [ts[i] for i in idx]
-        tw, th = 640, 360
+        tw, th = tile
         cols = 3
         rows = (len(ts) + cols - 1) // cols
         sheet = Image.new("RGB", (tw * cols, th * rows), (0, 0, 0))
@@ -762,7 +792,8 @@ def semantic_layer(sch: Schedule, sheets: dict[str, str], models: list[str], ena
 
 def dump_texts(project: Path) -> dict | None:
     try:
-        r = subprocess.run(["node", str(HERE / "texts_dump.mjs"), str(project), "--step", "0.1"], capture_output=True, text=True, timeout=300, cwd=str(REPO))
+        r = subprocess.run(["node", str(HERE / "texts_dump.mjs"), str(project), "--step", "0.1", "--size", size_arg(project_size(project))],
+                           capture_output=True, text=True, timeout=300, cwd=str(REPO))
         if r.returncode != 0:
             return None
         return json.loads(r.stdout)
@@ -792,10 +823,10 @@ def run_check(project: Path, media: Path, *, semantic=True, models=None, tag="",
     whys = {t: w for t, w in samples}
     frames = grab_frames(media, [t for t, _ in samples], fdir)
     ocr = ocr or OCR()
-    issues = video_issues(luma_scan(media, fps), sch)
+    issues = video_issues(luma_scan(media, fps, scan_size(vw, vh)), sch)
     tissues, srec = text_issues(sch, frames, whys, ocr, media, fdir)
     issues += tissues
-    sheets = contact_sheets(sch, {t: p for t, p in frames.items()}, ev / "sheets")
+    sheets = contact_sheets(sch, {t: p for t, p in frames.items()}, ev / "sheets", sheet_tile(vw, vh))
     sem = semantic_layer(sch, sheets, models or FREE_DEFAULT, semantic)
     issues += sem["issues"]
     mark_evidence(issues, ev / "issues")
@@ -944,6 +975,7 @@ def rerender_ranges(project: Path, ranges: list[tuple[float, float]], fps: float
     """Re-render only the changed time ranges into out/video.mp4 (keyframe-aligned lossless splice)."""
     kf = keyframes(video)
     total = _nb_frames(video)
+    vw, vh = ffprobe_size(video)[:2]  # new segments must match the video they are spliced into
     spans = []
     for a, b in sorted(ranges):
         ka = max([k for k in kf if k <= a + 1e-6] or [0.0])
@@ -966,7 +998,8 @@ def rerender_ranges(project: Path, ranges: list[tuple[float, float]], fps: float
             parts.append(p)
         p = tmp / f"new_{k}.mp4"
         log(f"  render frames {fa}–{fb} ({fa / fps:.2f}–{fb / fps:.2f}s)")
-        subprocess.run(["node", str(HERE / "render_range.mjs"), str(project), "--fps", str(fps), "--from", str(fa), "--to", str(fb), "--out", str(p)],
+        subprocess.run(["node", str(HERE / "render_range.mjs"), str(project), "--fps", str(fps), "--from", str(fa), "--to", str(fb), "--out", str(p),
+                        "--size", size_arg((vw, vh))],
                        check=True, cwd=str(REPO), stdout=subprocess.DEVNULL)
         parts.append(p)
         cur = fb

@@ -17,6 +17,7 @@ sys.path.insert(0, str(CTL))
 td = Path(tempfile.mkdtemp(prefix="fin-mock-"))
 os.environ["DC_BUDGET_LEDGER"] = str(td / "ledger.jsonl")
 os.environ["DC_QUOTA_LEDGER"] = str(td / "quota.jsonl")
+os.environ.pop("WORDFILM_QUOTA_LEDGER", None)  # outranks DC_QUOTA_LEDGER: never the real ledger
 import dialogue_loop as D  # noqa: E402
 import llm_free as L  # noqa: E402
 
@@ -101,8 +102,19 @@ os.environ["OPENROUTER_API_KEY"] = "test-or"
 qp = L.quota_ledger_path()
 ok(qp == td / "quota.jsonl", "quota ledger honours DC_QUOTA_LEDGER (tests never touch the real one)")
 _q = os.environ.pop("DC_QUOTA_LEDGER")
+_saved = {k: os.environ.pop(k) for k in ("WORDFILM_QUOTA_LEDGER", "WORDFILM_CACHE") if k in os.environ}
 ok(L.quota_ledger_path() == Path.home() / ".cache" / "wordfilm" / "tokenharbor-usage.jsonl", "default = shared real ledger")
+os.environ["WORDFILM_CACHE"] = str(td / "cache")
+ok(L.quota_ledger_path() == td / "cache" / "tokenharbor-usage.jsonl", "default ledger follows $WORDFILM_CACHE")
 os.environ["DC_QUOTA_LEDGER"] = _q
+os.environ["WORDFILM_QUOTA_LEDGER"] = str(td / "wf-quota.jsonl")
+ok(L.quota_ledger_path() == td / "wf-quota.jsonl"
+   and L.quota_header_path() == td / "wf-quota.header.json", "WORDFILM_QUOTA_LEDGER wins over DC_QUOTA_LEDGER; header state beside it")
+os.environ["WORDFILM_QUOTA_LEDGER"] = ""
+ok(L.quota_ledger_path() == td / "quota.jsonl", "empty WORDFILM_QUOTA_LEDGER = unset")
+for k in ("WORDFILM_QUOTA_LEDGER", "WORDFILM_CACHE"):
+    os.environ.pop(k, None)
+os.environ.update(_saved)
 seen = []
 
 

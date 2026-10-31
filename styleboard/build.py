@@ -1,4 +1,4 @@
-# Lemo-Opuscar gallery: styles/*/style.json → catalog.json, index.html, and the generated parts of README.md, README.zh-CN.md, styles/README.md, AGENTS.md
+# WordFilm gallery: styles/*/style.json → catalog.json, index.html, and the generated parts of README.md, README.zh-CN.md, styles/README.md, AGENTS.md
 # Local:          python3 styleboard/build.py                 (also refreshes each style.json "dur" from its mp4)
 # GitHub Pages:   python3 styleboard/build.py --site _site
 # README frames:  python3 styleboard/build.py --frames <slug>… (docs/frames/<slug>.jpg at the style's frame_sec)
@@ -7,8 +7,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, '..')
 CATALOG = os.path.join(HERE, 'catalog.json')   # generated; CI and tools/release.py read it
 
-REPO = 'lemomo-ai/lemo-opuscar'
-FILMS_URL = f'https://github.com/{REPO}/releases/download/films'   # full films live on the "films" release as <slug>.mp4
+REPO = 'riversxiao/wordfilm'                 # this fork: the gallery's repo links, docs and canonical site
+UPSTREAM = 'lemomo-ai/lemo-opuscar'          # the upstream: it hosts the demo films ("films", "web", "thanks" releases)
+# full films are <slug>.mp4 on a "films" release: the upstream's, unless tools/films.json (kept by tools/release.py
+# upload) says this fork hosts that film
+_HOSTS_P = os.path.join(ROOT, 'tools', 'films.json')
+FILM_HOSTS = json.load(open(_HOSTS_P, encoding='utf-8')) if os.path.isfile(_HOSTS_P) else {}
+
+
+def film_url(slug):
+    repo = FILM_HOSTS.get('films', {}).get(slug) or FILM_HOSTS.get('default') or UPSTREAM
+    return f'https://github.com/{repo}/releases/download/films/{slug}.mp4'
 BLOB_URL = f'https://github.com/{REPO}/blob/main'
 
 # The ten categories, in gallery order. A style.json must name one of them (both languages, exactly).
@@ -40,6 +49,8 @@ def load_styles(refresh_dur):
         if j['slug'] != slug: bad.append(f'styles/{slug}/style.json: slug is "{j["slug"]}", folder is "{slug}"')
         if (j['category_cn'], j['category_en']) not in CATEGORIES:
             bad.append(f'styles/{slug}/style.json: unknown category "{j["category_en"]} / {j["category_cn"]}" (see CATEGORIES in styleboard/build.py)')
+        if j.get('portrait', 'reframe') not in ('native', 'reframe'):   # how 9:16 renders: own layout, or core/render/reframe.mjs
+            bad.append(f'styles/{slug}/style.json: portrait is "{j["portrait"]}", use "native" or "reframe"')
         mp4 = os.path.join(ROOT, 'styles', slug, slug + '.mp4')
         if refresh_dur and os.path.exists(mp4):
             d = film_seconds(mp4)
@@ -88,7 +99,7 @@ for s in styles:
     has_md = os.path.exists(os.path.join(ROOT, 'styles', slug, 'STYLE.md'))
     if site:
         s['video'] = f'films/{slug}.mp4' if s['dur'] else ''          # 720p web cut, served by Pages as video/mp4 (Safari needs it)
-        s['full'] = f'{FILMS_URL}/{slug}.mp4' if s['dur'] else ''       # full quality on Releases
+        s['full'] = film_url(slug) if s['dur'] else ''                  # full quality on Releases
         s['poster'] = f'posters/{slug}.jpg' if has_poster else ''
         s['stylemd'] = f'{BLOB_URL}/styles/{slug}/STYLE.md' if has_md else ''
     else:
@@ -121,6 +132,8 @@ def card(s):
     play = (f'<button class="play" type="button" data-src="{esc(s["video"])}" data-poster="{esc(s.get("poster", ""))}" '
             f'aria-label="Play {esc(film)}"><i></i><span>{mmss(s["dur"])}</span></button>') if vid else ''
     uses = ''.join(f'<li>{esc(u)}</li>' for u in s.get('uses', []))
+    # built outside the f-string below: Python < 3.12 rejects backslashes inside f-string expressions
+    uses_ul = f'<ul class=uses aria-label="Best for">{uses}</ul>' if uses else ''
     links = []
     if vid: links.append(f'<a class="watch" href="{esc(s.get("full") or s["video"])}" data-play>Watch the film</a>')
     if s.get('stylemd'): links.append(f'<a href="{esc(s["stylemd"])}" target="_blank" rel="noopener">STYLE.md</a>')
@@ -130,7 +143,7 @@ def card(s):
             f'    <h3>{esc(s["en"])}</h3><p class="cn">{esc(s["cn"])}</p>\n'
             f'    <p class="for">for <em>{esc(film)}</em></p>\n'
             f'    <p class="line">{esc(s.get("line", ""))}</p><p class="line-cn">{esc(s.get("line_cn", ""))}</p>\n'
-            f'    {f"<ul class=uses aria-label=\"Best for\">{uses}</ul>" if uses else ""}\n'
+            f'    {uses_ul}\n'
             f'    <nav class="links">{"".join(links)}</nav>\n'
             f'  </div>\n</article>')
 
@@ -150,35 +163,41 @@ for i, (cn, en) in enumerate(cats, 1):
 # the feature presentation above the nominees: Opuscar 98 (the film's sources are not part of the library;
 # the gallery streams the 720p web cut from Pages, the 1080p file is on the "films" release, the poster is styleboard/img)
 FEATURE = dict(poster='img/feature_opuscar98.jpg', dur='6:31',
-               src='films/opuscar98.mp4' if site else '../.release/web/opuscar98.mp4', full=f'{FILMS_URL}/opuscar98.mp4')
+               src='films/opuscar98.mp4' if site else '../.release/web/opuscar98.mp4', full=film_url('opuscar98'))
 n_vid = sum(bool(s.get('video')) for s in styles)
 minutes = sum(s.get('dur', 0) for s in styles) / 60
 n_all = len(styles)
 
-# What search engines and AI answer engines read: canonical URL, share cards, JSON-LD naming the upstream repo and its author.
-# Forks copy this file, so the canonical and codeRepository keep pointing here.
-SITE_URL = 'https://lemomo-ai.github.io/lemo-opuscar/'
+# What search engines and AI answer engines read: canonical URL, share cards, JSON-LD naming this fork, its maintainer and the
+# upstream it is based on. OPUSCAR 98 and the thank-you films are upstream works: their pages keep the upstream canonical and creator.
+SITE_URL = 'https://riversxiao.github.io/wordfilm/'
+UPSTREAM_SITE_URL = 'https://lemomo-ai.github.io/lemo-opuscar/'
 REPO_URL = f'https://github.com/{REPO}'
-AUTHOR = {'@type': 'Person', '@id': 'https://github.com/lemomo-ai', 'name': 'Lemomo', 'url': 'https://github.com/lemomo-ai',
-          'sameAs': ['https://x.com/lemomo_ai', 'https://github.com/lemomo-ai']}
-GALLERY_DESC = (f'Lemo-Opuscar: {n_all} film styles for Claude Code. Each style is a reusable prompt plus a short film made entirely in code '
-                'by Claude Opus 5.5, with no video model. Includes OPUSCAR 98, 98 years of Best Picture. Official site of github.com/' + REPO + '.')
-FILM_URL = SITE_URL + 'opuscar98/'
+UPSTREAM_URL = f'https://github.com/{UPSTREAM}'
+AUTHOR = {'@type': 'Person', '@id': 'https://github.com/riversxiao', 'name': 'riversxiao', 'url': 'https://github.com/riversxiao'}
+UPSTREAM_AUTHOR = {'@type': 'Person', '@id': 'https://github.com/lemomo-ai', 'name': 'Lemomo', 'url': 'https://github.com/lemomo-ai',
+                   'sameAs': ['https://x.com/lemomo_ai', 'https://github.com/lemomo-ai']}
+GALLERY_DESC = (f'WordFilm: {n_all} film styles for coding agents. Each style is a reusable prompt plus a short film made entirely in code '
+                'by Claude Opus 5.5, with no video model. Includes OPUSCAR 98, 98 years of Best Picture. Site of github.com/' + REPO
+                + ', a fork of github.com/' + UPSTREAM + '.')
+FILM_URL = UPSTREAM_SITE_URL + 'opuscar98/'
 FILM_DESC = ('OPUSCAR 98: one Clawd walks through all 98 Best Picture winners (1927 – 2025), each redrawn in a style that fits the film. '
              'Every frame, note and cut was written in code by Claude Opus 5.5, with no video model.')
-REPO_LD = {'@type': 'SoftwareSourceCode', '@id': REPO_URL, 'name': 'Lemo-Opuscar', 'url': REPO_URL, 'codeRepository': REPO_URL,
-           'description': f'{n_all} film styles, each a style prompt plus a demo film made entirely in code, packaged as a Claude Code skill.',
-           'license': 'https://opensource.org/licenses/MIT', 'author': {'@id': AUTHOR['@id']},
+UPSTREAM_LD = {'@type': 'SoftwareSourceCode', '@id': UPSTREAM_URL, 'name': 'Lemo-Opuscar', 'url': UPSTREAM_URL, 'codeRepository': UPSTREAM_URL,
+               'license': 'https://opensource.org/licenses/MIT', 'author': {'@id': UPSTREAM_AUTHOR['@id']}}
+REPO_LD = {'@type': 'SoftwareSourceCode', '@id': REPO_URL, 'name': 'WordFilm', 'url': REPO_URL, 'codeRepository': REPO_URL,
+           'description': f'{n_all} film styles, each a style prompt plus a demo film made entirely in code, packaged as a coding-agent skill.',
+           'license': 'https://opensource.org/licenses/MIT', 'author': {'@id': AUTHOR['@id']}, 'isBasedOn': {'@id': UPSTREAM_URL},
            'keywords': ['Claude Code skill', 'Claude Opus 5.5', 'film styles', 'no video model', 'motion graphics', 'creative coding']}
 
 def head_meta(url, title, desc, image, ld):
     """canonical + Open Graph + Twitter card + one JSON-LD block, for the <head> of a site page."""
     e = html.escape
     tags = [f'<link rel="canonical" href="{url}">',
-            '<meta property="og:type" content="website">', '<meta property="og:site_name" content="Lemo-Opuscar">',
+            '<meta property="og:type" content="website">', '<meta property="og:site_name" content="WordFilm">',
             f'<meta property="og:url" content="{url}">', f'<meta property="og:title" content="{e(title)}">',
             f'<meta property="og:description" content="{e(desc)}">', f'<meta property="og:image" content="{image}">',
-            '<meta name="twitter:card" content="summary_large_image">', '<meta name="twitter:site" content="@lemomo_ai">',
+            '<meta name="twitter:card" content="summary_large_image">',
             f'<meta name="twitter:title" content="{e(title)}">', f'<meta name="twitter:description" content="{e(desc)}">',
             f'<meta name="twitter:image" content="{image}">']
     data = json.dumps({'@context': 'https://schema.org', '@graph': ld}, ensure_ascii=False, indent=1).replace('</', '<\\/')
@@ -188,19 +207,22 @@ def mm_ss_iso(t):   # "6:31" → "PT6M31S"
     m, s = t.split(':'); return f'PT{int(m)}M{int(s)}S'
 
 poster_abs = SITE_URL + FEATURE['poster']
-gallery_meta = head_meta(SITE_URL, f'Lemo-Opuscar · {n_all} film styles for Claude Code, made in code', GALLERY_DESC, poster_abs,
-                         [{'@type': 'CollectionPage', '@id': SITE_URL, 'url': SITE_URL, 'name': 'Lemo-Opuscar gallery', 'description': GALLERY_DESC,
-                           'about': {'@id': REPO_URL}, 'author': {'@id': AUTHOR['@id']}, 'hasPart': {'@id': FILM_URL}}, REPO_LD, AUTHOR])
+gallery_meta = head_meta(SITE_URL, f'WordFilm · {n_all} film styles for coding agents, made in code', GALLERY_DESC, poster_abs,
+                         [{'@type': 'CollectionPage', '@id': SITE_URL, 'url': SITE_URL, 'name': 'WordFilm gallery', 'description': GALLERY_DESC,
+                           'about': {'@id': REPO_URL}, 'author': {'@id': AUTHOR['@id']}, 'hasPart': {'@id': FILM_URL}},
+                          REPO_LD, UPSTREAM_LD, AUTHOR, UPSTREAM_AUTHOR])
 film_meta = head_meta(FILM_URL, 'OPUSCAR 98 · 98 Years of Best Picture, made in code by Claude Opus 5.5', FILM_DESC, poster_abs,
                       [{'@type': 'VideoObject', '@id': FILM_URL, 'url': FILM_URL, 'name': 'OPUSCAR 98 · 98 Years of Best Picture',
                         'description': FILM_DESC, 'thumbnailUrl': poster_abs, 'uploadDate': '2026-09-29', 'duration': mm_ss_iso(FEATURE['dur']),
-                        'contentUrl': FEATURE['full'], 'embedUrl': FILM_URL, 'inLanguage': 'en', 'creator': {'@id': AUTHOR['@id']},
-                        'isBasedOn': {'@id': REPO_URL}}, REPO_LD, AUTHOR])
+                        'contentUrl': FEATURE['full'], 'embedUrl': FILM_URL, 'inLanguage': 'en', 'creator': {'@id': UPSTREAM_AUTHOR['@id']},
+                        'isBasedOn': {'@id': UPSTREAM_URL}}, UPSTREAM_LD, UPSTREAM_AUTHOR])
 
 def fill(name, extra):
     page = open(os.path.join(HERE, name), encoding='utf-8').read()
-    for k, v in {**extra, '{{N_ALL}}': str(n_all), '{{N_VID}}': str(n_vid), '{{N_CAT}}': str(len(cats)), '{{MIN}}': f'{minutes:.0f}',
-                 '{{REPO_URL}}': REPO_URL, '{{REPO}}': REPO, '{{FEATURE_FULL}}': FEATURE['full'], '{{FEATURE_DUR}}': FEATURE['dur']}.items():
+    # extra comes last, so a page can override the defaults (the upstream pages name the upstream repo)
+    for k, v in {'{{N_ALL}}': str(n_all), '{{N_VID}}': str(n_vid), '{{N_CAT}}': str(len(cats)), '{{MIN}}': f'{minutes:.0f}',
+                 '{{REPO_URL}}': REPO_URL, '{{REPO}}': REPO, '{{UPSTREAM_URL}}': UPSTREAM_URL, '{{UPSTREAM}}': UPSTREAM,
+                 '{{FEATURE_FULL}}': FEATURE['full'], '{{FEATURE_DUR}}': FEATURE['dur'], **extra}.items():
         page = page.replace(k, v)
     return page
 
@@ -267,14 +289,14 @@ def stylebook():
     return ''.join(buttons), kinds, '\n'.join(arts)
 
 book_tabs, book_kinds, book_films = stylebook()
-# OPUSCAR 98 has its own page (one level down, so its relative paths start with ../)
+# OPUSCAR 98 has its own page (one level down, so its relative paths start with ../); an upstream work, so it names the upstream repo
 open(os.path.join(out_dir, 'opuscar98', 'index.html'), 'w', encoding='utf-8').write(fill('opuscar98.html', {
-    '{{DESC}}': html.escape(FILM_DESC), '{{HEAD_META}}': film_meta,
+    '{{DESC}}': html.escape(FILM_DESC), '{{HEAD_META}}': film_meta, '{{REPO_URL}}': UPSTREAM_URL, '{{REPO}}': UPSTREAM,
     '{{FEATURE_POSTER}}': '../' + FEATURE['poster'], '{{FEATURE_SRC}}': '../' + FEATURE['src'],
     '{{BOOK_TABS}}': book_tabs, '{{BOOK_KINDS}}': book_kinds, '{{BOOK_FILMS}}': book_films}))
 # Thank-you films (made at 300, 800, 2,000, 3,000 and 6,000 stars): their own page. Like OPUSCAR 98 the films are not in the repo;
 # the 720p cuts are on the "web" release as stars<n>.mp4 (copied into the site), 1080p on the "thanks" release, posters in img/thanks/.
-THANKS_REL = f'https://github.com/{REPO}/releases/download/thanks'
+THANKS_REL = f'https://github.com/{UPSTREAM}/releases/download/thanks'
 THANKS = [  # (id, title, Chinese title, length, date, description, Chinese description)
     ('stars6000', '6,000 stars · The Quilt', '6000 星 · 百家被', '0:50', '2026-10-24',
      'One star, one patch: 6,000 stargazers sew a quilt for a library not yet a month old. Little Clawd falls asleep under it and dreams in the library\'s styles.',
@@ -291,7 +313,7 @@ THANKS = [  # (id, title, Chinese title, length, date, description, Chinese desc
     ('stars300', '300 stars · The Lamplighter', '300 星 · 点灯人', '0:18', '2026-09-28',
      'In one continuous shot Clawd lights 300 stars, each in a different style; pulled back, they spell 300.',
      'Clawd 一镜到底点亮 300 颗星，每颗一种画风；镜头拉远，它们拼成 300。')]
-THANKS_URL = SITE_URL + 'thanks/'
+THANKS_URL = UPSTREAM_SITE_URL + 'thanks/'   # upstream history: the canonical stays on the upstream site
 THANKS_ALIAS = {'stars6000': 'stars5000'}   # the 6,000-star cut replaced the 5,000-star one; old #stars5000 links land on it
 THANKS_DESC = 'Lemo-Opuscar thank-you films at 300, 800, 2,000, 3,000 and 6,000 GitHub stars, each made entirely in code by Claude Opus 5.5, with no video model.'
 
@@ -309,23 +331,25 @@ def thanks_films():
 def iso(t): m, s_ = t.split(':'); return f'PT{int(m)}M{int(s_)}S'
 thanks_meta = head_meta(THANKS_URL, 'Thank you for every star · Lemo-Opuscar', THANKS_DESC, SITE_URL + 'img/thanks/stars6000.jpg',
                         [{'@type': 'CollectionPage', '@id': THANKS_URL, 'url': THANKS_URL, 'name': 'Lemo-Opuscar thank-you films', 'description': THANKS_DESC,
-                          'about': {'@id': REPO_URL}, 'author': {'@id': AUTHOR['@id']},
+                          'about': {'@id': UPSTREAM_URL}, 'author': {'@id': UPSTREAM_AUTHOR['@id']},
                           'hasPart': [{'@type': 'VideoObject', 'name': f[1], 'description': f[5], 'thumbnailUrl': SITE_URL + f'img/thanks/{f[0]}.jpg',
                                        'uploadDate': f[4], 'duration': iso(f[3]), 'contentUrl': f'{THANKS_REL}/{f[0]}.mp4', 'embedUrl': THANKS_URL + '#' + f[0]}
-                                      for f in THANKS]}, REPO_LD, AUTHOR])
+                                      for f in THANKS]}, UPSTREAM_LD, UPSTREAM_AUTHOR])
 os.makedirs(os.path.join(out_dir, 'thanks'), exist_ok=True)
 open(os.path.join(out_dir, 'thanks', 'index.html'), 'w', encoding='utf-8').write(fill('thanks.html', {
-    '{{DESC}}': html.escape(THANKS_DESC), '{{HEAD_META}}': thanks_meta, '{{FILMS}}': thanks_films()}))
+    '{{DESC}}': html.escape(THANKS_DESC), '{{HEAD_META}}': thanks_meta, '{{FILMS}}': thanks_films(),
+    '{{REPO_URL}}': UPSTREAM_URL, '{{REPO}}': UPSTREAM}))
 
 # the same list as data, for anyone (or any agent) who wants all 98 prompts at once (site only: locally the source sits next door)
 if site: shutil.copy(os.path.join(HERE, 'opuscar98_styles.json'), os.path.join(out_dir, 'opuscar98', 'styles.json'))
 
 def llms_txt():
-    """llms.txt (llmstxt.org): what the project is, where the upstream repo is, and a link per style."""
-    out = ['# Lemo-Opuscar', '',
-           f'> {n_all} film styles for Claude Code. Each style is a reusable style prompt (STYLE.md) plus a short demo film made entirely in code '
+    """llms.txt (llmstxt.org): what the project is, where this fork and its upstream are, and a link per style."""
+    out = ['# WordFilm', '',
+           f'> {n_all} film styles for coding agents. Each style is a reusable style prompt (STYLE.md) plus a short demo film made entirely in code '
            'by Claude Opus 5.5, with no video model. Install it as a Claude Code skill, pick a style, bring your own topic, and your agent directs the film.', '',
-           f'Official repository: {REPO_URL} (by Lemomo, https://x.com/lemomo_ai). Forks are copies; this is the upstream.', '',
+           f'Repository: {REPO_URL} (by riversxiao). It is a fork of {UPSTREAM_URL} (Lemo-Opuscar, by Lemomo, https://x.com/lemomo_ai), '
+           'which made the style demos and hosts the films.', '',
            '## Start here', '',
            f'- [README]({BLOB_URL}/README.md): what it is, how to install the skill, the style grid',
            f'- [README in Chinese]({BLOB_URL}/README.zh-CN.md): the same in Simplified Chinese',
@@ -351,7 +375,8 @@ if site:   # Pages site: pages + style frames + posters + llms.txt + sitemap
     open(os.path.join(site, 'llms.txt'), 'w', encoding='utf-8').write(llms_txt())
     open(os.path.join(site, 'sitemap.xml'), 'w', encoding='utf-8').write(
         '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        + ''.join(f'  <url><loc>{u}</loc></url>\n' for u in (SITE_URL, FILM_URL, THANKS_URL)) + '</urlset>\n')
+        # only this site's own canonical pages: OPUSCAR 98 and the thank-you films are canonical on the upstream site
+        + ''.join(f'  <url><loc>{u}</loc></url>\n' for u in (SITE_URL,)) + '</urlset>\n')
 
 
 def readme_grid(zh):

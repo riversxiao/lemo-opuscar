@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from common import film_path, films_root
+
 ROOT = Path(__file__).resolve().parent
 DEFAULT_TRACKER = ROOT / "fixtures" / "matrix-18.json"
 
@@ -39,7 +41,7 @@ def resolve_film_dir(cell: dict[str, Any]) -> Path | None:
         raw = cell.get(key)
         if not raw:
             continue
-        p = Path(raw)
+        p = film_path(raw)
         if p.is_dir():
             return p
     return None
@@ -49,10 +51,11 @@ def enrich_cell(cell: dict[str, Any]) -> dict[str, Any]:
     """Return a shallow copy with live filesystem hints."""
     out = dict(cell)
     film = resolve_film_dir(cell)
+    out["filmsRoot"] = str(films_root())
     out["filmDirExists"] = bool(film)
     mp4 = cell.get("mp4")
     if mp4:
-        out["mp4Exists"] = Path(mp4).is_file()
+        out["mp4Exists"] = film_path(mp4).is_file()
     elif film:
         matches = list(film.glob("*.mp4"))
         out["mp4Exists"] = bool(matches)
@@ -61,7 +64,7 @@ def enrich_cell(cell: dict[str, Any]) -> dict[str, Any]:
     else:
         out["mp4Exists"] = False
     ev = cell.get("evidence")
-    out["evidenceExists"] = bool(ev and Path(ev).is_file())
+    out["evidenceExists"] = bool(ev and film_path(ev).is_file())
     return out
 
 

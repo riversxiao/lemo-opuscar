@@ -8,7 +8,7 @@ Work in `styles/<slug>/` (lowercase letters, digits, hyphens; unique). Start fro
 
 | File | What it holds |
 |---|---|
-| `style.json` | the only metadata source: `slug`, `num`, `en`, `cn`, `category_en`, `category_cn`, `film`, `line`, `line_cn`, `uses`, `frame_sec`, `dur` |
+| `style.json` | the only metadata source: `slug`, `num`, `en`, `cn`, `category_en`, `category_cn`, `film`, `line`, `line_cn`, `uses`, `frame_sec`, `dur`, plus `aspects` and `portrait` (`"native"` when the demo has its own 9:16 layout and `aspects` lists `"9:16"`, else `"reframe"`; `release.py check --strict` enforces it) |
 | `STYLE.md` | the style's invariants only: look, materials and rendering, colour logic, type, motion, camera grammar, sound palette, the medium's pitfalls, native moves, range of variation. No story, arc, beat table, durations or end card. Ends with a link to `DEMO.md` |
 | `DEMO.md` | opens with "One example among many. Don't reuse its story, arc, shots, props or timings." Then the demo's story and structure, shot list, score structure, palette and props, end card (the "LemoLab × Claude Opus 5.5" sign-off lives only here, as the library demo's), build notes and code entry points, and for a scene style the `content.json` fields |
 | `demo/` | the source, a one-command `build.sh` and `CREDITS` are committed, for agents to read. `TREATMENT.md`, `PRODUCTION_LOG.md`, fonts, audio, textures and models stay local (gitignored); `CREDITS` names every asset so it can be found again |
@@ -36,11 +36,23 @@ Rules for library demos only (a user's film follows `DIRECTOR.md`, not these):
 
 ## Publish
 
-1. `sh tools/publish.sh` uploads the full films (`films` release) and the 720p web cuts (`web` release, used by the gallery), then verifies them. Per-demo resource packs are no longer published.
-2. `git status --short`, `git add -A`, commit.
-3. Push `main`, then watch CI (`gh run watch`): the gallery build fails when a card links a film that isn't on the `web` release.
+1. `sh tools/publish.sh` uploads the full films (`films` release) and the 720p web cuts (`web` release, used by the gallery) to this fork, then verifies them. Each local film is compared against the repo `tools/films.json` names for it, so a film the upstream already hosts at the same size stays there and is not copied; only new or changed films go to the fork. Per-demo resource packs are no longer published.
+2. `git status --short`, `git add -A`, commit. This includes `tools/films.json`: upload records there each film it put on the fork, and the gallery's "full quality" link for that film follows it (verify warns while the file is uncommitted). Films that are not listed stay on the upstream `films` release (the file's `default`).
+3. Push `main`, then watch CI (`gh run watch`): Pages takes every web cut from the upstream `web` release, lays the fork's own cuts over them, and fails when a card links a film that is in neither, or a "full quality" link points at a `films` release that lacks that film (for example, `tools/films.json` left out of the commit).
 
-The Pages build (`build.py --site`) also writes the OPUSCAR 98 page (`opuscar98/`, from `styleboard/opuscar98.html`), `llms.txt` and `sitemap.xml`, and puts the canonical link, share-card tags and JSON-LD (upstream repo and author) in each page's head. They pick up the style count by themselves; the film's runtime is `FEATURE['dur']` in `build.py`.
+### Turn on GitHub Pages (once, repo admin)
+
+The gallery workflow cannot switch Pages on: its token has no admin rights, and neither has a collaborator with write or pull access. Until an admin does it, https://riversxiao.github.io/wordfilm/ answers 404 and the gallery workflow stops at its first step, `python3 tools/release.py pages`, with the steps below.
+
+1. Check: `python3 tools/release.py pages` (default repo `riversxiao/wordfilm`, or name one: `python3 tools/release.py pages owner/repo`). Exit 0 and `✓ GitHub Pages is on ..., deployed by GitHub Actions` means nothing to do. `not enabled (... 404)` means Pages is off; `builds from the branch ...` means it is on but serves a branch instead of this workflow.
+2. As a repo admin, open https://github.com/riversxiao/wordfilm/settings/pages and set **Build and deployment > Source** to **GitHub Actions**. Leave the custom domain empty. Or, with an admin token: `gh api -X POST repos/riversxiao/wordfilm/pages -f build_type=workflow` (when Pages is already on from a branch: `gh api -X PUT repos/riversxiao/wordfilm/pages -f build_type=workflow`).
+3. Settings > Environments > `github-pages`: the deployment branch rule must allow `main` (the default rule GitHub creates does).
+4. Re-run the workflow: Actions > gallery > Run workflow (or `gh workflow run pages.yml --ref main`), then `gh run watch`.
+5. Verify: `python3 tools/release.py pages` exits 0, and https://riversxiao.github.io/wordfilm/ shows the gallery with playable films (`curl -sI https://riversxiao.github.io/wordfilm/ | head -1` gives `HTTP/2 200`).
+
+Without the gh CLI, `release.py pages` can only see whether the site answers (the API hides the Pages settings from anonymous callers), not how it is built.
+
+The Pages build (`build.py --site`) also writes the OPUSCAR 98 page (`opuscar98/`, from `styleboard/opuscar98.html`), `llms.txt` and `sitemap.xml`, and puts the canonical link, share-card tags and JSON-LD (this fork, with the upstream it is based on) in each page's head. They pick up the style count by themselves; the film's runtime is `FEATURE['dur']` in `build.py`.
 
 Don't push before the upload has finished, and don't commit `tools/assets.json` from a failed run.
 
@@ -48,12 +60,19 @@ Don't push before the upload has finished, and don't commit `tools/assets.json` 
 
 Back up first (old versions move out of the repository, not into git). Re-render, replace `<slug>.mp4`, and run `sh tools/publish.sh`: it re-uploads the film and refreshes its web cut.
 
+A change to a demo (a native 9:16 layout, a shared core tool) must keep its landscape output byte-identical. Check it with `tools/portrait_check.py` (flags in [`core/README.md`](core/README.md), **Portrait check**):
+
+1. `git worktree add --detach ~/.cache/wordfilm/wt-old <old commit>` and `ln -s "$PWD/node_modules" ~/.cache/wordfilm/wt-old/node_modules`.
+2. `python3 tools/portrait_check.py --lib ~/.cache/wordfilm/wt-old --out ~/.cache/wordfilm/portrait-check/ref [--footage] <slug …>` (name the slugs when the old commit's `style.json` files have no `portrait` field).
+3. `python3 tools/portrait_check.py --compare ~/.cache/wordfilm/portrait-check/ref [--footage] <slug …>`: exit 0 and `landscape identical to the reference`; look at `sheet-port.jpg` for the 9:16 frames.
+4. `git worktree remove ~/.cache/wordfilm/wt-old`.
+
 ## Directory edition
 
 The Claude plugin directory lists a self-contained build of the plugin, on the orphan branch `directory` (the submission tracks that branch; `main` stays what visitors see). It carries the guides, every `STYLE.md` / `style.json` / `DEMO.md`, `core/` (without the Poly Haven models, which only demo code uses) and its own `README.md`, `SECURITY.md` and `SKILL.md`: nothing is cloned or fetched to tell the agent what to do, there are no demo sources, and Chinese edge-tts narration is used only with the user's consent. The sources of the plugin-only files are in `tools/directory/`; the build and its checks (file sizes, personal info) are in `tools/directory.py`.
 
 After a release on `main` (new styles, changed guides or tools):
 
-1. `git worktree add ../lemo-opuscar-directory directory` (once; reuse it afterwards).
-2. `python3 tools/directory.py <version> --into ../lemo-opuscar-directory`, with a version above the branch's current `.claude-plugin/plugin.json` (new styles or features: 1.1.0; fixes only: 1.0.1). The directory treats each version number as a release, so the script refuses the same or a lower one; `--same-version` is only for fixing a version that was never published. It also stops when a guide changed so much that one of its edits no longer applies: update `EDITS` in the script.
-3. `claude plugin validate ../lemo-opuscar-directory`, then commit there (`Lemo-Opuscar <version>, plugin directory edition`) and push `directory`. The directory scans each push and publishes the new version.
+1. `git worktree add ../wordfilm-directory directory` (once; reuse it afterwards).
+2. `python3 tools/directory.py <version> --into ../wordfilm-directory`, with a version above the branch's current `.claude-plugin/plugin.json` (new styles or features: 1.1.0; fixes only: 1.0.1). The directory treats each version number as a release, so the script refuses the same or a lower one; `--same-version` is only for fixing a version that was never published. It also stops when a guide changed so much that one of its edits no longer applies: update `EDITS` in the script.
+3. `claude plugin validate ../wordfilm-directory`, then commit there (`WordFilm <version>, plugin directory edition`) and push `directory`. The directory scans each push and publishes the new version.

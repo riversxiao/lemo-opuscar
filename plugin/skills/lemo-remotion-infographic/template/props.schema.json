@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/riversxiao/wordfilm/plugin/skills/lemo-remotion-infographic/template/props.schema.json",
+  "title": "WordFilm Remotion infographic props",
+  "description": "Input props of the Infographic / InfographicPortrait compositions. Content only: words, numbers, colours, frame timings. Written by scripts/plan_to_props.py from a controller plan.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "fps", "aspect", "width", "height", "durationInFrames", "language", "topic", "transparent", "palette", "fonts", "scenes"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "fps": { "type": "integer", "const": 24 },
+    "aspect": { "type": "string", "enum": ["16:9", "9:16"] },
+    "width": { "type": "integer", "enum": [1920, 1080] },
+    "height": { "type": "integer", "enum": [1080, 1920] },
+    "durationInFrames": { "type": "integer", "minimum": 24, "maximum": 2160 },
+    "language": { "type": "string", "enum": ["zh", "en", "zh-en"] },
+    "topic": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "transparent": { "type": "boolean", "description": "true = no background fill (render as WebM with alpha and overlay on a style render)" },
+    "palette": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bg", "ink", "accent", "muted"],
+      "properties": {
+        "bg": { "$ref": "#/$defs/hex" },
+        "ink": { "$ref": "#/$defs/hex" },
+        "accent": { "$ref": "#/$defs/hex" },
+        "muted": { "$ref": "#/$defs/hex" }
+      }
+    },
+    "fonts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "display"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "maxLength": 120, "description": "CSS font-family stack for numbers and small text" },
+        "display": { "type": "string", "minLength": 1, "maxLength": 120, "description": "CSS font-family stack for headlines; families come from the text pair or core/fonts/fonts.css" }
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 40,
+      "items": { "$ref": "#/$defs/scene" }
+    },
+    "credits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string", "maxLength": 80 },
+        "author": { "type": "string", "maxLength": 80 },
+        "year": { "type": "string", "maxLength": 12 },
+        "license": { "type": "string", "maxLength": 40 }
+      }
+    }
+  },
+  "$defs": {
+    "hex": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+    "segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "accent"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "accent": { "type": "boolean" }
+      }
+    },
+    "scene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "role", "from", "durationInFrames", "lines"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,31}$" },
+        "kind": { "type": "string", "enum": ["title", "chapter", "caption", "bigNumber", "compare", "chart", "end"] },
+        "role": { "type": "string", "enum": ["hook", "setup", "explain", "evidence", "contrast", "payoff", "chapter", "card", "end", "credits"] },
+        "from": { "type": "integer", "minimum": 0 },
+        "durationInFrames": { "type": "integer", "minimum": 12 },
+        "lines": {
+          "type": "array",
+          "maxItems": 6,
+          "items": { "type": "array", "minItems": 1, "maxItems": 12, "items": { "$ref": "#/$defs/segment" } }
+        },
+        "voText": { "type": "string", "maxLength": 400 },
+        "number": { "type": "number" },
+        "unit": { "type": "string", "maxLength": 16 },
+        "items": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "value"],
+            "properties": {
+              "label": { "type": "string", "minLength": 1, "maxLength": 40 },
+              "tag": { "type": "string", "maxLength": 40 },
+              "value": { "type": "number", "minimum": 0 }
+            }
+          }
+        },
+        "series": { "type": "array", "minItems": 2, "maxItems": 12, "items": { "type": "number", "minimum": 0 } }
+      }
+    }
+  }
+}

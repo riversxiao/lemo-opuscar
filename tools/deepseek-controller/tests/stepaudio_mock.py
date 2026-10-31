@@ -1,6 +1,6 @@
 """No-network tests for the StepAudio provider + music bed source.
 
-Spins a local mock of the StepFun API on 127.0.0.1 and points LEMO_TTS_STEPAUDIO_BASE
+Spins a local mock of the StepFun API on 127.0.0.1 and points WORDFILM_TTS_STEPAUDIO_BASE
 at it; a fake key is used. Asserts: only free preview models/routes are hit, the
 paid /audio/speech route is never called, retakes pick the closest pitch, 402 stops,
 music bed is cut/faded/RMS-matched and cached.
@@ -67,9 +67,9 @@ class H(BaseHTTPRequestHandler):
 
 srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
-os.environ.update({"LEMO_TTS_STEPAUDIO_BASE": f"http://127.0.0.1:{srv.server_port}/v1", "STEPFUN_API_KEY": "sk-mock"})
+os.environ.update({"WORDFILM_TTS_STEPAUDIO_BASE": f"http://127.0.0.1:{srv.server_port}/v1", "STEPFUN_API_KEY": "sk-mock"})
 os.environ.pop("STEP_API_KEY", None)
-os.environ["LEMO_TTS_STEPAUDIO_MODE"] = "perline"
+os.environ["WORDFILM_TTS_STEPAUDIO_MODE"] = "perline"
 from providers import stepaudio as S  # noqa: E402
 S.MIN_INTERVAL = 0.0
 
@@ -86,7 +86,7 @@ assert all(b["model"] == "stepaudio-3-gen-preview" and "voice" not in b for b in
 assert any("B二说" in b["scripts"][0]["text"] for b in gens), "say must be voiced"
 assert not any("/audio/speech" in p or "asr" in p for _, p, _ in HITS)
 # session mode: ONE request with every line as consecutive scripts, split by (injected) ASR timings
-os.environ["LEMO_TTS_STEPAUDIO_MODE"] = "session"
+os.environ["WORDFILM_TTS_STEPAUDIO_MODE"] = "session"
 n0 = len([1 for _, p, _ in HITS if p.endswith("/audio/generate")])
 sl = [{"id": "S1", "text": "甲乙丙"}, {"id": "S2", "text": "丁戊己"}, {"id": "S3", "text": "庚辛壬"}]
 def fake_words(a, sr, texts):
@@ -101,7 +101,7 @@ try:  # unusable take (ASR matches nothing) → stop, no silent per-line fallbac
     S.synthesize(sl, str(tmp / "vs2"), words_fn=lambda a, sr, t: [(0.1, 0.3, "x")]); raise AssertionError("bad split not fatal")
 except SystemExit as e:
     assert "session" in str(e)
-os.environ["LEMO_TTS_STEPAUDIO_MODE"] = "perline"
+os.environ["WORDFILM_TTS_STEPAUDIO_MODE"] = "perline"
 # refusing paid models / routes
 for bad in (lambda: S._post("/audio/speech", {"model": "stepaudio-3-gen-preview"}),
             lambda: S._post("/audio/generate", {"model": "stepaudio-3-tts"})):

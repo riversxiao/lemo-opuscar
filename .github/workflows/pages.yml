@@ -5,7 +5,7 @@ name: gallery
 on:
   push:
     branches: [main]
-    paths: ['styleboard/**', 'styles/*/poster.jpg', 'styles/*/style.json', 'styles/*/STYLE.md', '.github/workflows/pages.yml']
+    paths: ['styleboard/**', 'styles/*/poster.jpg', 'styles/*/style.json', 'styles/*/STYLE.md', 'tools/films.json', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -25,9 +25,30 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
+      # Pages has to be switched on once by a repo admin (Settings > Pages > Build and deployment > Source: GitHub Actions);
+      # this workflow's token cannot do it. Without it deploy-pages only fails at the very end ("Get Pages site failed"),
+      # so stop here with what to change (MAINTAINING.md, Publish). Same check locally: python3 tools/release.py pages
+      - name: check that GitHub Pages is on and deployed by this workflow
+        run: python3 tools/release.py pages "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
       - run: python3 styleboard/build.py --site _site
       # 720p cuts live on the "web" release; Pages serves them as video/mp4 (Safari won't play Release downloads)
-      - run: gh release download web --repo "$GITHUB_REPOSITORY" --pattern '*.mp4' --dir _site/films
+      # per file: every cut from the upstream's "web" release (the default repo in tools/films.json, lemomo-ai/lemo-opuscar),
+      # then this repo's own cuts on top (tools/release.py upload puts new and re-cut films there), so a fork that has
+      # published only some films still serves all of them
+      - name: download the web cuts
+        run: |
+          UP=$(python3 -c "import json; print(json.load(open('tools/films.json')).get('default') or 'lemomo-ai/lemo-opuscar')")
+          echo "web cuts from $UP"
+          gh release download web --repo "$UP" --pattern '*.mp4' --dir _site/films
+          if [ "$GITHUB_REPOSITORY" != "$UP" ]; then
+            n=$(gh release view web --repo "$GITHUB_REPOSITORY" --json assets --jq '[.assets[] | select(.name | endswith(".mp4"))] | length' 2>/dev/null || echo 0)
+            if [ "${n:-0}" -gt 0 ]; then
+              echo "overlaying $n web cuts from $GITHUB_REPOSITORY"
+              gh release download web --repo "$GITHUB_REPOSITORY" --pattern '*.mp4' --dir _site/films --clobber
+            fi
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
       # every film the gallery links must be in the site, or its card opens a dead player (e.g. a style pushed before its films were published)
@@ -46,7 +67,20 @@ jobs:
             [ -s "_site/$f" ] || { echo "::error::the gallery links $f but it is not in _site (is it missing from the 'web' release? run tools/publish.sh)"; missing=1; }
           done
           echo "$(echo "$links" | wc -l) linked films checked, $(echo "$expected" | wc -l) expected from the catalog"
+          # each "full quality" link names the repo tools/films.json gives that film (e.g. a film uploaded to this fork
+          # while tools/films.json was left uncommitted still points at the upstream): its "films" release must hold it
+          full=$( { grep -o 'https://github.com/[^"/]*/[^"/]*/releases/download/films/[^"]*\.mp4' _site/index.html || true; } | sort -u)
+          [ -n "$full" ] || { echo "::error::_site/index.html has no full-quality film links: did the gallery markup change?"; exit 1; }
+          for repo in $(echo "$full" | cut -d/ -f4,5 | sort -u); do
+            names=$(gh release view films --repo "$repo" --json assets --jq '.assets[].name') || { echo "::error::cannot read the films release of $repo"; missing=1; continue; }
+            for f in $(echo "$full" | grep "^https://github.com/$repo/releases/" | sed 's|.*/||'); do
+              grep -qx "$f" <<< "$names" || { echo "::error::the gallery links $f on $repo's films release, which does not have it (commit tools/films.json after tools/release.py upload)"; missing=1; }
+            done
+          done
+          echo "$(echo "$full" | wc -l) full-quality links checked"
           [ "$missing" = 0 ]
+        env:
+          GH_TOKEN: ${{ github.token }}
       - uses: actions/upload-pages-artifact@v5
         with:
           path: _site

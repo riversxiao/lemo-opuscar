@@ -20,6 +20,8 @@ Append-only JSONL:
 
 `tools/deepseek-controller/fixtures/budget-ledger.jsonl`
 
+`--ledger PATH` or `$WORDFILM_BUDGET_LEDGER` writes elsewhere (the test harness uses a temp ledger so it never appends to the tracked one). `import-opencode` reads `$WORDFILM_OPENCODE_DB` (old name `$LEMO_OPENCODE_DB` still works), default `~/.local/share/opencode/opencode.db`.
+
 ```sh
 # summarize
 python3 tools/deepseek-controller/cli.py budget summary
@@ -56,7 +58,7 @@ Module: `tools/deepseek-controller/budget.py`.
 | ongoing | TTS edge | `zh-CN-YunxiNeural` via edge-tts | **$0** | Default VO for controller + flash natives |
 | ongoing | NLE handoff | openfilm / hyperframes / premiere XML | **$0** | Export artifacts only; no Studio license on box |
 | optional | TTS kokoro | local onnx | **$0** | Proof route; not delivery default |
-| optional | TTS qwen3 / omnivoice | self-host HTTP | **unknown** | Needs `LEMO_TTS_*_BASE`; no key invented |
+| optional | TTS qwen3 / omnivoice | self-host HTTP | **unknown** | Needs `WORDFILM_TTS_*_BASE`; no key invented |
 | music bed | soft-pulse / procedural | local | **$0** | See MUSIC-BED.md |
 | fonts | Google Fonts fetch | `fetch_fonts.py` | **$0** | Bandwidth only |
 | ASR gate | faster-whisper `small` | local CPU int8 | **$0** | Cached HF model on box |

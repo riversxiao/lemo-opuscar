@@ -1,8 +1,15 @@
 // Caption News (字幕新闻) ·《蜜蜂账本 The Bee Ledger》— 1920×1080, 30 fps, 59.5 s
 // One timeline (SHOTS, CAPS, VO, EV) drives the picture, the captions, the .srt and the mix.
 // Footage frames are prepared at their final size by tools/prep.sh; the page only pans/pushes within the allowed scale.
-const W = 1920, H = 1080, FPS = 30, DUR = 59.5;
+// Frame size = viewport (the render tools set it from --size). A portrait frame (1080×1920) is its own layout, not a crop:
+// footage band 1080×1560 on top (horizontal sources cover it at ≤ 1.5×), caption card under the band, Chinese and English
+// stacked on two lines each, bug, source tag and credit in the top safe area, graphics re-laid out inside the band.
+const W = innerWidth, H = innerHeight, FPS = 30, DUR = 59.5;
+const PORT = H > W, BAND = PORT ? H - 360 : H;     // BAND: the picture area (the full frame in 16:9)
+const P = (land, port) => PORT ? port : land;       // landscape value, portrait value
+const TXo = P(0, -48), TYo = P(0, 100);             // portrait shift of the data-card titles (margin 72, below the top safe area)
 const cv = document.getElementById('out'), ctx = cv.getContext('2d');
+if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }   // index.html declares 1920×1080
 
 // ---------- helpers ----------
 const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
@@ -70,27 +77,31 @@ function text(s, x, y, font, color, align = 'left', base = 'alphabetic') { ctx.f
 function tw(s, font) { ctx.font = font; return ctx.measureText(s).width; }
 function warm(x, y, w, h, a = 0.06) { ctx.save(); ctx.globalCompositeOperation = 'soft-light'; ctx.fillStyle = `rgba(255,170,70,${a})`; ctx.fillRect(x, y, w, h); ctx.restore(); }
 // draw a prepared frame (already at display size) into a box, with a push (z ≥ 1) around (fx, fy) in box fractions
-function plate(im, x, y, w, h, z = 1, fx = .5, fy = .5, filt = GRADE) {
+// portrait: a frame smaller than its box is scaled up to cover it, never above cap (1.5× for footage)
+const cover = (im, w, h, cap = 1.5) => PORT ? Math.min(cap, Math.max(1, w / im.width, h / im.height)) : 1;
+function plate(im, x, y, w, h, z = 1, fx = .5, fy = .5, filt = GRADE, cap = 1.5) {
   ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
-  const ox = x + (w - im.width) / 2, oy = y + (h - im.height) / 2, px = x + w * fx, py = y + h * fy;
-  ctx.filter = filt; di(im, px + (ox - px) * z, py + (oy - py) * z, im.width * z, im.height * z); ctx.filter = 'none';
+  const c = cover(im, w, h, cap), iw = im.width * c, ih = im.height * c;
+  const ox = x + (w - iw) / 2, oy = y + (h - ih) / 2, px = x + w * fx, py = y + h * fy;
+  ctx.filter = filt; di(im, px + (ox - px) * z, py + (oy - py) * z, iw * z, ih * z); ctx.filter = 'none';
   warm(x, y, w, h); ctx.restore();
 }
 // draw a photo by cover-fit at scale s (photo px → screen px), centred on photo point (px, py) placed at screen (sx, sy)
-function photo(im, s, px, py, sx = W / 2, sy = H / 2, filt = GRADE, box = [0, 0, W, H]) {
+function photo(im, s, px, py, sx = W / 2, sy = BAND / 2, filt = GRADE, box = [0, 0, W, BAND]) {
+  if (PORT) s = Math.max(s, box[2] / im.width, box[3] / im.height);   // portrait: a photo always covers its box
   ctx.save(); ctx.beginPath(); ctx.rect(...box); ctx.clip();
   const dw = im.width * s, dh = im.height * s;
   const dx = clamp(sx - px * s, box[0] + box[2] - dw, box[0]), dy = clamp(sy - py * s, box[1] + box[3] - dh, box[1]);
   ctx.filter = filt; di(im, dx, dy, dw, dh); ctx.filter = 'none';
   warm(...box); ctx.restore(); return { dx, dy, s };
 }
-function veil(kind = 'v') { if (kind === 'c') shade(820, .6); else { shade(); topShade(); } }
-function shade(top = 560, a = .84) {   // bottom gradient under the caption card
-  const g = ctx.createLinearGradient(0, top, 0, H); g.addColorStop(0, 'rgba(14,14,12,0)'); g.addColorStop(.55, `rgba(14,14,12,${a * .7})`); g.addColorStop(1, `rgba(14,14,12,${a})`);
-  ctx.fillStyle = g; ctx.fillRect(0, top, W, H - top);
-  const r = ctx.createRadialGradient(0, H, 0, 0, H, 1100); r.addColorStop(0, 'rgba(14,14,12,.45)'); r.addColorStop(1, 'rgba(14,14,12,0)'); ctx.fillStyle = r; ctx.fillRect(0, 0, W, H);
+function veil(kind = 'v') { if (kind === 'c') shade(P(820, BAND - 300), .6); else { shade(); topShade(); } }
+function shade(top = P(560, BAND - 520), a = .84) {   // bottom gradient under the caption card (portrait: the bottom of the band)
+  const B = BAND, g = ctx.createLinearGradient(0, top, 0, B); g.addColorStop(0, 'rgba(14,14,12,0)'); g.addColorStop(.55, `rgba(14,14,12,${a * .7})`); g.addColorStop(1, `rgba(14,14,12,${a})`);
+  ctx.fillStyle = g; ctx.fillRect(0, top, W, B - top);
+  const r = ctx.createRadialGradient(0, B, 0, 0, B, 1100); r.addColorStop(0, 'rgba(14,14,12,.45)'); r.addColorStop(1, 'rgba(14,14,12,0)'); ctx.fillStyle = r; ctx.fillRect(0, 0, W, B);
 }
-function topShade() { const g = ctx.createLinearGradient(0, 0, 0, 200); g.addColorStop(0, 'rgba(14,14,12,.55)'); g.addColorStop(1, 'rgba(14,14,12,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 200); }
+function topShade() { const h = P(200, 280), g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(14,14,12,.55)'); g.addColorStop(1, 'rgba(14,14,12,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, h); }
 function flash(t, t0, dur = 0.12) { const k = seg(t, t0, t0 + dur); if (k <= 0 || k >= 1) return; ctx.fillStyle = `rgba(255,255,255,${(1 - k) * .9})`; ctx.fillRect(0, 0, W, H); }
 // ledger paper: the data-card ground (dark ruled sheet with a red double margin) — the film's graphic motif
 function ledger(t, a, slide = true) {
@@ -105,7 +116,7 @@ function ledger(t, a, slide = true) {
   return ox;
 }
 // a camera for graphics: slow push around the frame centre
-function camPush(t, a, b, z0 = 1, z1 = 1.03, cx = W / 2, cy = H / 2) { const z = lerp(z0, z1, eio(seg(t, a, b))); ctx.translate(cx, cy); ctx.scale(z, z); ctx.translate(-cx, -cy); }
+function camPush(t, a, b, z0 = 1, z1 = 1.03, cx = W / 2, cy = BAND / 2) { const z = lerp(z0, z1, eio(seg(t, a, b))); ctx.translate(cx, cy); ctx.scale(z, z); ctx.translate(-cx, -cy); }
 // numbers with fixed-width digits, so a rolling counter never jitters
 function num(s, x, y, size, color, align = 'left', font = F.n8) {
   const f = `800 ${size}px ${font}`; ctx.font = f; const cw = ctx.measureText('0').width;
@@ -118,7 +129,7 @@ function num(s, x, y, size, color, align = 'left', font = F.n8) {
 }
 function bug(t) {   // channel bug (fictional channel 简闻) + topic, from the end of the title sting
   const k = eo(seg(t, 7.15, 7.4)); if (k <= 0) return;
-  ctx.save(); ctx.globalAlpha = k; const x = 96, y = 52;
+  ctx.save(); ctx.globalAlpha = k; const x = P(96, 72), y = P(52, 110);
   ctx.fillStyle = C.honey; ctx.fillRect(x, y, 92, 46); text('简闻', x + 46, y + 34, `900 30px ${F.zh9}`, C.bg, 'center');
   ctx.fillStyle = 'rgba(14,14,12,.62)'; ctx.fillRect(x + 92, y, 300, 46);
   text('蜜蜂账本', x + 108, y + 33, `900 26px ${F.zh9}`, C.ink); text('THE BEE LEDGER', x + 226, y + 31, `800 17px ${F.n8}`, C.honey);
@@ -127,16 +138,17 @@ function bug(t) {   // channel bug (fictional channel 简闻) + topic, from the 
   TX.push({ id: 'title-en', text: 'THE BEE LEDGER', x0: x, y0: y, x1: x + 392, y1: y + 46 });
 }
 function sourceTag(t, t0, label = 'USDA NASS · 2026.08.03') {   // source tag: slides in from the left under the bug
-  const k = eo(seg(t, t0, t0 + .2)); if (k <= 0) return; ctx.save(); ctx.globalAlpha = k; const x = 96 - (1 - k) * 40, y = 108;
+  const k = eo(seg(t, t0, t0 + .2)); if (k <= 0) return; ctx.save(); ctx.globalAlpha = k; const x = P(96, 72) - (1 - k) * 40, y = P(108, 166);
   const w1 = tw('来源', `900 22px ${F.zh9}`) + 20, w2 = tw(label, `500 21px ${F.n5}`) + 22;
   ctx.fillStyle = C.ink; ctx.fillRect(x, y, w1, 36); text('来源', x + 10, y + 26, `900 22px ${F.zh9}`, C.bg);
   ctx.fillStyle = 'rgba(14,14,12,.82)'; ctx.fillRect(x + w1, y, w2, 36); text(label, x + w1 + 11, y + 25, `500 21px ${F.n5}`, C.ink); ctx.restore();
 }
 function credit(s) {   // per-shot footage credit, top right ("Video:" tag); CC BY attribution on every shot it applies to
   if (!s) return; const f = `500 19px ${F.zh5}`; const w = tw(s, f);
-  ctx.fillStyle = 'rgba(14,14,12,.5)'; ctx.fillRect(W - 72 - w - 16, 54, w + 16, 30); text(s, W - 80, 75, f, 'rgba(247,245,239,.86)', 'right');
+  const y = !PORT ? 54 : W - 88 - w > 72 + 392 + 24 ? 112 : 222;   // portrait: beside the bug, or a row lower when it is too long
+  ctx.fillStyle = 'rgba(14,14,12,.5)'; ctx.fillRect(W - 72 - w - 16, y, w + 16, 30); text(s, W - 80, y + 21, f, 'rgba(247,245,239,.86)', 'right');
 }
-function lowerThird(t, t0, zh, en, x = 120, y = 742) {   // lower third: yellow bar + label + one English line
+function lowerThird(t, t0, zh, en, x = P(120, 72), y = P(742, BAND - 330)) {   // lower third: yellow bar + label + one English line
   const k = eo(seg(t, t0, t0 + .22)); if (k <= 0) return;
   const w = Math.max(tw(zh, `900 40px ${F.zh9}`), tw(en, `500 22px ${F.n5}`)) + 48;
   ctx.save(); ctx.beginPath(); ctx.rect(x, y - 4, w * k + 10, 110); ctx.clip();
@@ -146,12 +158,46 @@ function lowerThird(t, t0, zh, en, x = 120, y = 742) {   // lower third: yellow 
 }
 
 // ---------- caption card: one line per language, chunks slam in one after another ----------
+// portrait caption card (under the band): the chunks stacked on two balanced lines, the English wrapped on up to two lines (fitEn)
+const PCAP = { x: 72, w: 936, zh: 76, en: 32 };
+function capLayout(parts, big) {
+  if (!PORT) {
+    const size = CAP.zh * big, y = CAP.zhY - (big > 1 ? 40 : 0), pos = []; let cx = CAP.x;
+    for (const p of parts) { pos.push([cx, y]); cx += chunkW(p, size) + size * .05; }
+    return { size, pos, enY: [CAP.enY + (big > 1 ? 4 : 0)] };
+  }
+  let size = PCAP.zh * big;
+  const lineW = (ps, sz) => ps.reduce((w, p, i) => w + chunkW(p, sz) + (i ? sz * .05 : 0), 0);
+  let k = parts.length, best = Infinity;   // split so the longer line is as short as possible
+  for (let j = 1; j < parts.length; j++) { const m = Math.max(lineW(parts.slice(0, j), size), lineW(parts.slice(j), size)); if (m < best) { best = m; k = j; } }
+  const lines = [parts.slice(0, k), parts.slice(k)].filter(l => l.length);
+  const widest = Math.max(...lines.map(l => lineW(l, size))); if (widest > PCAP.w) size *= PCAP.w / widest;
+  const y0 = BAND + 46 + size * .88, lh = size * 1.18, pos = [];
+  lines.forEach((l, li) => { let cx = PCAP.x; for (const p of l) { pos.push([cx, y0 + li * lh]); cx += chunkW(p, size) + size * .05; } });
+  const enTop = y0 + (lines.length - 1) * lh + 58;
+  return { size, pos, enY: [enTop, enTop + 42] };
+}
+function wrapWords(s, font, maxW) {   // greedy word wrap (portrait English lines, end-card sources)
+  const out = []; let line = '';
+  for (const w of s.split(' ')) { const tryL = line ? line + ' ' + w : w; if (line && tw(tryL, font) > maxW) { out.push(line); line = w; } else line = tryL; }
+  if (line) out.push(line); return out;
+}
+// portrait English: wrap to at most two lines at PCAP.en px; longer copy steps the size down
+// (no less than 24 px) instead of losing text. If even that needs a third line, it is still
+// drawn (on the same rhythm) and a warning names the line, so nothing is cut silently.
+const EN_MIN = 24, WARNED = new Set();
+function fitEn(s, maxW, n = 2) {
+  let size = PCAP.en, f, ls;
+  for (;; size -= 2) { f = `500 ${size}px ${F.n5}`; ls = wrapWords(s, f, maxW); if (ls.length <= n || size <= EN_MIN) break; }
+  if (ls.length > n && !WARNED.has(s)) { WARNED.add(s); console.warn(`caption-news: English line needs ${ls.length} lines in 9:16 at ${size}px; shorten it: ${s}`); }
+  return { f, ls, lh: Math.round(42 * size / PCAP.en) };
+}
 function capCard(c, t) {
   const [a, b, zh, en, big = 1] = c; if (t < a || t >= b) return;
-  const size = CAP.zh * big, parts = zh.split('|'); let cx = CAP.x; const y = CAP.zhY - (big > 1 ? 40 : 0);
+  const parts = zh.split('|'), L = capLayout(parts, big), size = L.size;
   parts.forEach((p, i) => {
-    const t0 = a + .04 + i * .12, k = seg(t, t0, t0 + .13); if (t < t0) { cx += chunkW(p, size) + size * .05; return; }
-    const sc = lerp(1.3, 1, back(k, 1.6));
+    const t0 = a + .04 + i * .12, k = seg(t, t0, t0 + .13); if (t < t0) return;
+    const sc = lerp(1.3, 1, back(k, 1.6)), [cx, y] = L.pos[i];
     ctx.save(); ctx.translate(cx, y); ctx.scale(sc, sc); ctx.globalAlpha = clamp(k * 3);
     let x = 0;
     for (const q of p.split(/(\{[^}]+\})/).filter(Boolean)) {
@@ -160,18 +206,20 @@ function capCard(c, t) {
       else { ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 20; ctx.shadowOffsetY = 4; }
       text(s, x, 0, f, hot ? C.bg : C.ink); ctx.shadowColor = 'transparent'; x += w + (hot ? 24 : 0);
     }
-    ctx.restore(); cx += chunkW(p, size) + size * .05;
+    ctx.restore();
   });
   const ke = eo(seg(t, a + .1, a + .28));
   ctx.save(); ctx.globalAlpha = ke; ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowBlur = 12;
-  text(en, CAP.x, CAP.enY + (big > 1 ? 4 : 0) + (1 - ke) * 10, `500 ${CAP.en}px ${F.n5}`, C.ink); ctx.restore();
+  if (!PORT) text(en, CAP.x, L.enY[0] + (1 - ke) * 10, `500 ${CAP.en}px ${F.n5}`, C.ink);
+  else { const { f, ls, lh } = fitEn(en, PCAP.w); ls.forEach((l, i) => text(l, PCAP.x, L.enY[0] + i * lh + (1 - ke) * 10, f, C.ink)); }
+  ctx.restore();
 }
 function chunkW(p, size) { let w = 0; for (const q of p.split(/(\{[^}]+\})/).filter(Boolean)) { const hot = q[0] === '{'; w += tw(hot ? q.slice(1, -1) : q, `900 ${size}px ${F.zh9}`) + (hot ? 24 : 0); } return w; }
 
 // ---------- shots ----------
 function shotVid(s, t) {
   const im = frame(s.fr, s.n, t, s.a); const z = lerp(s.z[0], s.z[1], eio(seg(t, s.a, s.b)));
-  plate(im, 0, 0, W, H, z, .5, .5); veil();
+  plate(im, 0, 0, W, BAND, z, .5, .5); veil();
   if (s.lt) lowerThird(t, s.a + .1, ...s.lt);
 }
 // 0–5 s: the hook — the film's biggest number lands on frame 4 and rolls
@@ -179,23 +227,25 @@ function hook(t) {
   if (t < .06 || t >= 4.9) return;
   const out = eo(seg(t, 4.62, 4.9));
   ctx.save(); ctx.translate(-out * 1200, 0);
-  const L = 120, kk = seg(t, .06, .19);
-  ctx.save(); ctx.translate(L, 470); const s1 = lerp(1.3, 1, back(kk, 1.6)); ctx.scale(s1, s1); ctx.globalAlpha = clamp(kk * 3);
+  const L = P(120, 72), kk = seg(t, .06, .19);   // portrait: the three pieces stacked in the band, the English under it
+  ctx.save(); ctx.translate(L, P(470, 760)); const s1 = lerp(1.3, 1, back(kk, 1.6)); ctx.scale(s1, s1); ctx.globalAlpha = clamp(kk * 3);
   ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 22; text('一年没了', 0, 0, `900 92px ${F.zh9}`, C.ink); ctx.restore();
   const k = seg(t, .13, .26), roll = Math.round(130 * eo(seg(t, .13, .6)));
   if (t >= .13) {
-    ctx.save(); ctx.translate(L, 760); const sc = lerp(1.45, 1, back(k, 1.4)); ctx.scale(sc, sc); ctx.globalAlpha = clamp(k * 3);
+    ctx.save(); ctx.translate(L + P(0, 22), P(760, 1080)); const sc = lerp(1.45, 1, back(k, 1.4)); ctx.scale(sc, sc); ctx.globalAlpha = clamp(k * 3);
     const nf = 270, cw = tw('0', `800 ${nf}px ${F.n8}`), wn = cw * 3, wu = tw('万箱', `900 130px ${F.zh9}`);
     ctx.fillStyle = C.honey; ctx.fillRect(-22, -238, wn + wu + 70, 296);
     num(String(roll).padStart(3, ' ').trim(), wn, 0, nf, C.bg, 'right'); text('万箱', wn + 22, -14, `900 130px ${F.zh9}`, C.bg);
     ctx.restore();
     const kb = seg(t, .4, .53);
-    if (t > .4) { ctx.save(); ctx.translate(L + 3 * cwOf(270) + tw('万箱', `900 130px ${F.zh9}`) + 120, 760); ctx.scale(lerp(1.3, 1, back(kb, 1.6)), lerp(1.3, 1, back(kb, 1.6))); ctx.globalAlpha = clamp(kb * 3); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 22; text('蜜蜂', 0, -14, `900 130px ${F.zh9}`, C.ink); ctx.restore(); }
+    if (t > .4) { ctx.save(); ctx.translate(P(L + 3 * cwOf(270) + tw('万箱', `900 130px ${F.zh9}`) + 120, L), P(760, 1300)); ctx.scale(lerp(1.3, 1, back(kb, 1.6)), lerp(1.3, 1, back(kb, 1.6))); ctx.globalAlpha = clamp(kb * 3); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 22; text('蜜蜂', 0, -14, `900 130px ${F.zh9}`, C.ink); ctx.restore(); }
   }
   const ke = eo(seg(t, .3, .5)); ctx.save(); ctx.globalAlpha = ke; ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowBlur = 12;
-  text(HOOK_CUE[3], L, 880, `500 ${CAP.en}px ${F.n5}`, C.ink); ctx.restore();
+  if (!PORT) text(HOOK_CUE[3], L, 880, `500 ${CAP.en}px ${F.n5}`, C.ink);
+  else { const { f, ls, lh } = fitEn(HOOK_CUE[3], PCAP.w); ls.forEach((l, i) => text(l, L, BAND + 100 + i * Math.round(lh * 46 / 42), f, C.ink)); }
   ctx.restore();
-  if (out === 0) { TX.push({ id: 'hook', text: '一年没了130万箱蜜蜂', x0: L - 30, y0: 380, x1: 1400, y1: 820 }); }
+  ctx.restore();
+  if (out === 0) { TX.push(PORT ? { id: 'hook', text: '一年没了130万箱蜜蜂', x0: L - 30, y0: 660, x1: W - 72, y1: 1340 } : { id: 'hook', text: '一年没了130万箱蜜蜂', x0: L - 30, y0: 380, x1: 1400, y1: 820 }); }
 }
 const cwOf = size => tw('0', `800 ${size}px ${F.n8}`);
 // 5–7.5 s: title sting — a yellow ledger page wipes in over the hive entrance, then wipes off into the bug
@@ -204,40 +254,40 @@ function shotSting(s, t) {
   if (off > 0) shotHalf(SHOTS[4], 7.5);           // what the wipe-off reveals is the next shot's first frame
   else { ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H); }
   const im = frame('st', 81, t, s.a);
-  const PW = 864, kin = eo(seg(t, 4.94, 5.14));
-  ctx.save(); ctx.translate(-off * 1920, 0);
-  plate(im, PW, 0, W - PW, H, lerp(1.0, 1.0, 0), .5, .5);
-  // the page
-  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, PW * kin, H); ctx.clip();
-  ctx.fillStyle = C.honey; ctx.fillRect(0, 0, PW, H);
+  // the page: the left 864 px in 16:9; portrait: the top 1000 px of the band, the hive entrance under it
+  const PW = P(864, W), PH = P(H, 1000), SX = P(0, -48), kin = eo(seg(t, 4.94, 5.14));
+  ctx.save(); ctx.translate(-off * W, 0);
+  if (PORT) plate(im, 0, PH, W, BAND - PH, 1, .5, .5); else plate(im, PW, 0, W - PW, H, lerp(1.0, 1.0, 0), .5, .5);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, PW * kin, PH); ctx.clip();
+  ctx.fillStyle = C.honey; ctx.fillRect(0, 0, PW, PH);
   ctx.strokeStyle = 'rgba(14,14,12,.13)'; ctx.lineWidth = 2;
   for (let i = 0; i < 18; i++) { const y = 120 + i * 54, kl = eo(seg(t, 5.1 + i * .025, 5.4 + i * .025)); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(PW * kl, y); ctx.stroke(); }
-  ctx.strokeStyle = 'rgba(200,40,30,.5)'; [78, 86].forEach(x => { const kl = eo(seg(t, 5.15, 5.55)); ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H * kl); ctx.stroke(); });
+  ctx.strokeStyle = 'rgba(200,40,30,.5)'; [78, 86].forEach(x => { const kl = eo(seg(t, 5.15, 5.55)); ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, PH * kl); ctx.stroke(); });
   const kt = seg(t, 5.18, 5.32);
-  if (t > 5.18) { ctx.save(); ctx.translate(124, 560); const sc = lerp(1.35, 1, back(kt, 1.5)); ctx.scale(sc, sc); ctx.globalAlpha = clamp(kt * 3); text('蜜蜂账本', 0, 0, `900 176px ${F.zh9}`, C.bg); ctx.restore(); }
-  const k2 = eo(seg(t, 5.36, 5.56)); ctx.save(); ctx.globalAlpha = k2; text('THE BEE LEDGER', 128 + (1 - k2) * 30, 646, `800 58px ${F.n8}`, C.bg); ctx.restore();
+  if (t > 5.18) { ctx.save(); ctx.translate(124 + SX, 560); const sc = lerp(1.35, 1, back(kt, 1.5)); ctx.scale(sc, sc); ctx.globalAlpha = clamp(kt * 3); text('蜜蜂账本', 0, 0, `900 176px ${F.zh9}`, C.bg); ctx.restore(); }
+  const k2 = eo(seg(t, 5.36, 5.56)); ctx.save(); ctx.globalAlpha = k2; text('THE BEE LEDGER', 128 + SX + (1 - k2) * 30, 646, `800 58px ${F.n8}`, C.bg); ctx.restore();
   const k3 = eo(seg(t, 5.5, 5.7)); if (k3 > 0) {
     ctx.save(); ctx.globalAlpha = k3; const lab = 'USDA NASS  ·  2026.08.03', wl = tw(lab, `800 28px ${F.n8}`);
-    ctx.fillStyle = C.bg; ctx.fillRect(128, 700, wl + 70, 52); ctx.fillStyle = C.loss; ctx.beginPath(); ctx.arc(152, 726, 8, 0, 7); ctx.fill();
-    text(lab, 172, 737, `800 28px ${F.n8}`, C.honey); ctx.restore();
+    ctx.fillStyle = C.bg; ctx.fillRect(128 + SX, 700, wl + 70, 52); ctx.fillStyle = C.loss; ctx.beginPath(); ctx.arc(152 + SX, 726, 8, 0, 7); ctx.fill();
+    text(lab, 172 + SX, 737, `800 28px ${F.n8}`, C.honey); ctx.restore();
   }
   ctx.restore(); ctx.restore();
-  if (t > 5.18 && off === 0) { TX.push({ id: 'title', text: '蜜蜂账本', x0: 120, y0: 400, x1: 840, y1: 600 }); TX.push({ id: 'title-en', text: 'THE BEE LEDGER', x0: 120, y0: 590, x1: 840, y1: 660 }); }
+  if (t > 5.18 && off === 0) { TX.push({ id: 'title', text: '蜜蜂账本', x0: 120 + SX, y0: 400, x1: 840 + SX, y1: 600 }); TX.push({ id: 'title-en', text: 'THE BEE LEDGER', x0: 120 + SX, y0: 590, x1: 840 + SX, y1: 660 }); }
 }
 // 7.5–10.5 s: "half" — a yellow line sweeps to 49.5 % of the row; what it passes goes dark
 function shotHalf(s, t) {
   const im = frame('hf', 94, t, s.a); const z = lerp(1.0, 1.035, eio(seg(t, s.a, s.b)));
-  plate(im, 0, 0, W, H, z, .5, .5); if (t < 7.92) veil();
+  plate(im, 0, 0, W, BAND, z, .5, .5); if (t < 7.92) veil();
   const tw0 = 7.92, k = eo(seg(t, tw0, tw0 + .42));
   if (k > 0) {
     const xs = lerp(W, W * (1 - .495), k);
-    ctx.save(); ctx.beginPath(); ctx.rect(xs, 0, W - xs, H); ctx.clip(); plate(im, 0, 0, W, H, z, .5, .5, 'grayscale(1) brightness(0.26) contrast(1.1)'); ctx.restore();
-    veil(); ctx.fillStyle = C.honey; ctx.fillRect(xs - 4, 0, 8, H);
-    const k2 = seg(t, tw0 + .36, tw0 + .5);
+    ctx.save(); ctx.beginPath(); ctx.rect(xs, 0, W - xs, BAND); ctx.clip(); plate(im, 0, 0, W, BAND, z, .5, .5, 'grayscale(1) brightness(0.26) contrast(1.1)'); ctx.restore();
+    veil(); ctx.fillStyle = C.honey; ctx.fillRect(xs - 4, 0, 8, BAND);
+    const k2 = seg(t, tw0 + .36, tw0 + .5), hx = P(1440, W * .75), hy = P(470, 820);
     if (t > tw0 + .36) {
-      ctx.save(); ctx.translate(1440, 470); const sc = lerp(1.3, 1, back(k2, 1.6)); ctx.scale(sc, sc); ctx.globalAlpha = clamp(k2 * 3);
-      num('≈49%', 0, 0, 200, C.ink, 'center'); ctx.restore();
-      TX.push({ id: 'half', text: '≈49%', x0: 1180, y0: 300, x1: 1700, y1: 500 });
+      ctx.save(); ctx.translate(hx, hy); const sc = lerp(1.3, 1, back(k2, 1.6)); ctx.scale(sc, sc); ctx.globalAlpha = clamp(k2 * 3);
+      num('≈49%', 0, 0, P(200, 150), C.ink, 'center'); ctx.restore();
+      TX.push(PORT ? { id: 'half', text: '≈49%', x0: hx - 240, y0: hy - 140, x1: hx + 240, y1: hy + 30 } : { id: 'half', text: '≈49%', x0: 1180, y0: 300, x1: 1700, y1: 500 });
     }
   }
 }
@@ -246,25 +296,27 @@ function shotFreeze(s, t) {
   const tf = 11.0, im = frame('fz', 42, Math.min(t, tf), s.a);
   const kp = eo(seg(t, tf, tf + .25)), z = t < tf ? 1 : lerp(1, 1.12, kp) + .04 * seg(t, tf + .25, s.b);
   const sat = t < tf ? 1 : lerp(1, .45, kp);
-  plate(im, 0, 0, W, H, z, 890 / W, 490 / H, `${GRADE} saturate(${sat})`); veil();
+  const c = cover(im, W, BAND), cx = P(890, (W - im.width * c) / 2 + 890 * c), cy = P(490, (BAND - im.height * c) / 2 + 490 * c);   // the bee
+  plate(im, 0, 0, W, BAND, z, cx / W, cy / BAND, `${GRADE} saturate(${sat})`); veil();
   if (t >= tf) {
-    const kb = eo(seg(t, tf + .1, tf + .3)), cx = 890, cy = 490, bw = lerp(420, 300, kb), bh = lerp(330, 230, kb), L = 46;
+    const kb = eo(seg(t, tf + .1, tf + .3)), bw = lerp(420, 300, kb), bh = lerp(330, 230, kb), L = 46;
     ctx.save(); ctx.globalAlpha = kb; ctx.strokeStyle = C.honey; ctx.lineWidth = 6;
     for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const x = cx + sx * bw / 2, y = cy + sy * bh / 2; ctx.beginPath(); ctx.moveTo(x, y - sy * -L * 0 + (sy < 0 ? L : -L)); ctx.lineTo(x, y); ctx.lineTo(x - sx * L, y); ctx.stroke(); }
     ctx.restore();
     // timecode stamp, top right under the credit
-    ctx.save(); ctx.globalAlpha = kb; ctx.fillStyle = 'rgba(14,14,12,.7)'; ctx.fillRect(W - 300, 100, 220, 44);
-    ctx.fillStyle = C.loss; ctx.fillRect(W - 284, 112, 8, 20); ctx.fillRect(W - 270, 112, 8, 20);
-    num('00:11:00', W - 96, 132, 26, C.ink, 'right'); ctx.restore();
+    const dy = P(0, 72); ctx.save(); ctx.globalAlpha = kb; ctx.fillStyle = 'rgba(14,14,12,.7)'; ctx.fillRect(W - 300, 100 + dy, 220, 44);
+    ctx.fillStyle = C.loss; ctx.fillRect(W - 284, 112 + dy, 8, 20); ctx.fillRect(W - 270, 112 + dy, 8, 20);
+    num('00:11:00', W - 96, 132 + dy, 26, C.ink, 'right'); ctx.restore();
   }
   flash(t, tf, .14);
 }
 // report page: white paper on a dark desk, 220 dpi (1 pt = 3.0556 px); highlighter marks driven by pdftotext -bbox coordinates
 const PT = 220 / 72;
-function paper(t, s, z0, z1, fx, fy, rot, marks) {
-  const im = img('assets/img/doc1.jpg'); const u = eio(seg(t, s.a, s.b)), z = lerp(z0, z1, u);
+function paper(t, s, z0, z1, fx, fy, rot, marks, pz = 1) {   // pz: portrait zoom factor, so the marked lines fit the 1080 width
+  const im = img('assets/img/doc1.jpg'); const u = eio(seg(t, s.a, s.b)), z = lerp(z0, z1, u) * P(1, pz);
+  const ox = P(W * .56, W * .5), oy = P(H * .40, BAND * .42);
   ctx.fillStyle = '#23221E'; ctx.fillRect(0, 0, W, H);
-  ctx.save(); ctx.translate(W * .56, H * .40); ctx.rotate(rot); ctx.scale(z, z); ctx.translate(-fx * PT, -fy * PT);
+  ctx.save(); ctx.translate(ox, oy); ctx.rotate(rot); ctx.scale(z, z); ctx.translate(-fx * PT, -fy * PT);
   ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 50 / z; ctx.shadowOffsetY = 18 / z;
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, im.width, im.height); ctx.shadowColor = 'transparent';
   ctx.filter = 'contrast(1.06) sepia(0.06)'; di(im, 0, 0); ctx.filter = 'none';
@@ -274,16 +326,16 @@ function paper(t, s, z0, z1, fx, fy, rot, marks) {
     ctx.fillRect(m[1] * PT - 8, m[2] * PT - 5, (m[3] - m[1]) * PT * k + 16, (m[4] - m[2]) * PT + 10); ctx.globalCompositeOperation = 'source-over';
   }
   ctx.restore(); warm(0, 0, W, H, .04);
-  const v = ctx.createRadialGradient(W * .56, H * .4, 300, W * .56, H * .4, 1200); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.55)'); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+  const v = ctx.createRadialGradient(ox, P(H * .4, oy), 300, ox, P(H * .4, oy), 1200); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.55)'); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
 }
 // 13–16 s: the turn, said by the report itself — headline highlighted, +6% lands
 function shotDoc6(s, t) {
-  paper(t, s, .92, 1.0, 150, 173, -.012, [[13.28, 36, 167.1, 265.4, 179.5, .45]]); veil();
-  const tp = 14.25, k = seg(t, tp, tp + .14);
+  paper(t, s, .92, 1.0, 150, 173, -.012, [[13.28, 36, 167.1, 265.4, 179.5, .45]], .8); veil();
+  const tp = 14.25, k = seg(t, tp, tp + .14), px = P(1430, 540), py = P(640, 1120);
   if (t > tp) {
-    ctx.save(); ctx.translate(1430, 640); ctx.rotate(-.03); const sc = lerp(1.4, 1, back(k, 1.5)); ctx.scale(sc, sc); ctx.globalAlpha = clamp(k * 3);
+    ctx.save(); ctx.translate(px, py); ctx.rotate(-.03); const sc = lerp(1.4, 1, back(k, 1.5)); ctx.scale(sc, sc); ctx.globalAlpha = clamp(k * 3);
     ctx.fillStyle = C.honey; ctx.fillRect(-190, -120, 380, 160); num('+6%', 0, 10, 140, C.bg, 'center'); ctx.restore();
-    TX.push({ id: 'plus6', text: '+6%', x0: 1230, y0: 500, x1: 1630, y1: 700 });
+    TX.push({ id: 'plus6', text: '+6%', x0: px - 200, y0: py - 140, x1: px + 200, y1: py + 60 });
   }
   if (t > 13.0) sourceTag(t, 13.15);
   flash(t, 13.0, .1);
@@ -291,10 +343,10 @@ function shotDoc6(s, t) {
 // 16–19 s: colonies on the first day of each quarter — the count rises in spring, falls in winter, ends above where it began
 const STOCK = [[2.6393, '1月', '264'], [2.88, '4月', '288'], [3.12, '7月', '312'], [2.95, '10月', '295'], [2.8054, '1月', '281'], [2.84, '4月', '284']];
 function shotStock(s, t) {
-  ledger(t, s.a); ctx.save(); camPush(t, s.a, s.b, 1, 1.03, 1200, 480);
-  const x0 = 640, x1 = 1720, yb = 760, yt = 250, X = i => lerp(x0, x1, i / 5), Y = v => lerp(yb, yt, (v - 2.4) / .8);
-  text('蜂群存栏', 120, 250, `900 64px ${F.zh9}`, C.ink); text('Colonies on the 1st of each quarter, U.S.', 122, 300, `500 24px ${F.n5}`, C.grey);
-  text('单位：万箱', 122, 344, `500 24px ${F.zh5}`, C.grey);
+  ledger(t, s.a); ctx.save(); camPush(t, s.a, s.b, 1, 1.03, P(1200, 540), P(480, 900));
+  const x0 = P(640, 150), x1 = P(1720, 930), yb = P(760, 1250), yt = P(250, 640), X = i => lerp(x0, x1, i / 5), Y = v => lerp(yb, yt, (v - 2.4) / .8);
+  text('蜂群存栏', 120 + TXo, 250 + TYo, `900 64px ${F.zh9}`, C.ink); text('Colonies on the 1st of each quarter, U.S.', 122 + TXo, 300 + TYo, `500 24px ${F.n5}`, C.grey);
+  text('单位：万箱', 122 + TXo, 344 + TYo, `500 24px ${F.zh5}`, C.grey);
   ctx.strokeStyle = 'rgba(255,255,255,.1)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x0 - 40, yb); ctx.lineTo(x1 + 40, yb); ctx.stroke();
   STOCK.forEach(([v, m], i) => text(m, X(i), yb + 46, `500 26px ${F.zh5}`, i === 0 || i === 4 ? C.honey : C.grey, 'center'));
   text('2025', X(1.5), yb + 92, `800 26px ${F.n8}`, C.grey, 'center'); text('2026', X(4.5), yb + 92, `800 26px ${F.n8}`, C.grey, 'center');
@@ -316,46 +368,57 @@ function shotStock(s, t) {
   }
   ctx.restore();
   veil('c'); sourceTag(t, s.a + .3);
-  TX.push({ id: 'stockT', text: '蜂群存栏', x0: 110, y0: 180, x1: 400, y1: 270 });
-  if (t > s.a + 1.05) TX.push({ id: 'stock6', text: '+6%', x0: 1000, y0: 620, x1: 1300, y1: 760 });
+  TX.push({ id: 'stockT', text: '蜂群存栏', x0: 110 + TXo, y0: 180 + TYo, x1: 400 + TXo, y1: 270 + TYo });
+  const m6 = (X(0) + X(4)) / 2, y6 = Y(2.6393) + 60;
+  if (t > s.a + 1.05) TX.push(PORT ? { id: 'stock6', text: '+6%', x0: m6 - 150, y0: y6 - 48, x1: m6 + 150, y1: y6 + 92 } : { id: 'stock6', text: '+6%', x0: 1000, y0: 620, x1: 1300, y1: 760 });
 }
 // 19–23.5 s: the ledger, split screen — the dead column and the rebuilt column, side by side
 function shotSplit(s, t) {
   ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
-  const ko = eo(seg(t, s.a - .14, s.a + .2)), hw = 958 * ko;
+  const ko = eo(seg(t, s.a - .14, s.a + .2)), hw = 958 * ko, M = BAND / 2, hh = (M - 2) * ko;   // portrait: dead column on top, living column below
   const L = frame('sl', 138, t, s.a), R = frame('sr', 139, t, s.a);
-  plate(L, 960 - hw, 0, hw, H, 1.0, .5, .5, 'grayscale(.92) brightness(.5) contrast(1.15)');
-  ctx.fillStyle = 'rgba(255,74,61,.12)'; ctx.fillRect(960 - hw, 0, hw, H);
-  plate(R, 962, 0, hw, H, 1.0, .5, .5);
-  veil(); const gl = ctx.createLinearGradient(0, 100, 0, 540); gl.addColorStop(0, 'rgba(14,14,12,0)'); gl.addColorStop(.25, 'rgba(14,14,12,.6)'); gl.addColorStop(1, 'rgba(14,14,12,0)'); ctx.fillStyle = gl; ctx.fillRect(0, 100, W, 440);
-  ctx.fillStyle = C.honey; ctx.fillRect(958, 0, 4, H * eo(seg(t, s.a - .1, s.a + .15)));
-  const cols = [[120, '死掉', C.loss, 1305540, 'Lost'], [1082, '补上', C.honey, 1453600, 'Added']];
-  cols.forEach(([x, lab, col, v, en], i) => {
+  if (PORT) {
+    plate(L, 0, M - hh, W, hh, 1.0, .5, .5, 'grayscale(.92) brightness(.5) contrast(1.15)');
+    ctx.fillStyle = 'rgba(255,74,61,.12)'; ctx.fillRect(0, M - hh, W, hh);
+    plate(R, 0, M + 2, W, hh, 1.0, .5, .5);
+    veil(); [200, M + 60].forEach(y => { const gl = ctx.createLinearGradient(0, y, 0, y + 440); gl.addColorStop(0, 'rgba(14,14,12,0)'); gl.addColorStop(.25, 'rgba(14,14,12,.6)'); gl.addColorStop(1, 'rgba(14,14,12,0)'); ctx.fillStyle = gl; ctx.fillRect(0, y, W, 440); });
+    ctx.fillStyle = C.honey; ctx.fillRect(0, M - 2, W * eo(seg(t, s.a - .1, s.a + .15)), 4);
+  } else {
+    plate(L, 960 - hw, 0, hw, H, 1.0, .5, .5, 'grayscale(.92) brightness(.5) contrast(1.15)');
+    ctx.fillStyle = 'rgba(255,74,61,.12)'; ctx.fillRect(960 - hw, 0, hw, H);
+    plate(R, 962, 0, hw, H, 1.0, .5, .5);
+    veil(); const gl = ctx.createLinearGradient(0, 100, 0, 540); gl.addColorStop(0, 'rgba(14,14,12,0)'); gl.addColorStop(.25, 'rgba(14,14,12,.6)'); gl.addColorStop(1, 'rgba(14,14,12,0)'); ctx.fillStyle = gl; ctx.fillRect(0, 100, W, 440);
+    ctx.fillStyle = C.honey; ctx.fillRect(958, 0, 4, H * eo(seg(t, s.a - .1, s.a + .15)));
+  }
+  // [x, top of the label] per column, then the label, the counter 202 px under the top and the difference at +240
+  const cols = [[P(120, 72), P(170, 260), '死掉', C.loss, 1305540, 'Lost'], [P(1082, 72), P(170, M + 120), '补上', C.honey, 1453600, 'Added']];
+  cols.forEach(([x, y, lab, col, v, en], i) => {
     const t0 = s.a + .2 + i * .15, k = eo(seg(t, t0, t0 + .2)); if (k <= 0) return;
     ctx.save(); ctx.globalAlpha = k;
-    const wl = tw(lab, `900 54px ${F.zh9}`) + 36; ctx.fillStyle = col; ctx.fillRect(x, 170, wl, 76); text(lab, x + 18, 229, `900 54px ${F.zh9}`, C.bg);
-    text(en, x + wl + 18, 222, `800 30px ${F.n8}`, col);
-    const kr = eo(seg(t, s.a + .35, s.a + 1.9)), wn = num(fmt(v * kr), x, 372, 100, kr >= 1 ? col : C.ink);
-    text('箱', x + wn + 14, 366, `900 50px ${F.zh9}`, C.ink);
+    const wl = tw(lab, `900 54px ${F.zh9}`) + 36; ctx.fillStyle = col; ctx.fillRect(x, y, wl, 76); text(lab, x + 18, y + 59, `900 54px ${F.zh9}`, C.bg);
+    text(en, x + wl + 18, y + 52, `800 30px ${F.n8}`, col);
+    const kr = eo(seg(t, s.a + .35, s.a + 1.9)), wn = num(fmt(v * kr), x, y + 202, 100, kr >= 1 ? col : C.ink);
+    text('箱', x + wn + 14, y + 196, `900 50px ${F.zh9}`, C.ink);
     ctx.restore();
-    TX.push({ id: 'split' + i, text: lab + fmt(v) + '箱', x0: x, y0: 160, x1: x + 680, y1: 400 });
+    TX.push({ id: 'split' + i, text: lab + fmt(v) + '箱', x0: x, y0: y - 10, x1: x + 680, y1: y + 230 });
   });
-  const kc = eo(seg(t, s.a + .6, s.a + .8)); if (kc > 0) {
-    ctx.save(); ctx.globalAlpha = kc; const lab = '2025 · 四个季度相加', w = tw(lab, `900 26px ${F.zh9}`) + 36;
-    ctx.fillStyle = C.bg; ctx.fillRect(960 - w / 2, 60, w, 48); text(lab, 960, 94, `900 26px ${F.zh9}`, C.ink, 'center'); ctx.restore();
-    TX.push({ id: 'splitN', text: lab, x0: 960 - w / 2, y0: 60, x1: 960 + w / 2, y1: 108 });
+  const kc = eo(seg(t, s.a + .6, s.a + .8)), ny = P(60, M - 24); if (kc > 0) {
+    ctx.save(); ctx.globalAlpha = kc; const lab = '2025 · 四个季度相加', w = tw(lab, `900 26px ${F.zh9}`) + 36, nx = P(960, W - 72 - w / 2);
+    ctx.fillStyle = C.bg; ctx.fillRect(nx - w / 2, ny, w, 48); text(lab, nx, ny + 34, `900 26px ${F.zh9}`, C.ink, 'center'); ctx.restore();
+    TX.push({ id: 'splitN', text: lab, x0: nx - w / 2, y0: ny, x1: nx + w / 2, y1: ny + 48 });
   }
   if (t > s.a + 1.95) {   // the difference, on the beat after the counters settle
-    const k = seg(t, s.a + 1.95, s.a + 2.1); ctx.save(); ctx.translate(1082, 410); ctx.scale(lerp(1.3, 1, back(k)), lerp(1.3, 1, back(k))); ctx.globalAlpha = clamp(k * 3);
+    const [dx, dy0] = cols[1], dy = dy0 + 240;
+    const k = seg(t, s.a + 1.95, s.a + 2.1); ctx.save(); ctx.translate(dx, dy); ctx.scale(lerp(1.3, 1, back(k)), lerp(1.3, 1, back(k))); ctx.globalAlpha = clamp(k * 3);
     ctx.fillStyle = 'rgba(14,14,12,.82)'; ctx.fillRect(0, 0, 330, 64); text('多补', 20, 46, `900 34px ${F.zh9}`, C.honey); num('148,060', 110, 47, 40, C.ink); text('箱', 290, 46, `900 30px ${F.zh9}`, C.ink); ctx.restore();
-    TX.push({ id: 'splitD', text: '多补148,060', x0: 1082, y0: 410, x1: 1522, y1: 474 });
+    TX.push({ id: 'splitD', text: '多补148,060', x0: dx, y0: dy, x1: dx + 440, y1: dy + 64 });
   }
   sourceTag(t, s.a + .3);
 }
 // 23.5–27.5 s: three ways to rebuild, in a three-panel grid; each panel lights up as the voice names it
 function shotGrid(s, t) {
   ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
-  const PW = 632, G = 12, xs = [0, PW + G, 2 * (PW + G)];
+  const PW = P(632, (W - 24) / 3), G = 12, xs = [0, PW + G, 2 * (PW + G)];   // portrait: three tall strips, 352 × 1560
   const g1 = frame('g1', 124, t, s.a), pk = img('assets/img/package.jpg'), qn = img('assets/img/queen.jpg');
   const hit = [23.78, 24.82, 25.96];
   const labs = [['新建', 'raise new ones'], ['整箱买', 'buy them whole'], ['换蜂王', 'requeen']];
@@ -363,10 +426,16 @@ function shotGrid(s, t) {
     const t0 = s.a - .14 + i * .1, k = eo(seg(t, t0, t0 + .28)), y = (1 - k) * 260, x = xs[i];
     ctx.save(); ctx.globalAlpha = clamp(k * 1.5); ctx.translate(0, y);
     const z = 1 + .03 * seg(t, s.a, s.b), on = t >= hit[i], dim = on ? '' : ' brightness(.6) saturate(.6)';
-    if (i === 0) plate(g1, x, 0, PW, H, z, .5, .5, GRADE + dim);
-    if (i === 1) photo(pk, .64 * z, 720, 980, x + PW / 2, 540, GRADE + dim, [x, 0, PW, H]);
-    if (i === 2) { photo(qn, .9 * z, 930, 740, x + PW / 2, 600, GRADE + dim, [x, 0, PW, H]); if (on) { const kq = eo(seg(t, hit[2] + .1, hit[2] + .4)); ctx.strokeStyle = C.honey; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(x + PW / 2 + (-5) * .9 * z, 600 + (-20) * .9 * z, 110, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * kq); ctx.stroke(); } }
-    if (on) { const kf = 1 - seg(t, hit[i], hit[i] + .3); ctx.strokeStyle = `rgba(255,194,26,${.5 + .5 * kf})`; ctx.lineWidth = 8; ctx.strokeRect(x + 4, 4, PW - 8, H - 8); }
+    if (i === 0) plate(g1, x, 0, PW, BAND, z, .5, .5, GRADE + dim);
+    if (i === 1) photo(pk, .64 * z, 720, 980, x + PW / 2, P(540, BAND / 2), GRADE + dim, [x, 0, PW, BAND]);
+    if (i === 2) {
+      const Q = photo(qn, .9 * z, 930, 740, x + PW / 2, P(600, BAND / 2), GRADE + dim, [x, 0, PW, BAND]);
+      if (on) {   // ring on the queen (photo point 925, 720)
+        const qx = PORT ? Q.dx + 925 * Q.s : x + PW / 2 + (-5) * .9 * z, qy = PORT ? Q.dy + 720 * Q.s : 600 + (-20) * .9 * z;
+        const kq = eo(seg(t, hit[2] + .1, hit[2] + .4)); ctx.strokeStyle = C.honey; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(qx, qy, 110, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * kq); ctx.stroke();
+      }
+    }
+    if (on) { const kf = 1 - seg(t, hit[i], hit[i] + .3); ctx.strokeStyle = `rgba(255,194,26,${.5 + .5 * kf})`; ctx.lineWidth = 8; ctx.strokeRect(x + 4, 4, PW - 8, BAND - 8); }
     ctx.restore();
   }
   veil();
@@ -374,33 +443,38 @@ function shotGrid(s, t) {
     const t0 = s.a - .14 + i * .1, k = eo(seg(t, t0, t0 + .28)), y = (1 - k) * 260, x = xs[i], on = t >= hit[i];
     ctx.save(); ctx.globalAlpha = clamp(k * 1.5); ctx.translate(0, y);
     // label at the top of the panel
-    const lx = x + 40, ly = 250;
+    const lx = x + P(40, 24), ly = P(250, 340);
     ctx.fillStyle = on ? C.honey : 'rgba(14,14,12,.78)'; const wl = tw(labs[i][0], `900 56px ${F.zh9}`) + 40; ctx.fillRect(lx, ly - 58, wl, 78);
     text(labs[i][0], lx + 20, ly + 2, `900 56px ${F.zh9}`, on ? C.bg : C.ink);
     num(String(i + 1), lx, ly - 76, 30, C.honey);
     ctx.fillStyle = 'rgba(14,14,12,.72)'; const we = tw(labs[i][1], `500 26px ${F.n5}`) + 24; ctx.fillRect(lx, ly + 28, we, 40); text(labs[i][1], lx + 12, ly + 57, `500 26px ${F.n5}`, C.ink);
     ctx.restore();
-    if (k >= 1) TX.push({ id: 'grid' + i, text: labs[i][0], x0: lx, y0: ly - 80, x1: lx + 300, y1: ly + 70 });
+    if (k >= 1) TX.push({ id: 'grid' + i, text: labs[i][0], x0: lx, y0: ly - 80, x1: P(lx + 300, x + PW - 8), y1: ly + 70 });
   }
 }
 // 27.5–30.5 s: pull quote — the report's own sentence, highlighted
 function shotQuote(s, t) {
-  paper(t, s, .78, .86, 300, 528, .01, [[27.75, 36, 508.7, 433.7, 521.0, .4], [28.3, 36, 534.1, 569.6, 546.3, .5], [28.8, 36, 546.7, 62, 558.9, .12]]); veil();
-  const k = eo(seg(t, 28.1, 28.3)); ctx.save(); ctx.globalAlpha = k; text('“', 150, 560, `900 300px ${F.n8}`, C.honey); ctx.restore();
+  paper(t, s, .78, .86, 300, 528, .01, [[27.75, 36, 508.7, 433.7, 521.0, .4], [28.3, 36, 534.1, 569.6, 546.3, .5], [28.8, 36, 546.7, 62, 558.9, .12]], .7); veil();
+  const k = eo(seg(t, 28.1, 28.3)); ctx.save(); ctx.globalAlpha = k;
+  if (PORT) { ctx.fillStyle = C.bg; ctx.fillRect(72, 300, 132, 132); text('“', 92, 500, `900 220px ${F.n8}`, C.honey); }   // portrait: the paper fills the band, so the mark sits on an ink tile
+  else text('“', 150, 560, `900 300px ${F.n8}`, C.honey);
+  ctx.restore();
   sourceTag(t, s.a + .1, 'USDA NASS · 第 1 页');
 }
 // 30.5–33 s: the culprit — scanning electron micrograph, punch in on "varroa mites", circle callout
 function shotSem(s, t) {
   const im = img('assets/img/sem.jpg'); const tp = 30.6, k = eo(seg(t, tp, tp + .32));
-  const sc = lerp(.8, 1.0, k) + .04 * seg(t, tp + .32, s.b), mx = 1810, my = 800;
+  const sc = (lerp(.8, 1.0, k) + .04 * seg(t, tp + .32, s.b)) * P(1, 1.15), mx = 1810, my = 800;   // portrait: 1.15× so the photo covers the band
   const fx = lerp(1200, mx, k), fy = lerp(855, my - 20, k);
-  const P = photo(im, sc, fx, fy, W / 2, H / 2 - 40); veil();
+  const Ph = photo(im, sc, fx, fy, W / 2, BAND / 2 - 40); veil();
   const kr = seg(t, tp + .3, tp + .6);
   if (kr > 0) {
-    const px = P.dx + mx * sc, py = P.dy + my * sc, r = 360 * sc;
+    const px = Ph.dx + mx * Ph.s, py = Ph.dy + my * Ph.s, r = 360 * Ph.s;
     ctx.save(); ctx.strokeStyle = C.honey; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(px, py, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * eo(kr)); ctx.stroke();
     const kl = eo(seg(t, tp + .3, tp + .5)); ctx.globalAlpha = kl;
-    const ax = px - r * .74, ay = py - r * .66, bx = ax - 120, by = ay - 90;
+    // leader to the upper left (portrait: kept inside the band, the label never left of the margin)
+    let ax = px - r * .74, ay = py - r * .66, bx = ax - 120, by = ay - 90;
+    if (PORT) { by = clamp(by, 330, BAND - 360); bx = Math.max(bx, 72 + 260); }
     ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.lineTo(bx - 260, by); ctx.stroke();
     text('瓦螨', bx - 260, by - 22, `900 72px ${F.zh9}`, C.ink); text('Varroa destructor', bx - 258, by + 40, `600 30px ${F.it}`, C.dim);
     ctx.restore();
@@ -411,27 +485,27 @@ function shotSem(s, t) {
 // 33–37.5 s: what hurts the colonies — one long bar and five short ones (a held judgement frame)
 const STRESS = [['瓦螨', 21.8, 'Varroa mites'], ['农药', 6.4, 'Pesticides'], ['其他虫害', 5.6, 'Other pests & parasites'], ['疾病', 4.8, 'Diseases'], ['原因不明', 4.6, 'Unknown'], ['其他', 3.5, 'Other']];
 function shotStress(s, t) {
-  ledger(t, s.a); ctx.save(); camPush(t, s.a, s.b, 1, 1.025, 900, 470);
-  text('谁在伤害蜂群', 120, 236, `900 64px ${F.zh9}`, C.ink); text('Share of colonies affected, Jan–Mar 2026', 122, 286, `500 24px ${F.n5}`, C.grey);
-  const bx = 470, ppx = 1200 / 22, y0 = 360, rh = 84;
+  ledger(t, s.a); ctx.save(); camPush(t, s.a, s.b, 1, 1.025, P(900, 540), P(470, 860));
+  text('谁在伤害蜂群', 120 + TXo, 236 + TYo, `900 64px ${F.zh9}`, C.ink); text('Share of colonies affected, Jan–Mar 2026', 122 + TXo, 286 + TYo, `500 24px ${F.n5}`, C.grey);
+  const bx = P(470, 300), ppx = P(1200, 540) / 22, y0 = P(360, 500), rh = P(84, 128);   // portrait: shorter bars, taller rows
   STRESS.forEach(([lab, v, en], i) => {
     const t0 = s.a + .25 + (i === 0 ? 0 : .35 + i * .08), k = eio(seg(t, t0, t0 + (i === 0 ? .6 : .3))), y = y0 + i * rh;
     if (t < t0) return;
     text(lab, bx - 30, y + 36, `900 ${i === 0 ? 44 : 34}px ${F.zh9}`, i === 0 ? C.honey : C.ink, 'right');
     ctx.fillStyle = i === 0 ? C.honey : '#5E5C55'; ctx.fillRect(bx, y + 2, v * ppx * k, i === 0 ? 56 : 44);
     if (k > .5) num(v.toFixed(1) + '%', bx + v * ppx * k + 18, y + 42, i === 0 ? 46 : 32, i === 0 ? C.honey : C.dim);
-    TX.push({ id: 'st' + i, text: lab + v.toFixed(1) + '%', x0: 150, y0: y - 10, x1: bx + v * ppx + 200, y1: y + 60 });
+    TX.push({ id: 'st' + i, text: lab + v.toFixed(1) + '%', x0: P(150, 100), y0: y - 10, x1: bx + v * ppx + P(200, 160), y1: y + 60 });
   });
   ctx.restore();
   veil('c'); sourceTag(t, s.a + .3, 'USDA NASS · 第 13 页');
-  TX.push({ id: 'stressT', text: '谁在伤害蜂群', x0: 110, y0: 170, x1: 560, y1: 250 });
+  TX.push({ id: 'stressT', text: '谁在伤害蜂群', x0: 110 + TXo, y0: 170 + TYo, x1: 560 + TXo, y1: 250 + TYo });
 }
 // 37.5–41.5 s: share lost each quarter — flat at 11–12 %, then the spike
 const QL = [['1–3月', 12, '2025'], ['4–6月', 11], ['7–9月', 11], ['10–12月', 12], ['1–3月', 16, '2026'], ['4–6月', 11]];
 function shotLoss(s, t) {
-  ledger(t, s.a); ctx.save(); camPush(t, s.a, s.b, 1, 1.03, 1300, 420);
-  text('每季度损失率', 120, 236, `900 64px ${F.zh9}`, C.ink); text('Share of colonies lost each quarter, U.S.', 122, 286, `500 24px ${F.n5}`, C.grey);
-  const x0 = 700, x1 = 1720, yb = 770, yt = 300, X = i => lerp(x0, x1, i / 5), Y = v => lerp(yb, yt, v / 20);
+  ledger(t, s.a); ctx.save(); camPush(t, s.a, s.b, 1, 1.03, P(1300, 600), P(420, 900));
+  text('每季度损失率', 120 + TXo, 236 + TYo, `900 64px ${F.zh9}`, C.ink); text('Share of colonies lost each quarter, U.S.', 122 + TXo, 286 + TYo, `500 24px ${F.n5}`, C.grey);
+  const x0 = P(700, 190), x1 = P(1720, 960), yb = P(770, 1250), yt = P(300, 620), X = i => lerp(x0, x1, i / 5), Y = v => lerp(yb, yt, v / 20);
   ctx.lineWidth = 2; [0, 10, 20].forEach(v => { ctx.strokeStyle = 'rgba(255,255,255,.1)'; ctx.beginPath(); ctx.moveTo(x0 - 60, Y(v)); ctx.lineTo(x1 + 50, Y(v)); ctx.stroke(); text(v + '%', x0 - 76, Y(v) + 9, `500 24px ${F.n5}`, C.grey, 'right'); });
   QL.forEach(([m, , y], i) => { text(m, X(i), yb + 44, `500 25px ${F.zh5}`, i === 4 ? C.loss : C.grey, 'center'); if (y) text(y, X(i), yb + 86, `800 24px ${F.n8}`, C.grey, 'center'); });
   const kd = eio(seg(t, s.a + .2, s.a + 2.4)) * 5;   // the line reaches the spike on the voice's "sixteen"
@@ -444,23 +518,25 @@ function shotLoss(s, t) {
     ctx.save(); ctx.strokeStyle = `rgba(255,74,61,${1 - pr})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(X(4), Y(16), 14 + pr * 80, 0, 7); ctx.stroke();
     ctx.translate(X(4), Y(16) - 46); ctx.scale(k, k); num('16%', 0, 0, 110, C.loss, 'center'); ctx.restore();
     const k2 = eo(seg(t, tp + .25, tp + .45)); ctx.save(); ctx.globalAlpha = k2; ctx.fillStyle = C.loss; const lab = '六个季度最高', w = tw(lab, `900 30px ${F.zh9}`) + 28;
-    ctx.fillRect(X(4) + 70, Y(16) - 20, w, 46); text(lab, X(4) + 84, Y(16) + 13, `900 30px ${F.zh9}`, C.ink); ctx.restore();
+    const lx = P(X(4) + 70, X(4) - 70 - w);   // portrait: left of the spike, the right edge is too close
+    ctx.fillRect(lx, Y(16) - 20, w, 46); text(lab, lx + 14, Y(16) + 13, `900 30px ${F.zh9}`, C.ink); ctx.restore();
     TX.push({ id: 'loss16', text: '16%', x0: X(4) - 120, y0: Y(16) - 150, x1: X(4) + 120, y1: Y(16) - 30 });
   }
   ctx.restore();
   veil('c'); sourceTag(t, s.a + .3);
-  TX.push({ id: 'lossT', text: '每季度损失率', x0: 110, y0: 170, x1: 560, y1: 250 });
+  TX.push({ id: 'lossT', text: '每季度损失率', x0: 110 + TXo, y0: 170 + TYo, x1: 560 + TXo, y1: 250 + TYo });
 }
 // 41.5–45 s: where — state loss rates, push to California; the photo grows out of California's outline
 const RATE = { California: 18, Florida: 15, Georgia: 17, Idaho: 15, Iowa: 4, Louisiana: 8, Michigan: 5, Minnesota: 2, Mississippi: 7, Montana: 0, 'New York': 17, 'North Carolina': 18, 'North Dakota': 2, Ohio: 7, Oregon: 7, Pennsylvania: 23, 'South Dakota': 1, Texas: 11, Washington: 2, Wisconsin: 8 };
 const rateCol = v => v == null ? '#2A2925' : v >= 20 ? '#FF4A3D' : v >= 15 ? '#E0573F' : v >= 10 ? '#A9503D' : v >= 5 ? '#6E4136' : '#4A3530';
-const MAP = { x: 650, y: 170, k: 1.12 };
+const MAP = P({ x: 650, y: 170, k: 1.12 }, { x: 90, y: 520, k: 0.9 });   // portrait: the map under the title, the legend under the map
+const ZX = W * .5, ZY = P(H * .45, BAND * .45);   // where the push brings California
 function statePath(st, k = MAP.k, ox = MAP.x, oy = MAP.y) { ctx.beginPath(); for (const r of st.rings) { r.forEach(([x, y], j) => j ? ctx.lineTo(ox + x * k, oy + y * k) : ctx.moveTo(ox + x * k, oy + y * k)); ctx.closePath(); } }
 function shotMap(s, t) {
   ledger(t, s.a, true);
   const ca = STATES.states.find(x => x.name === 'California'), cx = MAP.x + ca.c[0] * MAP.k, cy = MAP.y + ca.c[1] * MAP.k;
   const kz = eio(seg(t, 43.6, 44.9)), z = lerp(1, 2.1, kz);
-  ctx.save(); ctx.translate(lerp(0, W * .5 - cx, kz), lerp(0, H * .45 - cy, kz)); ctx.translate(cx, cy); ctx.scale(z, z); ctx.translate(-cx, -cy);
+  ctx.save(); ctx.translate(lerp(0, ZX - cx, kz), lerp(0, ZY - cy, kz)); ctx.translate(cx, cy); ctx.scale(z, z); ctx.translate(-cx, -cy);
   STATES.states.forEach((st, i) => {
     const v = RATE[st.name], t0 = s.a + .15 + (st.c[0] / 1000) * .5, k = eo(seg(t, t0, t0 + .2));
     statePath(st); ctx.fillStyle = rateCol(v); ctx.globalAlpha = .25 + .75 * k; ctx.fill(); ctx.globalAlpha = 1;
@@ -472,19 +548,20 @@ function shotMap(s, t) {
   veil('c');
   // legend + title (stay put while the map pushes)
   const kf = 1 - eio(seg(t, 43.6, 44.0));
-  text('各州损失率', 120, 236, `900 64px ${F.zh9}`, C.ink);
+  const ox = TXo, oy = TYo, LB = P(360, 1130);   // LB: top of the legend
+  text('各州损失率', 120 + ox, 236 + oy, `900 64px ${F.zh9}`, C.ink);
   ctx.save(); ctx.globalAlpha = kf;
-  ctx.fillStyle = C.ink; ctx.fillRect(122, 262, 150, 42); num('2026 Q1', 197, 293, 26, C.bg, 'center');
-  text('Share of colonies lost, Jan–Mar', 290, 292, `500 24px ${F.n5}`, C.grey);
-  [['0–5%', 2], ['5–10%', 7], ['10–15%', 12], ['15–20%', 17], ['20%+', 23]].forEach(([l, v], i) => { ctx.fillStyle = rateCol(v); ctx.fillRect(122, 360 + i * 50, 40, 34); text(l, 178, 387 + i * 50, `500 24px ${F.n5}`, C.dim); });
-  ctx.fillStyle = rateCol(null); ctx.fillRect(122, 610, 40, 34); text('未单列', 178, 637, `500 24px ${F.zh5}`, C.dim);
+  ctx.fillStyle = C.ink; ctx.fillRect(122 + ox, 262 + oy, 150, 42); num('2026 Q1', 197 + ox, 293 + oy, 26, C.bg, 'center');
+  text('Share of colonies lost, Jan–Mar', 290 + ox, 292 + oy, `500 24px ${F.n5}`, C.grey);
+  [['0–5%', 2], ['5–10%', 7], ['10–15%', 12], ['15–20%', 17], ['20%+', 23]].forEach(([l, v], i) => { ctx.fillStyle = rateCol(v); ctx.fillRect(122 + ox, LB + i * 50, 40, 34); text(l, 178 + ox, LB + 27 + i * 50, `500 24px ${F.n5}`, C.dim); });
+  ctx.fillStyle = rateCol(null); ctx.fillRect(122 + ox, LB + 250, 40, 34); text('未单列', 178 + ox, LB + 277, `500 24px ${F.zh5}`, C.dim);
   ctx.restore();
-  if (t < 44.9) TX.push({ id: 'mapT', text: '各州损失率', x0: 110, y0: 170, x1: 460, y1: 250 }); if (kf > .99) TX.push({ id: 'mapQ', text: '2026 Q1', x0: 120, y0: 260, x1: 280, y1: 306 });
+  if (t < 44.9) TX.push({ id: 'mapT', text: '各州损失率', x0: 110 + ox, y0: 170 + oy, x1: 460 + ox, y1: 250 + oy }); if (kf > .99) TX.push({ id: 'mapQ', text: '2026 Q1', x0: 120 + ox, y0: 260 + oy, x1: 280 + ox, y1: 306 + oy });
   // California label (screen space, follows the push through the same transform)
   if (kc > 0) {
-    const sx = lerp(cx, W * .5, kz), sy = lerp(cy, H * .45, kz);
+    const sx = lerp(cx, ZX, kz), sy = lerp(cy, ZY, kz);
     ctx.save(); ctx.globalAlpha = kc * (1 - seg(t, 44.85, 45.0)); ctx.strokeStyle = C.honey; ctx.lineWidth = 4;
-    const lx = sx + 150 + kz * 120, ly = sy - 170;
+    const lx = P(sx + 150 + kz * 120, Math.min(sx + 150 + kz * 120, W - 72 - 410)), ly = sy - 170;
     ctx.beginPath(); ctx.moveTo(sx + 20, sy - 20); ctx.lineTo(lx - 20, ly + 20); ctx.lineTo(lx + 330, ly + 20); ctx.stroke();
     text('加州', lx, ly - 6, `900 52px ${F.zh9}`, C.ink); num('−220,000', lx + 128, ly - 6, 46, C.honey);
     text('损失率 18%', lx, ly + 66, `900 30px ${F.zh9}`, C.dim); ctx.restore();
@@ -494,7 +571,7 @@ function shotMap(s, t) {
   const km = ei(seg(t, 44.9, 45.5));
   if (km > 0) {
     const im = img('assets/img/almond.jpg');
-    const sx = W * .5, sy = H * .45, kk = MAP.k * z * lerp(1, 14, km);
+    const sx = ZX, sy = ZY, kk = MAP.k * z * lerp(1, 14, km);
     ctx.save(); ctx.beginPath(); for (const r of ca.rings) { r.forEach(([x, y], j) => { const X = sx + (x - ca.c[0]) * kk, Y = sy + (y - ca.c[1]) * kk; j ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); } ctx.clip();
     photo(im, .76, 1150, 900); ctx.restore();
   }
@@ -506,15 +583,16 @@ function shotAlmond(s, t) {
 // end card: title, rule, style name, sign-off, sources (library demo only)
 function shotEnd(s, t) {
   const im = frame('ed', 153, t, s.a); const kd = eo(seg(t, s.a, s.a + .4));
-  plate(im, 0, 0, W, H, lerp(1.0, 1.04, seg(t, s.a, s.b)), .6, .5, `${GRADE} blur(${8 * kd}px) brightness(${1 - .55 * kd})`);
-  const g = ctx.createLinearGradient(0, 0, W * .7, 0); g.addColorStop(0, 'rgba(14,14,12,.85)'); g.addColorStop(1, 'rgba(14,14,12,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  const L = 120, k1 = seg(t, s.a + .15, s.a + .3);
-  if (t > s.a + .15) { ctx.save(); ctx.translate(L, 330); const sc = lerp(1.3, 1, back(k1, 1.5)); ctx.scale(sc, sc); ctx.globalAlpha = clamp(k1 * 3); text('蜜蜂账本', 0, 0, `900 150px ${F.zh9}`, C.ink); ctx.restore(); }
+  // portrait: the end card takes the whole frame (no caption under it); the blurred ground may scale past 1.5×
+  plate(im, 0, 0, W, H, lerp(1.0, 1.04, seg(t, s.a, s.b)), .6, .5, `${GRADE} blur(${8 * kd}px) brightness(${1 - .55 * kd})`, Infinity);
+  const g = ctx.createLinearGradient(0, 0, P(W * .7, W), 0); g.addColorStop(0, 'rgba(14,14,12,.85)'); g.addColorStop(1, 'rgba(14,14,12,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const L = P(120, 72), dy = P(0, 230), k1 = seg(t, s.a + .15, s.a + .3);
+  if (t > s.a + .15) { ctx.save(); ctx.translate(L, 330 + dy); const sc = lerp(1.3, 1, back(k1, 1.5)); ctx.scale(sc, sc); ctx.globalAlpha = clamp(k1 * 3); text('蜜蜂账本', 0, 0, `900 150px ${F.zh9}`, C.ink); ctx.restore(); }
   const k2 = eo(seg(t, s.a + .3, s.a + .5)); ctx.save(); ctx.globalAlpha = k2;
-  text('The Bee Ledger', L + 4, 418, `800 62px ${F.n8}`, C.honey);
-  ctx.fillStyle = 'rgba(247,245,239,.5)'; ctx.fillRect(L + 4, 462, 720 * eo(seg(t, s.a + .4, s.a + .8)), 2);
-  text('CAPTION NEWS', L + 4, 528, `800 32px ${F.n8}`, C.ink); text('· 字幕新闻', L + 4 + tw('CAPTION NEWS', `800 32px ${F.n8}`) + 14, 528, `900 32px ${F.zh9}`, C.ink);
-  text('LemoLab × Claude Opus 5.5', L + 4, 584, `500 32px ${F.n5}`, C.dim);
+  text('The Bee Ledger', L + 4, 418 + dy, `800 62px ${F.n8}`, C.honey);
+  ctx.fillStyle = 'rgba(247,245,239,.5)'; ctx.fillRect(L + 4, 462 + dy, 720 * eo(seg(t, s.a + .4, s.a + .8)), 2);
+  text('CAPTION NEWS', L + 4, 528 + dy, `800 32px ${F.n8}`, C.ink); text('· 字幕新闻', L + 4 + tw('CAPTION NEWS', `800 32px ${F.n8}`) + 14, 528 + dy, `900 32px ${F.zh9}`, C.ink);
+  text('LemoLab × Claude Opus 5.5', L + 4, 584 + dy, `500 32px ${F.n5}`, C.dim);
   ctx.restore();
   const k3 = eo(seg(t, s.a + .6, s.a + .9)); ctx.save(); ctx.globalAlpha = k3 * .92;
   const CR = [
@@ -524,9 +602,12 @@ function shotEnd(s, t) {
     'Photo: "Three bee packages for Park" by vastateparksstaff, CC BY 2.0 · Sound: "Рій на землі 02" by Сарапулов, CC BY 4.0 · Drums: "MuldjordKit" by Lars Muldjord, CC BY 4.0',
     'Public domain: USDA (apiary video, almond photo), USDA ARS (micrograph), USGS (queen photo), Natural Earth (map) · All via Wikimedia Commons, cropped and colour-graded',
   ];
-  CR.forEach((l, i) => text(l, L + 4, 860 + i * 34, `500 20px ${F.n5}`, C.dim));
+  const cf = `500 20px ${F.n5}`;
+  if (!PORT) CR.forEach((l, i) => text(l, L + 4, 860 + i * 34, cf, C.dim));
+  else { let y = 1240; for (const l of CR) { for (const w of wrapWords(l, cf, W - 152)) { text(w, L + 4, y, cf, C.dim); y += 28; } y += 14; } }   // portrait: sources wrapped to the 936 px measure
   ctx.restore();
-  if (t > s.a + .3) { TX.push({ id: 'endT', text: '蜜蜂账本', x0: L, y0: 200, x1: 760, y1: 350 }); TX.push({ id: 'endE', text: 'The Bee Ledger', x0: L, y0: 360, x1: 760, y1: 430 }); TX.push({ id: 'endS', text: 'CAPTION NEWS · 字幕新闻', x0: L, y0: 490, x1: 760, y1: 540 }); TX.push({ id: 'endL', text: 'LemoLab × Claude Opus 5.5', x0: L, y0: 550, x1: 760, y1: 600 }); }
+  const x1 = P(760, 760 + L - 120);
+  if (t > s.a + .3) { TX.push({ id: 'endT', text: '蜜蜂账本', x0: L, y0: 200 + dy, x1, y1: 350 + dy }); TX.push({ id: 'endE', text: 'The Bee Ledger', x0: L, y0: 360 + dy, x1, y1: 430 + dy }); TX.push({ id: 'endS', text: 'CAPTION NEWS · 字幕新闻', x0: L, y0: 490 + dy, x1, y1: 540 + dy }); TX.push({ id: 'endL', text: 'LemoLab × Claude Opus 5.5', x0: L, y0: 550 + dy, x1, y1: 600 + dy }); }
 }
 
 // ---------- main render ----------
@@ -535,6 +616,8 @@ function draw(t) {
   TX = []; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.filter = 'none';
   ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
   const s = shotAt(t);
+  // portrait: the picture stays in the band, the caption card sits under it (16:9 draws exactly as before: no save, shot state carries over)
+  if (PORT) { ctx.save(); if (s.k !== 'end') { ctx.beginPath(); ctx.rect(0, 0, W, BAND); ctx.clip(); } }
   if (s.k === 'vid') shotVid(s, t);
   else if (s.k === 'sting') shotSting(s, t);
   else if (s.k === 'half') shotHalf(s, t);
@@ -550,6 +633,8 @@ function draw(t) {
   else if (s.k === 'map') shotMap(s, t);
   else if (s.k === 'almond') shotAlmond(s, t);
   else if (s.k === 'end') shotEnd(s, t);
+  if (PORT) ctx.restore();
+  if (PORT && s.k !== 'end') { ctx.fillStyle = C.honey; ctx.fillRect(PCAP.x, BAND, 96, 6); }   // a short honey tab marks the top of the caption card
   if (s.k !== 'end') credit(s.cr);
   hook(t);
   for (const c of CAPS) capCard(c, t);

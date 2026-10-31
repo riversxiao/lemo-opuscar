@@ -14,5 +14,6 @@
   "City data"
  ],
  "frame_sec": 30.4,
- "dur": 40.0
+ "dur": 40.0,
+ "portrait": "reframe"
 }

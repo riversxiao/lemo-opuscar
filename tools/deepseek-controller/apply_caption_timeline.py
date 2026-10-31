@@ -85,6 +85,24 @@ def _main_js_unlocked(project: Path) -> bool:
     return "main.js" in (lock.get("unlocked") or []) and "main.js" not in (lock.get("protectedSha256") or {})
 
 
+def locked_engine_dur(project: Path, tl: dict[str, Any] | None = None) -> float | None:
+    """main.js DUR when the render length is fixed, else None.
+
+    timeline.json syncShots=true on an unlocked style-version main.js rewrites DUR
+    from the schedule (sync_main_shots), so copy longer than the current DUR is
+    not an overrun there. Everywhere else the render stops at DUR.
+    """
+    if tl is None:
+        tl_path = project / "timeline.json"
+        try:
+            tl = load_json(tl_path) if tl_path.is_file() else {}
+        except (OSError, ValueError):
+            tl = {}
+    if isinstance(tl, dict) and tl.get("syncShots") and _main_js_unlocked(project):
+        return None
+    return _engine_dur(project)
+
+
 def sync_main_shots(project: Path, shot_list: list[dict[str, Any]], dur: float) -> bool:
     """timeline.json syncShots=true: rewrite project-copy main.js SHOTS a/b (in order)
     and DUR from the schedule. Only when engine.lock.json lists main.js as unlocked
@@ -122,7 +140,11 @@ def apply_caption_timeline(
     *,
     parsed: dict[str, Any] | None = None,
     enter: float = 0.35,
+    force: bool = False,
 ) -> dict[str, Any]:
+    """Raises ValueError (unless force) when the parsed schedule failed or its
+    copy runs past main.js DUR: applying it would render captions/VO that the
+    locked picture cuts off."""
     project = Path(project).resolve()
     parsed_path = project / "timeline.parsed.json"
     tl_path = project / "timeline.json"
@@ -138,6 +160,23 @@ def apply_caption_timeline(
     tl = load_json(tl_path)
     if not isinstance(tl, dict):
         raise ValueError("timeline.json must be an object")
+
+    if not force:
+        if parsed.get("ok") is False:
+            errs = "; ".join(str(e) for e in parsed.get("errors") or []) or "ok=false"
+            raise ValueError(
+                f"schedule did not pass ({errs}); fix the copy and re-run schedule "
+                f"before applying (--force applies it anyway, diagnostics only)"
+            )
+        # syncShots on a locked main.js is refused below (sync_main_shots).
+        locked = None if tl.get("syncShots") else locked_engine_dur(project, tl)
+        content = float(parsed.get("contentDurationSec") or parsed.get("scheduledDurationSec") or 0.0)
+        if locked and content > locked + 1e-6:
+            raise ValueError(
+                f"copy overruns the locked caption-news timeline by {content - locked:.2f}s: "
+                f"content {content:.2f}s > main.js DUR {locked:.2f}s; trim captions/VO "
+                f"and re-run schedule (--force applies it anyway, diagnostics only)"
+            )
 
     shots = {s["id"]: s for s in (parsed.get("shots") or []) if isinstance(s, dict) and "id" in s}
     cues = [c for c in (parsed.get("cues") or []) if isinstance(c, dict)]
@@ -260,9 +299,14 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--project", required=True)
     ap.add_argument("--enter", type=float, default=0.35)
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="apply a failed or overrunning schedule anyway (diagnostics only, not for delivery)",
+    )
     args = ap.parse_args(argv)
     try:
-        info = apply_caption_timeline(Path(args.project), enter=args.enter)
+        info = apply_caption_timeline(Path(args.project), enter=args.enter, force=args.force)
     except (OSError, ValueError, FileNotFoundError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1

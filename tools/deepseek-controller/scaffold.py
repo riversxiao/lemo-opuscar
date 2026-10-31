@@ -58,7 +58,10 @@ def main(argv: list[str] | None = None) -> int:
     except (ValueError, FileExistsError, FileNotFoundError, RuntimeError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
-    print(f"OK scaffold {info.get('style')} mode={info.get('mode')} → {info['project']}")
+    print(
+        f"OK scaffold {info.get('style')} mode={info.get('mode')} "
+        f"size={info.get('size')} aspect={info.get('aspect')} → {info['project']}"
+    )
     for k in ("lock", "project_md"):
         if k in info:
             print(f"  {k}: {info[k]}")

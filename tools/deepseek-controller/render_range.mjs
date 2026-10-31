@@ -1,4 +1,5 @@
-// Re-render a frame range only: node render_range.mjs <film> --fps 30 --from F0 --to F1 --out seg.mp4 [--size 1920x1080]
+// Re-render a frame range only: node render_range.mjs <film> --fps 30 --from F0 --to F1 --out seg.mp4 [--size WxH]
+// --size defaults to 1920x1080; visual_check.py passes the size of the video it splices into (1080x1920 for 9:16).
 // Same capture path and encoder settings as core/render/video.mjs (jpeg q95 → libx264 medium crf14 yuv420p),
 // so the segment can be spliced losslessly at keyframes (visual_check.py rework). Engine files untouched.
 import { spawn } from 'child_process';

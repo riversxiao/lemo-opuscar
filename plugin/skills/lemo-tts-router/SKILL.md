@@ -1,6 +1,6 @@
 # Lemo TTS Router
 
-中文旁白路由：默认 **edge-tts 云希**；第二条真路径 **kokoro**（离线，`.venv-voice`）；`qwen3` / `omnivoice` 在设置 `LEMO_TTS_*_BASE` 后走已实现的 HTTP 客户端（无 Key 不臆造）。
+中文旁白路由：默认 **edge-tts 云希**；第二条真路径 **kokoro**（离线，`.venv-voice`）；`qwen3` / `omnivoice` 在设置 `WORDFILM_TTS_*_BASE` 后走已实现的 HTTP 客户端（无 Key 不臆造）。
 
 ## 实现入口
 
@@ -15,9 +15,9 @@
 | id | 状态 |
 |---|---|
 | `edge` | 生产默认（`tts_zh.py`，需网络） |
-| `kokoro` | 离线真路径（`tts.py` + `lang: cmn`；需 `.venv-voice` / `LEMO_TTS_PYTHON`） |
-| `qwen3` | HTTP ready when `LEMO_TTS_QWEN3_BASE` set；否则 `needs-server` |
-| `omnivoice` | 同上（`LEMO_TTS_OMNIVOICE_BASE`） |
+| `kokoro` | 离线真路径（`tts.py` + `lang: cmn`；需 `.venv-voice` / `WORDFILM_TTS_PYTHON`） |
+| `qwen3` | HTTP ready when `WORDFILM_TTS_QWEN3_BASE` set；否则 `needs-server` |
+| `omnivoice` | 同上（`WORDFILM_TTS_OMNIVOICE_BASE`） |
 | 用户 WAV | 允许；仍过完整性检查 |
 
 ## 验收

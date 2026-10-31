@@ -1,13 +1,17 @@
-// Render video: node core/render/video.mjs <demo> [--fps 24] [--workers 3] [--q 'k=v'] [--out <demo>/out/video.mp4] [--size 1920x1080]
+// Render video: node core/render/video.mjs <demo> [--fps 24] [--workers 3] [--q 'k=v'] [--out <demo>/out/video.mp4] [--size 1920x1080] [--native | --reframe]
 // when several films are in production in parallel, use 3 workers (the default); a render on its own can go up to 6
 // each worker has its own browser; JPEG screenshots are piped to ffmpeg; the segments are joined losslessly at the end
 // with the environment variable RENDER_SLOTS (an integer) set, the machine runs at most that many full-film renders at once (slot.mjs); unset means no limit. Segment files go in a hidden directory next to --out, unique to each render, deleted when the render finishes (or fails, or is interrupted).
 // The same demo can render several versions in parallel, but each version needs its own --out: two renders writing the same --out fail with an error instead of silently overwriting each other.
+// A portrait --size for a style whose style.json says "portrait": "reframe": the page renders at 1920x1080 and ffmpeg places the whole frame in the
+// portrait picture over a blurred (or flat) fill (reframe.mjs, one filter in the encode, so the cost stays low). --native / --reframe override style.json.
 // <out>.lock holds the owner's pid; if the owner is gone, or the lock file hasn't been refreshed for over 12 hours (the pid was reused by another process), it counts as stale and a new render takes over.
 import fs from 'fs'; import path from 'path'; import { spawn, execFileSync } from 'child_process';
 import { openDemo, closeServer, requireDemo, takeSize } from './page.mjs';
-const args = process.argv.slice(2), { w: W, h: H } = takeSize(args), opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
+import { takeMode, planFrame, reframeFilter } from './reframe.mjs';
+const args = process.argv.slice(2), size = takeSize(args), mode = takeMode(args), opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
 const dir = args[0]; requireDemo(dir);
+const { view: { w: W, h: H }, reframe } = planFrame(dir, size, mode), VF = reframe ? ['-vf', reframeFilter(reframe)] : [];
 const FPS = +opt('--fps', 24), WK = +opt('--workers', 3), Q = opt('--q', '');
 if (!(FPS > 0) || !Number.isInteger(WK) || WK < 1) { console.error('bad --fps / --workers: fps must be > 0, workers an integer ≥ 1'); process.exit(2); }
 const out = path.resolve(opt('--out', path.join(dir, 'out', 'video.mp4')));
@@ -45,7 +49,7 @@ try { await Promise.all([...Array(WK)].map(async (_, w) => {
   const a = w * per, b = Math.min(TOTAL, a + per); if (a >= b) return;
   const { browser, page } = await openDemo(dir, { w: W, h: H, q: Q });
   // cwd set to the segment directory with relative filenames: that way ffmpeg won't read characters such as # ? in the path as protocol syntax
-  const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
+  const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-', ...VF,
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '14', '-pix_fmt', 'yuv420p', `seg_${w}.mp4`], { cwd: segDir, stdio: ['pipe', 'inherit', 'inherit'] });
   procs.add(ff); ff.on('close', () => procs.delete(ff));
   let dead = null;   // ffmpeg exited early (missing encoder, disk full…): its own error is already on stderr; here we just note it and stop feeding frames

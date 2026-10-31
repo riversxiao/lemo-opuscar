@@ -8,6 +8,8 @@ import sys
 from dataclasses import dataclass
 from typing import Any
 
+from . import env
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 TTS_DIR = os.path.abspath(os.path.join(HERE, ".."))
 REPO_ROOT = os.path.abspath(os.path.join(TTS_DIR, "..", ".."))
@@ -16,12 +18,12 @@ REPO_ROOT = os.path.abspath(os.path.join(TTS_DIR, "..", ".."))
 def resolve_voice_python(*, need_kokoro: bool = False) -> str:
     """Pick an interpreter that can run the requested provider.
 
-    Order: LEMO_TTS_PYTHON → repo .venv-voice (when need_kokoro or always preferred
+    Order: $WORDFILM_TTS_PYTHON (or $LEMO_TTS_PYTHON) → repo .venv-voice (when need_kokoro or always preferred
     if present for kokoro) → sys.executable.
     """
-    env = os.environ.get("LEMO_TTS_PYTHON", "").strip()
-    if env and os.path.isfile(env) and os.access(env, os.X_OK):
-        return env
+    py = env("TTS_PYTHON").strip()
+    if py and os.path.isfile(py) and os.access(py, os.X_OK):
+        return py
     venv_py = os.path.join(REPO_ROOT, ".venv-voice", "bin", "python")
     if need_kokoro and os.path.isfile(venv_py) and os.access(venv_py, os.X_OK):
         return venv_py
@@ -102,7 +104,7 @@ def probe_kokoro() -> ProviderStatus:
             "deps-missing",
             "kokoro-onnx missing; create .venv-voice "
             "(uv venv .venv-voice --python 3.12 && uv pip install --python .venv-voice/bin/python "
-            "kokoro-onnx soundfile numpy) or set LEMO_TTS_PYTHON",
+            "kokoro-onnx soundfile numpy) or set WORDFILM_TTS_PYTHON",
             "offline",
         )
     return ProviderStatus(
@@ -114,31 +116,31 @@ def probe_kokoro() -> ProviderStatus:
 
 
 def probe_qwen3() -> ProviderStatus:
-    base = os.environ.get("LEMO_TTS_QWEN3_BASE", "").strip()
+    base = env("TTS_QWEN3_BASE", "").strip()
     if not base:
         return ProviderStatus(
             "qwen3",
             "needs-server",
-            "set LEMO_TTS_QWEN3_BASE to an OpenAI-compatible /v1 speech server "
-            "(no API key invented here; optional LEMO_TTS_QWEN3_API_KEY)",
+            "set WORDFILM_TTS_QWEN3_BASE to an OpenAI-compatible /v1 speech server "
+            "(no API key invented here; optional WORDFILM_TTS_QWEN3_API_KEY)",
             "optional-http",
         )
     return ProviderStatus(
         "qwen3",
         "ready",
-        f"HTTP client → {base} (LEMO_TTS_QWEN3_MODEL / optional API key)",
+        f"HTTP client → {base} (WORDFILM_TTS_QWEN3_MODEL / optional API key)",
         "optional-http",
     )
 
 
 def probe_omnivoice() -> ProviderStatus:
-    base = os.environ.get("LEMO_TTS_OMNIVOICE_BASE", "").strip()
+    base = env("TTS_OMNIVOICE_BASE", "").strip()
     if not base:
         return ProviderStatus(
             "omnivoice",
             "needs-server",
-            "set LEMO_TTS_OMNIVOICE_BASE (e.g. http://127.0.0.1:8880/v1); "
-            "optional LEMO_TTS_OMNIVOICE_API_KEY",
+            "set WORDFILM_TTS_OMNIVOICE_BASE (e.g. http://127.0.0.1:8880/v1); "
+            "optional WORDFILM_TTS_OMNIVOICE_API_KEY",
             "optional-http",
         )
     return ProviderStatus(

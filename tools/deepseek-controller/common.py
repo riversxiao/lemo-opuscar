@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,48 @@ FORBIDDEN_VALUE_RE = re.compile(
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 ID_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_-]{0,31}$")
 
+# plan.aspect → render size (core/render/*.mjs --size WxH). 16:9 is the default.
+ASPECT_SIZES: dict[str, tuple[int, int]] = {"16:9": (1920, 1080), "9:16": (1080, 1920)}
+DEFAULT_ASPECT = "16:9"
+# Output frame rate of each locked demo (STYLE.md / build.sh); --fps for video.mjs + mux.sh
+STYLE_FPS: dict[str, int] = {"swiss-motion": 24, "caption-news": 30, "pictogram-motion": 60}
+
+
+# Where rendered films live (outside git). The matrix tracker and older notes record
+# them under LEGACY_FILMS_ROOT; on other machines set WORDFILM_FILMS or use <repo>/films.
+LEGACY_FILMS_ROOT = "/workspace/films"
+
+
+def env_setting(name: str, default: str = "") -> str:
+    """Setting `name` (e.g. "PACING", "TP_MAX_DBTP"): $WORDFILM_<name>, else the upstream
+    $LEMO_<name>, else `default`. Empty values count as unset. Read at call time
+    (same rule as core/tts/providers.env)."""
+    for key in ("WORDFILM_" + name, "LEMO_" + name):
+        val = os.environ.get(key, "").strip()
+        if val:
+            return val
+    return default
+
+
+def films_root() -> Path:
+    """$WORDFILM_FILMS, else <repo>/films when it exists, else /workspace/films.
+
+    The result may not exist (callers check is_dir() and skip)."""
+    env = os.environ.get("WORDFILM_FILMS", "").strip()
+    if env:
+        return Path(env).expanduser()
+    local = ROOT.parent.parent / "films"
+    if local.is_dir():
+        return local
+    return Path(LEGACY_FILMS_ROOT)
+
+
+def film_path(raw: str | Path) -> Path:
+    """Map a recorded /workspace/films/... path onto films_root()."""
+    s = str(raw)
+    if s == LEGACY_FILMS_ROOT or s.startswith(LEGACY_FILMS_ROOT + "/"):
+        return films_root() / s[len(LEGACY_FILMS_ROOT):].lstrip("/")
+    return Path(s)
 # Mixed-case acronyms (VaR, CoVaR, mVaR, iTraxx) change meaning when uppercased: VAR is a
 # different model (vector autoregression). Any word with a capital after its first letter is kept.
 _MIXED_RE = re.compile(r"^(?=.*[a-z])(?:[a-z]+[A-Z]|[A-Z][A-Za-z]*[a-z][A-Za-z]*[A-Z]|[A-Z][a-z]+[A-Z])[A-Za-z0-9]*$")
@@ -64,6 +107,47 @@ def mixed_acronyms_in(texts: "list[str]") -> set[str]:
 def load_json(path: Path) -> Any:
     with path.open(encoding="utf-8") as f:
         return json.load(f)
+
+
+def plan_aspect(plan: dict[str, Any] | None) -> str:
+    """Aspect of a plan dict ('16:9' when absent)."""
+    if isinstance(plan, dict) and isinstance(plan.get("aspect"), str):
+        return plan["aspect"]
+    return DEFAULT_ASPECT
+
+
+def render_size(plan_or_aspect: dict[str, Any] | str | None) -> tuple[int, int]:
+    """(width, height) for a plan dict or an aspect string; unknown aspect raises ValueError."""
+    aspect = plan_or_aspect if isinstance(plan_or_aspect, str) else plan_aspect(plan_or_aspect)
+    if aspect not in ASPECT_SIZES:
+        raise ValueError(f"unknown aspect {aspect!r} (need one of {list(ASPECT_SIZES)})")
+    return ASPECT_SIZES[aspect]
+
+
+def size_arg(size: tuple[int, int]) -> str:
+    """(1080, 1920) → '1080x1920' (the --size value for core/render tools)."""
+    return f"{int(size[0])}x{int(size[1])}"
+
+
+def project_aspect(project: Path) -> str:
+    """Aspect of a scaffolded project: engine.lock.json > content/plan.json > 16:9."""
+    project = Path(project)
+    for rel in ("content/engine.lock.json", "content/plan.json"):
+        p = project / rel
+        if not p.is_file():
+            continue
+        try:
+            data = load_json(p)
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict) and data.get("aspect") in ASPECT_SIZES:
+            return data["aspect"]
+    return DEFAULT_ASPECT
+
+
+def project_size(project: Path) -> tuple[int, int]:
+    """Render size of a scaffolded project (see project_aspect)."""
+    return ASPECT_SIZES[project_aspect(project)]
 
 
 def dump_json(path: Path, data: Any, *, indent: int = 2) -> None:

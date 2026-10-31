@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """FRM per-term template films (templates/finance-term/, see its STEPS.md).
 
-  python3 batch_terms.py init   --csv /workspace/finance/frm_core100.csv --out /workspace/films/frm [--only 1,5-9] [--skip 42] [--lines 12]
-  python3 batch_terms.py init-from-draft --draft /workspace/films/dialogue-drafts/<name>.lines.json --term <term-dir> \
+  python3 batch_terms.py init   --csv /workspace/finance/frm_core100.csv --out $WORDFILM_FILMS/frm [--only 1,5-9] [--skip 42] [--lines 12]
+  python3 batch_terms.py init-from-draft --draft $WORDFILM_FILMS/dialogue-drafts/<name>.lines.json --term <term-dir> \
                                      --approved-by "金融专家 …" [--meta <earlier term.json>] [--cards overrides.json]
-  python3 batch_terms.py from-draft --draft /workspace/films/dialogue-drafts/<name>.lines.json --term <term-dir>
+  python3 batch_terms.py from-draft --draft $WORDFILM_FILMS/dialogue-drafts/<name>.lines.json --term <term-dir>
                                      # 台词教父 draft (read-only) → copy visual / voice / lang into <term>/src/lines.json
-  python3 batch_terms.py plan   --term /workspace/films/frm/043-es           # after the expert fills + approves lines.json
-  python3 batch_terms.py status --out /workspace/films/frm [--json]
-  python3 batch_terms.py build  --out /workspace/films/frm [--only 43-50] [--el-backup]   # approved terms, one at a time
-  bash templates/finance-term/build_term.sh /workspace/films/frm/043-es       # render + gates + handoffs
+  python3 batch_terms.py plan   --term $WORDFILM_FILMS/frm/043-es           # after the expert fills + approves lines.json
+  python3 batch_terms.py status --out $WORDFILM_FILMS/frm [--json]
+  python3 batch_terms.py build  --out $WORDFILM_FILMS/frm [--only 43-50] [--el-backup]   # approved terms, one at a time
+  bash templates/finance-term/build_term.sh $WORDFILM_FILMS/frm/043-es       # render + gates + handoffs
+
+$WORDFILM_FILMS stands for the films root (common.films_root: $WORDFILM_FILMS, else <repo>/films, else
+/workspace/films); the CSV path is wherever the source list lives.
 
 init writes <out>/<NNN>-<slug>/src/{term.json, lines.json} (lines skeleton; never overwrites an
 existing lines.json). plan refuses until lines.json has approvedBy and every cap filled, then writes

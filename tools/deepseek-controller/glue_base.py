@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from common import dump_json, load_json
+from common import STYLE_FPS, dump_json, load_json, plan_aspect, render_size, size_arg
 from validate import validate_plan
 from adapters import adapt
 
@@ -180,11 +180,15 @@ def write_project_md(
     rel_ctl = "tools/deepseek-controller"
     demo_rel = STYLE_DEMO[style]
     extra = ("\n" + extra_steps.strip() + "\n") if extra_steps else ""
+    aspect = plan_aspect(plan)
+    size = size_arg(render_size(plan))
+    fps = STYLE_FPS.get(style, 24)
     text = f"""# PROJECT — {topic} ({style})
 
 Scaffolded by DeepSeek controller thin glue.
 Lib: `{lib}`
 Style demo locked from: `{demo_rel}/`
+Frame: **{size}** (aspect `{aspect}`) @ {fps} fps. Every render tool below takes `--size {size}`.
 
 ## Do not edit
 
@@ -204,7 +208,12 @@ python3 core/tts/tts_zh.py {tts_lines} {project}/voices \\
 python3 {rel_ctl}/cli.py schedule --project {project} --require-vo
 
 # 3) Stills / video / mix / mux (Playwright path — heavy; not CI)
-# follow styles/{style}/STYLE.md or project build.sh
+#    frame {size} (aspect {aspect}); keep --size on every render tool
+node core/render/events.mjs {project} --size {size}
+node core/render/still.mjs {project} 1 5 10 --size {size} --out {project}/out/still
+node core/render/readcheck.mjs {project} --size {size}
+node core/render/video.mjs {project} --fps {fps} --workers 3 --size {size} --out {project}/out/video.mp4
+# mix / mux: follow styles/{style}/STYLE.md or project build.sh (mux.sh fps {fps})
 
 # 4) Quality gate (omit --allow-unchecked for formal delivery)
 python3 {rel_ctl}/cli.py quality --project {project} --media {project}/out.mp4 --require-vo
@@ -280,6 +289,8 @@ def finalize(
             "demo": demo_s or demo_rel,
             "protectedSha256": locks,
             "glue": mode,
+            "aspect": plan_aspect(plan),
+            "size": size_arg(render_size(plan)),
         },
     )
     post_errs = verify_protected(out, locks)
@@ -294,4 +305,6 @@ def finalize(
         "touchables": [str(p) for p in written_touch],
         "lock": str(lock_path),
         "protectedSha256": locks,
+        "aspect": plan_aspect(plan),
+        "size": size_arg(render_size(plan)),
     }

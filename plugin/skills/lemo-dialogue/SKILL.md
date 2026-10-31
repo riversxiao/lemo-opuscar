@@ -1,6 +1,6 @@
 ---
 name: lemo-dialogue
-description: 为 Lemo-Opuscar / WordFilm 片子定稿旁白与对白。在 TREATMENT 之后、TTS 之前调用：输出增强 lines.json（含 speaker/want/function），过句长与钩子门禁，做去 AI 味润色，再交给 core/tts。用于讲解片 VO 与可选角色对白；不是 Seedance/短剧出片，不改引擎与 STYLE 不变式。
+description: 为 WordFilm 片子定稿旁白与对白。在 TREATMENT 之后、TTS 之前调用：输出增强 lines.json（含 speaker/want/function），过句长与钩子门禁，做去 AI 味润色，再交给 core/tts。用于讲解片 VO 与可选角色对白；不是 Seedance/短剧出片，不改引擎与 STYLE 不变式。
 ---
 
 # Lemo-Dialogue（台词定稿）

@@ -1,0 +1,5 @@
+{
+ "note": "Which repo's 'films' release hosts each full film (<slug>.mp4). Films not listed are on `default`. tools/release.py upload adds the films it uploads; styleboard/build.py links each film from here. Web cuts: .github/workflows/pages.yml takes the default repo's 'web' release, then overlays this repo's.",
+ "default": "lemomo-ai/lemo-opuscar",
+ "films": {}
+}

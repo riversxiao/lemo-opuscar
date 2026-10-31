@@ -5,7 +5,7 @@ Embeds every line WAV with Resemblyzer (GE2E d-vector, CPU) and compares each li
 the leave-one-out centroid of the other lines (cosine). A narration that is meant to be
 ONE voice fails when any line drops below --min-sim, or the pairwise minimum is below
 --min-pair. Prints JSON. Runs under any python that has `resemblyzer` (set
-LEMO_SPK_PYTHON for a dedicated venv; quality.py shells out to it).
+WORDFILM_SPK_PYTHON, or the old LEMO_SPK_PYTHON, for a dedicated venv; quality.py shells out to it).
 
   python3 core/tts/speaker_check.py <voices_dir> [--ids L01,L02,…] [--min-sim 0.80]
 """
@@ -48,7 +48,7 @@ def main() -> int:
     try:
         from resemblyzer import VoiceEncoder, preprocess_wav
     except ImportError:
-        print(json.dumps({"status": "DEPS_MISSING", "detail": "resemblyzer not importable (set LEMO_SPK_PYTHON)"}))
+        print(json.dumps({"status": "DEPS_MISSING", "detail": "resemblyzer not importable (set WORDFILM_SPK_PYTHON)"}))
         return 2
     ids = [i for i in a.ids.split(",") if i] or sorted(
         os.path.basename(p)[:-4] for p in glob.glob(os.path.join(a.voices_dir, "*.wav")))

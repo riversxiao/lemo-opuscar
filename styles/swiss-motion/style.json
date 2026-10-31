@@ -14,5 +14,10 @@
   "Design education"
  ],
  "frame_sec": 31.68,
- "dur": 44.0
+ "dur": 44.0,
+ "aspects": [
+  "16:9",
+  "9:16"
+ ],
+ "portrait": "native"
 }

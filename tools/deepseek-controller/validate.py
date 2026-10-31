@@ -11,6 +11,8 @@ BRAND_KEYS = ("eyebrow", "eyebrowTop", "endTitle", "endLine", "titleEn", "titleZ
               "sloganEn", "sloganZh", "sloganJp", "credit")
 
 from common import (
+    ASPECT_SIZES,
+    DEFAULT_ASPECT,
     HEX,
     ID_RE,
     STYLES,
@@ -36,6 +38,7 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
         "topic",
         "style",
         "language",
+        "aspect",
         "targetDurationSec",
         "palette",
         "shots",
@@ -61,6 +64,11 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
     language = plan.get("language")
     if language not in ("zh", "en", "zh-en"):
         _err(errors, "$.language: must be zh|en|zh-en")
+
+    aspect = plan.get("aspect", DEFAULT_ASPECT)
+    if not isinstance(aspect, str) or aspect not in ASPECT_SIZES:
+        _err(errors, f"$.aspect: must be one of {list(ASPECT_SIZES)} (a string), got {aspect!r}")
+        aspect = None
 
     dur = plan.get("targetDurationSec")
     if not isinstance(dur, (int, float)) or not (15 <= float(dur) <= 90):
@@ -270,6 +278,15 @@ def validate_plan(plan: dict[str, Any], *, strict_manifest: bool = True) -> list
 
         if language not in man.get("languages", []):
             _err(errors, f"$.language: not supported by {style} manifest")
+
+        aspects = man.get("aspects") or [DEFAULT_ASPECT]
+        if aspect in ASPECT_SIZES and aspect not in aspects:
+            w, h = ASPECT_SIZES[aspect]
+            _err(
+                errors,
+                f"$.aspect: {style} does not support '{aspect}' ({w}x{h}); "
+                f"its manifest lists aspects {aspects}",
+            )
 
         dmin = man.get("durationSec", {}).get("min", 15)
         dmax = man.get("durationSec", {}).get("max", 90)

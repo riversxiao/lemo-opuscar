@@ -1,20 +1,26 @@
 #!/bin/sh
-# Lemo-Opuscar skill: find or install the style library, then print its path.
+# WordFilm skill: find or install the style library, then print its path.
 #   sh setup.sh                    library ready? (clone on first run, update later) → prints LIB=<path>
 #   sh setup.sh deps [voice] [music]
 #                                  install packages: core = Node packages, headless browser, Python core tier;
 #                                  voice = TTS and speech check (+ the English voice model); music = pluck.py (numba)
 #   sh setup.sh demo <slug>        add one style's demo source and poster to the library (reference only)
 # The library is a sparse clone of the main branch: guides, core/ tools and every STYLE.md. Big assets: tools/fetch.sh.
-# LEMO_OPUSCAR_HOME = where the library lives (default: the clone you stand in, else ~/lemo-opuscar).
+# WORDFILM_HOME = where the library lives (default: the clone you stand in, else ~/wordfilm; an existing
+#   ~/lemo-opuscar library is still used when ~/wordfilm does not exist).
+# WORDFILM_REPO = the git URL to clone (default: the riversxiao/wordfilm fork).
+# The old names LEMO_OPUSCAR_HOME / LEMO_OPUSCAR_REPO still work when the WORDFILM_* ones are unset.
 set -e
-REPO=${LEMO_OPUSCAR_REPO:-https://github.com/lemomo-ai/lemo-opuscar.git}
+REPO=${WORDFILM_REPO:-${LEMO_OPUSCAR_REPO:-https://github.com/riversxiao/wordfilm.git}}
+HOME_SET=${WORDFILM_HOME:-${LEMO_OPUSCAR_HOME:-}}
 
-# 1. Which library: $LEMO_OPUSCAR_HOME, else the clone we are standing in, else ~/lemo-opuscar
+# 1. Which library: $WORDFILM_HOME (or $LEMO_OPUSCAR_HOME), else the clone we are standing in,
+#    else ~/wordfilm (or an existing ~/lemo-opuscar library from before the rename)
 is_lib() { [ -f "$1/AGENTS.md" ] && [ -d "$1/core/render" ]; }
-if [ -n "$LEMO_OPUSCAR_HOME" ]; then LIB=$LEMO_OPUSCAR_HOME
+if [ -n "$HOME_SET" ]; then LIB=$HOME_SET
 elif top=$(git rev-parse --show-toplevel 2>/dev/null) && is_lib "$top"; then LIB=$top
-else LIB=$HOME/lemo-opuscar
+elif [ ! -e "$HOME/wordfilm" ] && is_lib "$HOME/lemo-opuscar"; then LIB=$HOME/lemo-opuscar
+else LIB=$HOME/wordfilm
 fi
 case "$LIB" in /*) ;; *) LIB=$(pwd)/$LIB ;; esac
 
@@ -27,12 +33,13 @@ apply_sparse() {
 }
 
 if [ "$(git -C "$LIB" config --get lemo.managed 2>/dev/null)" = true ]; then
-  # our own clone (nothing of the user's lives in it): match main, whatever happened upstream
+  # our own clone (nothing of the user's lives in it): match main, whatever happened upstream.
+  # A clone made before the rename points at the old upstream URL: origin moves to $REPO here.
   [ "$(git -C "$LIB" remote get-url origin 2>/dev/null)" = "$REPO" ] || git -C "$LIB" remote set-url origin "$REPO"
   if err=$(git -C "$LIB" fetch --quiet --depth 1 origin main 2>&1 && git -C "$LIB" reset --quiet --hard FETCH_HEAD 2>&1); then apply_sparse
   else echo "! could not update $LIB (offline?); using the local copy. git: $err" | head -3; fi
 elif ! is_lib "$LIB"; then
-  [ -e "$LIB" ] && [ -n "$(ls -A "$LIB" 2>/dev/null)" ] && { echo "✗ $LIB exists but is not the Lemo-Opuscar library. Set LEMO_OPUSCAR_HOME to another folder."; exit 1; }
+  [ -e "$LIB" ] && [ -n "$(ls -A "$LIB" 2>/dev/null)" ] && { echo "✗ $LIB exists but is not the WordFilm library. Set WORDFILM_HOME to another folder."; exit 1; }
   command -v git >/dev/null || { echo "✗ git is needed to download the library"; exit 1; }
   echo "↓ downloading the style library into $LIB"
   git clone --quiet --depth 1 --filter=blob:none --sparse --branch main "$REPO" "$LIB" || { rm -rf "$LIB"; echo "✗ download failed (offline?)"; exit 1; }

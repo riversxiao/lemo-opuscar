@@ -13,6 +13,9 @@ How to fill this template (delete this comment):
   can stay as an example in DEMO.md.
 - Write rules, not history. "Pitfalls" are pitfalls of the medium, not of one demo prop.
 - Section numbers are fixed: other guides refer to them.
+- Frame shapes: style.json `aspects` lists the frames the demo has its own layout for (default ["16:9"]). If it lists
+  "9:16", §6 says how the frame is re-laid out for portrait, and style.json says "portrait": "native"; otherwise
+  "portrait": "reframe" (the render tools letterbox the 16:9 frame for a portrait --size, see core/README.md).
 -->
 
 ## 1. Essence, and what it is not
@@ -46,6 +49,8 @@ A vocabulary, not a route: the moves this medium does well, what each expresses,
 | e.g. push-in | … | tension; the one detail that matters |
 
 No row names the single move for an opening, a climax or an ending. If the demo's route is worth keeping, it goes to DEMO.md "Shots". Framing rules that always hold (subject size, safe areas, where text lives). Allowed and forbidden transitions.
+
+Vertical 9:16 (only if `style.json` `aspects` lists it): a layout of its own, not a crop or a pillar-box. Where the picture goes (a band, a stack), the measure and line spacing of text, what moves into the top safe area (≈ 100 px under the top edge) and what stays out of the bottom ≈ 300 px a phone UI covers.
 
 ## 7. Sound palette
 

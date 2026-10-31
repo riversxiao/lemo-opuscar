@@ -1,2 +1,4 @@
 # Maintainers only: rebuilding core/audio/instruments/index.json (sampler.build_index) uses librosa.
 librosa
+# Test harness (tools/deepseek-controller/tests/test_mvp.sh runs python3 -m pytest tools/handoff/tests).
+pytest

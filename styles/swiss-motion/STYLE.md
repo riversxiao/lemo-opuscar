@@ -14,7 +14,7 @@ Not a keynote (no gradients, no glow, no device renders), not kinetic typography
 
 ## 2. Materials & rendering
 
-- **Frame grid**: 1920×1080, 12 columns, ~96 px side margins, 24 px gutters, 24 px baseline. The frame can act as a **spread**: a left page (the programme: numeral, rule text, notes) and a right page (the artifact).
+- **Frame grid**: 1920×1080, 12 columns, ~96 px side margins, 24 px gutters, 24 px baseline. The frame can act as a **spread**: a left page (the programme: numeral, rule text, notes) and a right page (the artifact). In 9:16 (1080×1920) the spread stacks: 6 columns on ~72 px margins, the page on top, the artifact below; statements keep flush left on a narrower measure (≈ 936 px) and wrap on a looser line, at most two big lines; only copy that would need a third line (or a word wider than the measure) steps the type down, from 76 px to no less than 36 px, so it stays in its TEXTS box. Chinese copy has no spaces, so it breaks between characters (never before closing or after opening punctuation), and a run broken over two lines is balanced so the second line is not a lone character.
 - **Artifact grid** derived from the content (Gerstner): what the columns and rows *mean* is a design decision. **Choose module sizes that give the elements mass**; too many thin columns make a layout look like a chart.
 - **Surfaces**: page, paper, ink, signal colour, grid lines in two or three light greys (on page, while building, on paper). No gradients, no shadows, no particles, no grain (mux grain 0).
 - **Bars and blocks** are flat rects; consecutive cells of one unit merge into one bar, overdrawn 1 px at seams (antialiasing shows hairlines, especially when rotated or scaled).

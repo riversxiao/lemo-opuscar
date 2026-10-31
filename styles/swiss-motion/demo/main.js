@@ -1,5 +1,7 @@
-import { renderFilm, setScore, setWords, setLines, subs, buildEvents, measureNumeral, DUR } from './film.js';
+import { renderFilm, setFrame, setScore, setWords, setLines, subs, buildEvents, measureNumeral, DUR } from './film.js';
 const cv = document.getElementById('c'), g = cv.getContext('2d');
+// frame size = viewport (the render tools set it from --size); 1080x1920 switches film.js to its 9:16 layout
+cv.width = innerWidth; cv.height = innerHeight; setFrame(cv.width, cv.height);
 await Promise.all(['300', '400', '500', '600', '700', '800', '900'].map(w => document.fonts.load(`${w} 40px Archivo`)).concat([document.fonts.load('40px Fraktur'), document.fonts.load('40px DMSerif')]));
 setScore(await (await fetch('score.json')).json());
 const lines = await (await fetch('lines.json')).json();

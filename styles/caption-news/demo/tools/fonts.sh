@@ -1,11 +1,11 @@
 #!/bin/sh
-# Font subsets (OFL) from the Google Fonts CSS API: every character used in main.js. FORCE=1 to fetch again.
+# Font subsets (OFL) from the Google Fonts CSS API: every character used in main.js and timeline.json (the captions). FORCE=1 to fetch again.
 set -e
 H=$(cd "$(dirname "$0")/.." && pwd); D=$H/fonts; mkdir -p "$D"
 UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
 TXT=$(python3 -c "
 import urllib.parse
-s=open('$H/main.js',encoding='utf8').read()
+s=open('$H/main.js',encoding='utf8').read()+open('$H/timeline.json',encoding='utf8').read()
 c=sorted(set(ch for ch in s if ord(ch)>=0x20))+list('0123456789%+·—–−≈×“”…')
 print(urllib.parse.quote(''.join(sorted(set(c)))))")
 font() { [ -s "$D/$2" ] && [ -z "$FORCE" ] && return 0

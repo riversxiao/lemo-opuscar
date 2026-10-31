@@ -1,17 +1,17 @@
 {
-  "name": "lemolab",
+  "name": "wordfilm",
   "owner": {
-    "name": "Lemomo",
-    "url": "https://github.com/lemomo-ai"
+    "name": "riversxiao",
+    "url": "https://github.com/riversxiao"
   },
   "metadata": {
-    "description": "LemoLab skills: film styles for coding agents."
+    "description": "WordFilm skills: film styles for coding agents (a fork of lemomo-ai/lemo-opuscar)."
   },
   "plugins": [
     {
-      "name": "lemo-opuscar",
+      "name": "wordfilm",
       "source": "./plugin",
-      "description": "Make a film in one of the library's code-rendered styles: your agent directs, draws, scores and mixes it."
+      "description": "Make a film in one of the WordFilm library's code-rendered styles: your agent directs, draws, scores and mixes it."
     }
   ]
 }

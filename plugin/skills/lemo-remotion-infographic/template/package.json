@@ -1,0 +1,22 @@
+{
+  "name": "wordfilm-remotion-infographic",
+  "private": true,
+  "version": "1.0.0",
+  "description": "WordFilm Remotion infographic template: props-driven 1920x1080 / 1080x1920 at 24 fps",
+  "license": "MIT",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts Infographic out/picture.mp4 --props=props.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.539",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.539"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "typescript": "5.9.3"
+  }
+}

@@ -40,10 +40,11 @@
 
 ```sh
 git clone https://github.com/riversxiao/wordfilm.git
-cd lemo-opuscar
+cd wordfilm
 
 # 可选：钉死 DeepSeek 控制层提交（完整 40 字符 SHA；勿用裸上游 413a6bd）
-export LEMO_OPUSCAR_PIN=f3d2e1c934be18ac4cb816ecaa5e9d27176afaae
+# （改名前的 LEMO_OPUSCAR_PIN 仍然有效；WORDFILM_HOME / WORDFILM_REPO 同理）
+export WORDFILM_PIN=f3d2e1c934be18ac4cb816ecaa5e9d27176afaae
 
 sh plugin/skills/lemo-deepseek/scripts/setup.sh
 sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
@@ -79,6 +80,20 @@ sh plugin/skills/lemo-deepseek/scripts/setup.sh deps
   - **官方 API（推荐，有 Key 时）**：OpenCode 里 `/connect` → 选 `deepseek` → 填 `DEEPSEEK_API_KEY`（[platform.deepseek.com](https://platform.deepseek.com) 申请）→ 模型 `deepseek-flash`（或 `deepseek-v4-pro`）；base URL `https://api.deepseek.com`
   - **OpenRouter 回退**：`openrouter/deepseek/deepseek-v4.1-flash`
   - **OpenCode 免费档**：`opencode/deepseek-v4.1-flash-free`（额度不够就换上面两条）
+
+### 竖屏 9:16
+
+- 渲染工具都接受 `--size 1080x1920`（`still.mjs`、`events.mjs`、`readcheck.mjs`、`video.mjs`）；页面按 `innerWidth` × `innerHeight` 排版。
+- 有原生竖屏版式（单独构图，不是裁切）的风格：**字幕新闻**（顶部 1080×1560 画面带，下方两行字幕卡）、**瑞士动态排版**（上页面、下海报，陈述句换行）和 **象形运动图形**（象形人和太阳圆在上半部，标题在下方安全区内堆叠，过长的标题逐级缩小或折成两行）。每个风格在 `style.json` 的 `aspects` 里列出支持的画幅，并用 `"portrait": "native"` 或 `"reframe"` 说明竖屏怎么出。
+- 其余风格竖屏时用**重新取景（reframe）**：demo 仍按 1920×1080 渲染，完整的 16:9 画面（不裁切，文字全部保留）放在竖屏中间，上下用同一画面的模糊放大版（或 `portraitFill` 指定的纯色）填充。`still.mjs` 和 `video.mjs` 会自动这样做并打印一行说明；加 `--native` 则按竖屏尺寸直接渲染页面。要给某个风格做原生竖屏，按 `innerWidth` / `innerHeight` 分支排版，参考字幕新闻的 `P(land, port)` 写法（见 `core/README.md` 的 **Portrait reframe**）。
+- 控制层计划：`"aspect": "9:16"`（默认 `"16:9"`），三个引擎（字幕新闻、瑞士动态排版、象形运动图形）都支持。
+- 剪辑交接：`handoff --size 1080x1920 --fps 30`，不写则用 ffprobe 从成片读取尺寸和帧率。
+
+### 从 Lemo-Opuscar 迁移
+
+- **插件 id 变了。** 现在是 `wordfilm@wordfilm`（marketplace `riversxiao/wordfilm`）；以 `lemo-opuscar@lemolab` 安装的插件收不到本 fork 的更新。切换：`claude plugin uninstall lemo-opuscar@lemolab`、`claude plugin marketplace add riversxiao/wordfilm`、`claude plugin install wordfilm@wordfilm`（不再用旧 marketplace 时再 `claude plugin marketplace remove lemolab`）。
+- **`setup.sh` 自己克隆的库**（带 `lemo.managed` 标记，比如 `~/lemo-opuscar`）目录不变，但下次运行时 `origin` 会改指本 fork，并重置到它的 `main`。这类库里不该放你自己的东西，有改动请先拷出来。想继续跟上游：设 `WORDFILM_REPO=https://github.com/lemomo-ai/lemo-opuscar.git`（仅 Claude 技能；DeepSeek 技能需要本 fork 的覆盖层）。你自己克隆的库永远不会被重置。
+- **环境变量。** `LEMO_OPUSCAR_HOME` / `_REPO` / `_PIN` 仍然有效；与 `WORDFILM_*` 同时设置时以后者为准。
 
 ---
 

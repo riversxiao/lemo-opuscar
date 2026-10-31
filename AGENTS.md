@@ -1,4 +1,4 @@
-# Lemo-Opuscar: instructions for agents
+# WordFilm: instructions for agents
 
 This repository is a library of film styles. Each style has a `styles/<slug>/STYLE.md` (what the style is) and one demo film made entirely in code (`DEMO.md` and `demo/`). People pick a style and ask for a film about **their own** topic. Your job is to direct and produce that film.
 
@@ -43,7 +43,7 @@ If the user hasn't picked a style:
 - Suggest two or three that fit their topic.
 - If they have their own styles, list those first, under "My styles" (in their language).
 - Show them the full list below in the chat, in the user's language only: English names (and English category names) for someone writing in English, Chinese names for someone writing in Chinese. Don't drop, merge or rename anything.
-- Link the gallery, where every style has its demo film: https://lemomo-ai.github.io/lemo-opuscar/
+- Link the gallery, where every style has its demo film: https://riversxiao.github.io/wordfilm/
 - Then ask them to type the name. The list goes in your own message (a command's output isn't shown to them), and the question is plain text, not `AskUserQuestion`: its few options would hide the rest of the list.
 
 <!-- style-list:start -->

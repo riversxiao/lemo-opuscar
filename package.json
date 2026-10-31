@@ -6,6 +6,9 @@
   "description": "Film styles for coding agents: each style ships a prompt and a demo film made entirely in code, on a shared toolkit.",
   "engines": { "node": ">=20" },
   "license": "MIT",
+  "scripts": {
+    "test": "bash tools/deepseek-controller/tests/test_mvp.sh"
+  },
   "dependencies": {
     "playwright-core": "^1.63.0",
     "three": "^0.170.0"

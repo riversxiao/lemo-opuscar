@@ -25,21 +25,25 @@ Sizes are in TECHNIQUE.md §1.
 | `window.EV = [{t, type, …}]` | no | sound and cue events, exported by `events.mjs` |
 | `window.TEXTS(t)` | readcheck | `[{id, text, x0, y0, x1, y1}]`: every on-screen text visible at `t`, with its box in pixels. Report an element's **full** text from its first visible frame (a typewriter that reports only the typed letters fails the check) |
 
-The viewport is 1920×1080 at device scale 1, or `--size WxH`. `--q 'k=v&…'` reaches the page as `location.search`. A page error, or an HTTP error on a script, module or the page, stops the tool (exit 1). Other missing files (fetch, images, fonts) print `optional file missing: <URL>` and the tool carries on. The tools wait up to 180 s for `window.READY`.
+The viewport is 1920×1080 at device scale 1, or `--size WxH`; the page reads its frame from `innerWidth` × `innerHeight` (a demo that hardcodes 1920×1080 is cropped, not re-laid out, at other sizes: see **Portrait reframe** below). `--q 'k=v&…'` reaches the page as `location.search`. A page error, or an HTTP error on a script, module or the page, stops the tool (exit 1). Other missing files (fetch, images, fonts) print `optional file missing: <URL>` and the tool carries on. The tools wait up to 180 s for `window.READY`.
 
 ## Render
 
 | Command | What it does |
 |---|---|
-| `node core/render/still.mjs <demo> <t> [<t> …] [--range a:b:step] [--prefix t_] [--out dir]` | review stills as JPEGs (default `<demo>/stills/t_<t>.jpg`) |
-| `node core/render/video.mjs <demo> [--fps 24] [--workers 3] [--out <demo>/out/video.mp4]` | every frame to a video; up to 6 workers for a single render. Each parallel version needs its own `--out` |
+| `node core/render/still.mjs <demo> <t> [<t> …] [--range a:b:step] [--prefix t_] [--out dir] [--native \| --reframe]` | review stills as JPEGs (default `<demo>/stills/t_<t>.jpg`) |
+| `node core/render/video.mjs <demo> [--fps 24] [--workers 3] [--out <demo>/out/video.mp4] [--native \| --reframe]` | every frame to a video; up to 6 workers for a single render. Each parallel version needs its own `--out` |
 | `node core/render/events.mjs <demo> [--out <file>]` | export `{dur, ev}` to `<demo>/events.json` |
 | `node core/render/readcheck.mjs <demo> [--step 0.04] [--latin-cps 15] [--cjk-cps 4.5] [--pad 1.5] [--min 1.5]` | reading-time check (below) |
 | `.venv/bin/python core/render/sheet.py out.jpg img… [--cols 4] [--w 480]` | contact sheet |
 | `.venv/bin/python core/render/srt.py cues.json out.srt` | subtitles from `[{t0, t1, text}]` |
 | `sh core/render/mux.sh video.mp4 mix.wav out.mp4 [fps=24] [grain=2]` | mux and master (below) |
 
-All four page tools take `--size WxH` (default `1920x1080`, even numbers) and `--q 'k=v'`.
+All four page tools take `--size WxH` (default `1920x1080`, even numbers) and `--q 'k=v'`. Pass the same size to all of them for one film, e.g. `--size 1080x1920` for vertical; `readcheck` checks the boxes against that frame.
+
+**Portrait reframe.** Every `styles/<slug>/style.json` says `"portrait": "native"` (the demo has its own 9:16 layout: Caption News, Swiss Motion, Pictogram Motion) or `"reframe"` (every other style: its demo is a 16:9 film laid out for 1920×1080). For a portrait `--size` (height above width) and a `reframe` style, `still.mjs` and `video.mjs` render the page at 1920×1080 and place the **whole** 16:9 frame, scaled to the width and centred (1080×608 at y 656 in 1080×1920), over a darkened, blurred copy of the same frame, or over a flat colour when `style.json` has `"portraitFill": "#rrggbb"`. Nothing is cropped, so no text is lost; it is a letterbox, not a portrait composition, and the tool prints one `[reframe]` line saying so. `video.mjs` does it in the ffmpeg encode (one filter, little extra cost); `readcheck.mjs` checks the 1920×1080 page. `--native` renders the page at the requested size instead (what you want once a page lays itself out for 9:16), `--reframe` forces the reframe. Folders without a `style.json` (your film) are native: the page gets the size you ask for. Landscape sizes are never reframed. To give a style a native portrait layout, branch on `innerWidth` / `innerHeight` (the `P(land, port)` helper in `styles/caption-news/demo/main.js` picks a value per frame shape), keep the 16:9 branch exactly as it was, then set `"portrait": "native"` and add `"9:16"` to `aspects` (code in `core/render/reframe.mjs`).
+
+**Portrait check.** `python3 tools/portrait_check.py [slug …] [--t 12 30.5] [--footage] [--compare REF] [--lib DIR] [--out DIR] [--dry-run]` renders each style's demo at 1920×1080 and 1080×1920 from a scratch copy in `$WORDFILM_CACHE/portrait-check/` (default `~/.cache/wordfilm/portrait-check/`), never in `styles/`. Default slugs: the `native` styles plus the reframe sample art-deco, hd-2d, microgame; default time: `frame_sec` from `style.json`. It fetches the fonts each demo needs (the demo's own font tool, the controller's `fetch_fonts`, then Google Fonts for any `@font-face` file still missing) and writes `out/<slug>/land/`, `out/<slug>/port/` and the contact sheets `sheet-land.jpg` / `sheet-port.jpg`. `--footage` also runs the documented footage fetch and prep for caption-news (about 400 MB) and white-model; without it those styles are skipped and listed, unless their footage is already in the copy. The copy keeps a file list and drops library files the rendered checkout no longer has, so `--lib` and current runs render clean trees (fetched fonts and footage are shared). `--compare REF` checks every landscape still byte for byte against `REF/<slug>/land/` (exit 1 on any difference, or on a REF still this run did not produce); make REF with `--lib <git worktree of the old commit> --out REF`, with `node_modules` linked into the worktree. `--dry-run` prints the plan and touches nothing. Exit 0 when every style rendered all its stills, 1 on a failure or when nothing rendered, 2 on a usage error, 3 when the rest passed but some styles were skipped.
 
 **readcheck** asks the page for `window.TEXTS(t)` at every step. Each text must stay fully in frame, unchanged, for at least CJK characters ÷ 4.5 + other non-space characters ÷ 15 + 1.5 s, and never less than `--min`. A new `text` under the same `id` starts a new piece. Subtitles are checked by their `.srt`, not here.
 
@@ -69,7 +73,7 @@ All four page tools take `--size WxH` (default `1920x1080`, even numbers) and `-
 
 | Variable | Meaning |
 |---|---|
-| `LEMO_OPUSCAR_HOME` | where `setup.sh` keeps the library (default `~/lemo-opuscar`) |
+| `WORDFILM_HOME` | where `setup.sh` keeps the library (default `~/wordfilm`; an existing `~/lemo-opuscar` library is still used when `~/wordfilm` does not exist). The old name `LEMO_OPUSCAR_HOME` still works; `WORDFILM_REPO` and `WORDFILM_PIN` (old names `LEMO_OPUSCAR_REPO`, `LEMO_OPUSCAR_PIN`) choose the clone URL and a commit for the DeepSeek setup |
 | `PLAYWRIGHT_CHROME` | a Chrome / headless-shell executable instead of Playwright's |
 | `LEMO_ANGLE` | WebGL backend (default `metal` on macOS; `default` passes none) |
 | `RENDER_SLOTS` | optional; limits concurrent full renders across processes |

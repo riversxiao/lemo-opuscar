@@ -9,8 +9,12 @@ Boxes mirror film.js drawLine layout (page / center / wall). Hold windows follow
 LAYOUT end times; when locked LAYOUT is shorter than readcheck need, t1 is padded
 (holdPad) while boxes stay fully in-frame — documented in the JSON meta.
 
+Frame size follows the project aspect (content/engine.lock.json, else
+content/plan.json): 16:9 → 1920x1080 landscape boxes, 9:16 → 1080x1920 portrait
+boxes. Every box is clamped inside that frame.
+
 Usage:
-  python3 tools/deepseek-controller/apply_swiss_texts.py --project /path/to/film
+  python3 tools/deepseek-controller/apply_swiss_texts.py --project /path/to/film [--aspect 9:16]
 """
 from __future__ import annotations
 
@@ -21,7 +25,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from common import dump_json, load_json
+from common import ASPECT_SIZES, DEFAULT_ASPECT, dump_json, load_json, project_aspect
 
 # Mirrored from styles/swiss-motion/demo/film.js (do not import — keep Python-side).
 # LAYOUT[id] = (endSec, pos, soft?)
@@ -39,7 +43,7 @@ LAYOUT: dict[str, tuple[float, str, int]] = {
 # pageOut starts sliding page text off-screen (film.js T.pageOut)
 PAGE_OUT = 24.5
 FX0 = 96.0  # film.js fx(0) with FM=96
-W, H = 1920.0, 1080.0
+# Frame size is not fixed here: build_texts_runtime clamps to ASPECT_SIZES[aspect].
 
 # drawLine anchors: (ySmall, yBig, bigSize) — boxes cover small+big statement band
 POS_BOX: dict[str, tuple[float, float, float, float]] = {
@@ -47,6 +51,26 @@ POS_BOX: dict[str, tuple[float, float, float, float]] = {
     "page": (FX0, 140.0, 1100.0, 290.0),
     "center": (FX0, 740.0, 1100.0, 880.0),
     "wall": (FX0, 900.0, 1100.0, 1040.0),
+}
+
+# 9:16 (1080x1920) portrait layout of film.js (PORT: margin FM=72, fx(0)=72, text
+# column 72..1008, statements wrap at a 936 px measure on a 90 px line). Page band:
+# small line y 350, big lines 440/530. Center and wall bands (poster above them):
+# small y 1340, big lines 1430/1520. film.js keeps a statement to those two big lines
+# (fitLine steps the type down from 76 px, min 36 px, when copy would wrap to a third
+# line; Chinese copy breaks between characters, so it wraps like English), so the boxes
+# hold about 50 hanzi of big copy (two lines at 36 px), more for Latin text; past that
+# film.js warns and draws a third line. Keep in sync with film.js PORT.
+FX0_PORTRAIT = 72.0
+POS_BOX_PORTRAIT: dict[str, tuple[float, float, float, float]] = {
+    "page": (FX0_PORTRAIT, 300.0, 1008.0, 560.0),
+    "center": (FX0_PORTRAIT, 1300.0, 1008.0, 1560.0),
+    "wall": (FX0_PORTRAIT, 1300.0, 1008.0, 1560.0),
+}
+
+POS_BOX_BY_ASPECT: dict[str, dict[str, tuple[float, float, float, float]]] = {
+    "16:9": POS_BOX,
+    "9:16": POS_BOX_PORTRAIT,
 }
 
 CJK = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff]")
@@ -96,8 +120,13 @@ def build_texts_runtime(
     lines: list[dict[str, Any]],
     *,
     dur: float | None = None,
+    aspect: str = DEFAULT_ASPECT,
 ) -> dict[str, Any]:
-    """Build TEXTS registry from engine lines.json rows."""
+    """Build TEXTS registry from engine lines.json rows for the aspect's frame."""
+    if aspect not in ASPECT_SIZES:
+        raise ValueError(f"unknown aspect {aspect!r} (need one of {list(ASPECT_SIZES)})")
+    fw, fh = (float(v) for v in ASPECT_SIZES[aspect])
+    boxes = POS_BOX_BY_ASPECT[aspect]
     entries: list[dict[str, Any]] = []
     hold_pads: list[dict[str, Any]] = []
     engine_dur = float(dur) if dur and dur > 0 else 44.0
@@ -138,12 +167,12 @@ def build_texts_runtime(
                 }
             )
 
-        x0, y0, x1, y1 = POS_BOX.get(pos, POS_BOX["page"])
+        x0, y0, x1, y1 = boxes.get(pos, boxes["page"])
         # Clamp fully inside viewport (readcheck rejects partial)
-        x0 = max(0.0, min(x0, W - 2))
-        y0 = max(0.0, min(y0, H - 2))
-        x1 = max(x0 + 1, min(x1, W))
-        y1 = max(y0 + 1, min(y1, H))
+        x0 = max(0.0, min(x0, fw - 2))
+        y0 = max(0.0, min(y0, fh - 2))
+        x1 = max(x0 + 1, min(x1, fw))
+        y1 = max(y0 + 1, min(y1, fh))
 
         entries.append(
             {
@@ -166,6 +195,8 @@ def build_texts_runtime(
         "schemaVersion": 1,
         "bridge": "lines→texts_runtime",
         "style": "swiss-motion",
+        "aspect": aspect,
+        "frame": {"width": int(fw), "height": int(fh)},
         "engineDurSec": engine_dur,
         "pageOutSec": PAGE_OUT,
         "holdPad": hold_pads,
@@ -189,8 +220,9 @@ def _engine_dur(project: Path) -> float:
     return 44.0
 
 
-def apply_swiss_texts(project: Path) -> dict[str, Any]:
+def apply_swiss_texts(project: Path, *, aspect: str | None = None) -> dict[str, Any]:
     project = project.resolve()
+    aspect = aspect or project_aspect(project)
     lines_p = project / "lines.json"
     if not lines_p.is_file():
         lines_p = project / "content" / "lines.json"
@@ -201,7 +233,7 @@ def apply_swiss_texts(project: Path) -> dict[str, Any]:
         raise ValueError("lines.json must be a list")
 
     dur = _engine_dur(project)
-    runtime = build_texts_runtime(lines, dur=dur)
+    runtime = build_texts_runtime(lines, dur=dur, aspect=aspect)
     out = project / "texts_runtime.json"
     dump_json(out, runtime)
     return {
@@ -209,21 +241,30 @@ def apply_swiss_texts(project: Path) -> dict[str, Any]:
         "entryCount": len(runtime["entries"]),
         "holdPadCount": len(runtime["holdPad"]),
         "engineDurSec": dur,
+        "aspect": aspect,
+        "frame": runtime["frame"],
     }
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Apply swiss lines → texts_runtime (no film.js edit)")
     ap.add_argument("--project", required=True)
+    ap.add_argument(
+        "--aspect",
+        choices=sorted(ASPECT_SIZES),
+        default=None,
+        help="override the project aspect (default: engine.lock.json / content/plan.json, else 16:9)",
+    )
     args = ap.parse_args(argv)
     try:
-        info = apply_swiss_texts(Path(args.project))
+        info = apply_swiss_texts(Path(args.project), aspect=args.aspect)
     except (OSError, ValueError, FileNotFoundError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
     print(
         f"OK texts_runtime entries={info['entryCount']} "
-        f"holdPad={info['holdPadCount']} dur={info['engineDurSec']}s → {info['path']}"
+        f"holdPad={info['holdPadCount']} dur={info['engineDurSec']}s "
+        f"frame={info['frame']['width']}x{info['frame']['height']} → {info['path']}"
     )
     return 0
 

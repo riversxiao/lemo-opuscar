@@ -16,6 +16,12 @@
       "enum": ["swiss-motion", "pictogram-motion", "caption-news"]
     },
     "language": { "type": "string", "enum": ["zh", "en", "zh-en"] },
+    "aspect": {
+      "type": "string",
+      "enum": ["16:9", "9:16"],
+      "default": "16:9",
+      "description": "Frame aspect: 16:9 renders 1920x1080, 9:16 renders 1080x1920. Must be listed in the style manifest's aspects."
+    },
     "targetDurationSec": { "type": "number", "minimum": 15, "maximum": 90 },
     "palette": {
       "type": "object",

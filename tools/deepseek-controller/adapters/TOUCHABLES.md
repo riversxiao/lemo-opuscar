@@ -26,10 +26,14 @@ Written under `<project>/` by `adapt` / `scaffold`:
 | `content/palette.json` | Palette constants |
 | `content/credits.json` | Title / author / license |
 | `content/TOUCHABLES.md` | Per-project contract |
-| `content/engine.lock.json` | SHA-256 of protected files after demo copy |
+| `content/engine.lock.json` | SHA-256 of protected files after demo copy, plus `aspect` (`16:9` / `9:16`) and render `size` (`1920x1080` / `1080x1920`) |
 | Root / audio sidecars | Style-specific (see below) |
 | `voices/dur.json`, `timeline.parsed.json`, `quality.json` | After TTS / schedule / quality |
 | `PROJECT.md` | Next commands |
+
+## Aspect (16:9 / 9:16)
+
+Plan `aspect` is optional (default `16:9`). Allowed per style: `manifests/<slug>.json` → `aspects` (caption-news, swiss-motion and pictogram-motion: `16:9`, `9:16`). The aspect is content, not engine: it only changes the `--size` passed to `core/render/*.mjs` (recorded in `engine.lock.json` and `PROJECT.md`) and the frame used by touchable overlays such as Swiss `texts_runtime.json`. Locked cores are never edited to change the frame.
 
 ## Per-style thin glue
 
@@ -39,6 +43,7 @@ All three: copy `styles/<slug>/demo/` → project → `adapt` → sync touchable
 Sync root `lines.json`, `palette.json` sidecar, `CREDITS`. Leave `events.json` for later. Do **not** patch `film.js` `C`.
 Scaffold also fetches missing `fonts/*.ttf` (gitignored binaries; Flash still must not edit fonts) and writes zh `voices/words_rel.json`.
 Touchable `texts_runtime.json` → `page.mjs` installs `window.TEXTS(t)` (film.js/main.js hashes locked). Without it: readcheck `NOT_APPLICABLE` (`swiss-demo-without-registry`).
+`apply_swiss_texts.py` uses the project aspect: 16:9 boxes in 1920x1080, 9:16 portrait boxes (`POS_BOX_PORTRAIT`) in 1080x1920, all clamped inside the frame.
 
 ### Pictogram
 Sync root `edl_content.json`, `lines.json`, `palette.json`, `CREDITS`. Do **not** rewrite `edl.js` / `engine.js` / `scenes.js`.

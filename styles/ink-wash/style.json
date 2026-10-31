@@ -14,5 +14,6 @@
   "Poetry"
  ],
  "frame_sec": 34.56,
- "dur": 48.0
+ "dur": 48.0,
+ "portrait": "reframe"
 }

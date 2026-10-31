@@ -85,14 +85,16 @@ else
 fi
 # True-peak safety: loudnorm falls back to dynamic mode / AAC adds inter-sample overshoot, so the
 # finished file could land above -1 dBTP. After loudnorm, a 4x-oversampled brickwall limiter holds
-# the ceiling (LEMO_TP_CEIL dBFS, default -2.0), then a measured retry trims gain once if the encoded
-# file still has TP > LEMO_TP_RETRY_ABOVE (default -1.0; finance-v003 series uses -2.0). LEMO_TP_LIMIT=0 turns the limiter off (legacy behaviour).
-TPC="${LEMO_TP_CEIL:--2.0}"
-case "$TPC" in ''|*[!0-9.-]*) die "LEMO_TP_CEIL must be a number in dBFS, got '$TPC'";; esac
-TPR="${LEMO_TP_RETRY_ABOVE:--1.0}"
-case "$TPR" in ''|*[!0-9.-]*) die "LEMO_TP_RETRY_ABOVE must be a number in dB, got '$TPR'";; esac
+# the ceiling (WORDFILM_TP_CEIL dBFS, default -2.0), then a measured retry trims gain once if the encoded
+# file still has TP > WORDFILM_TP_RETRY_ABOVE (default -1.0; finance-v003 series uses -2.0). WORDFILM_TP_LIMIT=0
+# turns the limiter off (legacy behaviour). The upstream LEMO_TP_* names still work; WORDFILM_* wins, empty = unset.
+TPC="${WORDFILM_TP_CEIL:-${LEMO_TP_CEIL:--2.0}}"
+case "$TPC" in ''|*[!0-9.-]*) die "WORDFILM_TP_CEIL (or LEMO_TP_CEIL) must be a number in dBFS, got '$TPC'";; esac
+TPR="${WORDFILM_TP_RETRY_ABOVE:-${LEMO_TP_RETRY_ABOVE:--1.0}}"
+case "$TPR" in ''|*[!0-9.-]*) die "WORDFILM_TP_RETRY_ABOVE (or LEMO_TP_RETRY_ABOVE) must be a number in dB, got '$TPR'";; esac
+TPL="${WORDFILM_TP_LIMIT:-${LEMO_TP_LIMIT:-1}}"
 LIMF() {  # $1 = extra gain dB (<=0)
-  if [ "${LEMO_TP_LIMIT:-1}" = "0" ]; then echo "volume=${1}dB"; return; fi
+  if [ "$TPL" = "0" ]; then echo "volume=${1}dB"; return; fi
   _lin=$(awk -v d="$TPC" 'BEGIN { printf "%.4f", 10 ^ (d / 20) }')
   echo "volume=${1}dB,aresample=192000,alimiter=limit=${_lin}:attack=0.5:release=40:level=false,aresample=48000"
 }
@@ -107,7 +109,7 @@ mux_once() {  # $1 = extra gain dB
 measure() { ffmpeg -hide_banner -nostats -i "$O" -af ebur128=peak=true -f null - 2>&1 | grep -E "^\s+(I|LRA|Peak):" | head -3; }
 mux_once 0
 R=$(measure)
-if [ "$NORM" = 1 ] && [ "${LEMO_TP_LIMIT:-1}" != "0" ]; then
+if [ "$NORM" = 1 ] && [ "$TPL" != "0" ]; then
   OP=$(echo "$R" | awk '$1 == "Peak:" { print $2 }')
   if awk -v p="$OP" -v r="$TPR" 'BEGIN { exit !(p + 0 > r + 0) }'; then
     G=$(awk -v p="$OP" -v r="$TPR" 'BEGIN { printf "%.2f", -(p - r + 0.4) }')

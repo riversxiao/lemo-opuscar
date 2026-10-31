@@ -1,0 +1,62 @@
+{
+  "style": "caption-news",
+  "fps": 30,
+  "targetDurationSec": 30,
+  "caps": [
+    {
+      "id": "c1",
+      "role": "hook",
+      "k": "hook",
+      "zh": "分散|{不是乱撒}",
+      "en": "分散投资，不是把鸡蛋随手乱撒。",
+      "data": {},
+      "allowDarkOpen": true
+    },
+    {
+      "id": "c2",
+      "role": "explain",
+      "k": "compare",
+      "zh": "三类|{不同步}",
+      "en": "股票、债券和现金，涨跌往往不同步。",
+      "data": {},
+      "allowDarkOpen": false
+    },
+    {
+      "id": "c3",
+      "role": "evidence",
+      "k": "stress",
+      "zh": "集中|{堆风险}",
+      "en": "全押一类资产，一次下跌就全部砸中。",
+      "data": {},
+      "allowDarkOpen": false
+    },
+    {
+      "id": "c4",
+      "role": "contrast",
+      "k": "loss",
+      "zh": "多一类|{少踩坑}",
+      "en": "多配一类走势不同的资产，就少一次同时踩坑。",
+      "data": {},
+      "allowDarkOpen": false
+    },
+    {
+      "id": "c5",
+      "role": "payoff",
+      "k": "stock",
+      "zh": "余地|{别赌}",
+      "en": "分散省不掉风险，但能给你留下回旋余地。",
+      "data": {},
+      "allowDarkOpen": false
+    },
+    {
+      "id": "c6",
+      "role": "end",
+      "k": "end",
+      "zh": "分散投资",
+      "en": "分散投资",
+      "data": {},
+      "allowDarkOpen": false
+    }
+  ],
+  "note": "Times filled by schedule_from_voice / timeline.parsed.json; this file is content only."
+}

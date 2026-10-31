@@ -8,8 +8,8 @@ Wire-up for `cli.py tts` → `core/tts/tts_router.py`.
 |---|---|---|
 | **edge** | ready | system `edge-tts` → Yunxi (`tts_zh.py`) |
 | **kokoro** | ready | `.venv-voice` + `core/tts/kokoro-v1.0.onnx` |
-| qwen3 | needs-server | set `LEMO_TTS_QWEN3_BASE` (HTTP client implemented; no key invented) |
-| omnivoice | needs-server | set `LEMO_TTS_OMNIVOICE_BASE` |
+| qwen3 | needs-server | set `WORDFILM_TTS_QWEN3_BASE` (HTTP client implemented; no key invented) |
+| omnivoice | needs-server | set `WORDFILM_TTS_OMNIVOICE_BASE` |
 
 Proof (fuli l1 only, did not replace Yunxi delivery WAVs):
 

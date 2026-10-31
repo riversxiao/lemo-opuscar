@@ -12,7 +12,7 @@
 | ID | 修复 |
 |---|---|
 | P1-1 | 返回的 `LIB` 必须含 DeepSeek 覆盖层（`AGENTS.deepseek.md`、`DEEPSEEK.md`、`plugin/skills/lemo-deepseek/…`）；缺失则非零退出 |
-| P1-2 | **所有**安装路径（首次 clone / managed 更新 / 用户自有库）在设置了 `LEMO_OPUSCAR_PIN` 时都会解析并检出；检出后核对 `HEAD` |
+| P1-2 | **所有**安装路径（首次 clone / managed 更新 / 用户自有库）在设置了 `LEMO_OPUSCAR_PIN`（现名 `WORDFILM_PIN`，旧名仍有效）时都会解析并检出；检出后核对 `HEAD` |
 | P1-3 | 显式 PIN 无法兑现时 **exit 1**（不再「warn 后继续用本地」）；短 SHA 解析失败亦失败 |
 
 回归：`plugin/skills/lemo-deepseek/scripts/setup-pin-tests.sh`。
@@ -90,7 +90,7 @@
 | 1 | **OpenFilm NLE 手递** | `docs/integrations/nle-handoff.md` · `tools/openfilm_handoff.sh` · `tools/handoff/` | **v2 多分镜导出可用**（`film.html` + EDL + ffmpeg rebuild）；本机 `openfilm look` 已过；Studio GUI 需一次浏览器下载；Premiere XML / `frame(t)` 适配器 **未做** |
 | 2 | **HyperFrames 备用轨** | `docs/integrations/hyperframes.md` · `tools/hyperframes_export.sh` | **导出可用** + 本机 `lint`；默认仍 Playwright；desktop/cloud/skills = needs-user |
 | 3 | **中文 TTS 路由** | `tools/tts_router.md` · `core/tts/tts_router.py` · `cli.py tts` · `providers/` | edge + kokoro **ready**（`.venv-voice`）；qwen3/omnivoice **HTTP ready when `*_BASE` set**（不臆造 Key、不下载大模型）；`AGENTS.deepseek.md`：跳过词对齐 ≠ 跳过 VO 完整性 |
-| 4 | **Remotion 信息图** | `docs/integrations/remotion.md` · `plugin/skills/lemo-remotion-infographic/SKILL.md` | 桥接说明 **stub**；不 vendoring Remotion 模板；不碰 Opus demo |
+| 4 | **Remotion 信息图** | `docs/integrations/remotion.md` · `plugin/skills/lemo-remotion-infographic/SKILL.md` | **模板可用**：`template/`（1080p24 + 9:16）、`scripts/plan_to_props.py`、`scripts/render.sh` → `mux.sh`；不碰 Opus demo |
 | 5 | Stickman my-style | `docs/integrations/stickman-style.md` + `MY-STYLES.md` 指针 | 调研笔记（偏 stix / 自研 SVG，勿走视频大模型） |
 | 6 | 动效 / 合集 stitch | `docs/integrations/motion-and-stitch.md` | 计划短文 |
 | 7 | 本地歌床 YuE2/Plenio | `docs/integrations/local-music.md` | 调研（VRAM / 许可注意） |

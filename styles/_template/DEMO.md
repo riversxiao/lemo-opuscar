@@ -38,6 +38,8 @@ What our end card shows. The "LemoLab × Claude Opus 5.5" sign-off belongs to th
 
 File map of `demo/`, build order, commands (`sh demo/build.sh`), review steps, render times, and pitfalls tied to this demo's props.
 
+Frame size: read `W`, `H` from `innerWidth` × `innerHeight` (and size the canvas from them), never a hardcoded 1920×1080. If `style.json` `aspects` lists "9:16", give portrait its own branch (keep the 16:9 branch exactly as it was), report `window.TEXTS` boxes in the frame you draw, and review stills and `readcheck` with `--size 1080x1920` as well as the default size. Then set `style.json` `"portrait": "native"`; without a portrait branch leave it `"reframe"`, and the render tools letterbox the 16:9 frame for a portrait `--size` (optional `"portraitFill": "#rrggbb"` instead of the blurred fill).
+
 ## content.json fields (scene styles only)
 
 | Field | Type | Allowed | If out of range |

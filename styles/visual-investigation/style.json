@@ -14,5 +14,6 @@
   "Incident reports"
  ],
  "frame_sec": 30.9,
- "dur": 60.0
+ "dur": 60.0,
+ "portrait": "reframe"
 }

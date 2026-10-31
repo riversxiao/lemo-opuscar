@@ -249,7 +249,8 @@ def build_brand_strings(
         if ("\u5206\u6563" in topic or "\u5206\u6563" in title)
         else zh[:16]
     )
-    credit_line = f"{author} \u00b7 {year}" if author else f"LemoLab \u00b7 {year}"
+    # a user film carries no LemoLab credit (AGENTS.md): without an author the demo sign-off becomes just the year
+    credit_line = f"{author} \u00b7 {year}" if author else f"{year}"
 
     pairs = [
         ("THE 20TH ASIAN GAMES", hud_line),

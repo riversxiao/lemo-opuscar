@@ -13,6 +13,7 @@ Studio 清点（本机是否存在、与三风格适配器关系）：[`docs/STU
 Minimal controller for WordFilm: `validate` → `adapt` / **`scaffold`** → **`tts`** → `schedule` → `mix` → `quality` → **`handoff`**.
 
 - Plan schema: `plan.schema.json` (content only; rejects code/path/shader-looking keys).
+- Optional plan `aspect`: `"16:9"` (default, renders 1920x1080) or `"9:16"` (renders 1080x1920). Each manifest lists its `aspects`; `validate` rejects an aspect the style does not support (all three engines, caption-news, swiss-motion and pictogram-motion, list `16:9` and `9:16`). Scaffold records `aspect` + `size` in `content/engine.lock.json` and writes `--size WxH` into every render command in `PROJECT.md`; `quality` passes the same `--size` to readcheck.
 - Style manifests: `manifests/{swiss-motion,pictogram-motion,caption-news}.json`.
 - Adapters write **content-only** files under `<project>/content/` (see `adapters/TOUCHABLES.md`).
 - **`scaffold`** (all three styles): copy `styles/<slug>/demo/` → project, adapt, sync touchable sidecars only, write `engine.lock.json` + `PROJECT.md`. Never rewrites style cores (`ease.js`/`film.js`, `engine.js`/`edl.js`, or `main.js`).
@@ -36,6 +37,10 @@ python3 $CTL/cli.py scaffold $CTL/fixtures/plan-pictogram-motion.json \
 python3 $CTL/cli.py scaffold $CTL/fixtures/plan-caption-news.json \
   -o /tmp/film-liquidity --lib "$LIB"
 
+# vertical 9:16 (1080x1920): plan has "aspect": "9:16"
+python3 $CTL/cli.py scaffold $CTL/fixtures/plan-caption-news-portrait.json \
+  -o /tmp/film-liquidity-portrait --lib "$LIB"
+
 # shell wrapper (same args):
 # bash $CTL/scaffold_project.sh $CTL/fixtures/plan-swiss-motion.json -o /tmp/film-fuli --lib "$LIB"
 
@@ -44,8 +49,10 @@ python3 $CTL/cli.py tts --project /tmp/film-fuli --provider kokoro   # offline
 # or: --provider auto --fallback kokoro,edge
 python3 $CTL/cli.py schedule --project /tmp/film-fuli --require-vo
 python3 $CTL/cli.py quality  --project /tmp/film-fuli --skip-heavy
-bash $CTL/tests/test_mvp.sh
+bash $CTL/tests/test_mvp.sh          # or: npm test; also runs python3 -m pytest tools/handoff/tests -q
 ```
+
+The harness prints PASS / FAIL / SKIP lines and exits non-zero only on FAIL. Checks whose prerequisite is missing on this machine SKIP with the reason: ffmpeg/ffprobe, pytest, numpy/soundfile, edge-tts, playwright-core + a launchable Chromium (`PLAYWRIGHT_CHROME` if set, else `/usr/bin/google-chrome` if present, else playwright's own headless shell), network for font downloads, and rendered films under the films root (`$WORDFILM_FILMS`, else `<repo>/films`, else `/workspace/films`) for the matrix evidence checks. Fixtures are copied to a temp dir and the budget ledger goes to a temp file (`$WORDFILM_BUDGET_LEDGER`), so `git status` stays clean.
 
 Do **not** full-render MP4 in CI — glue + hash tests are enough.
 
@@ -71,6 +78,8 @@ python3 $CTL/cli.py scaffold $CTL/fixtures/plan-pictogram-motion.json \
 python3 $CTL/cli.py scaffold $CTL/fixtures/plan-caption-news.json \
   -o /tmp/film-liquidity --lib "$LIB"
 ```
+
+竖屏：计划里加 `"aspect": "9:16"`（默认 `"16:9"`）。16:9 渲染 1920x1080，9:16 渲染 1080x1920。风格 manifest 的 `aspects` 列出支持的画幅：caption-news、swiss-motion、pictogram-motion 都支持 16:9 与 9:16（各自有原生竖屏版式），`validate` 会拒绝 manifest 没有列出的画幅。脚手架把 `aspect` 与 `size` 写进 `content/engine.lock.json`，`PROJECT.md` 里 still / video / readcheck / events 命令都带 `--size`。
 
 每个脚手架都会：
 
@@ -131,7 +140,7 @@ A reviser rewrites only flagged lines (text/say/cap/want; ids/functions/order lo
 `llm-api` ledger row from the balance delta. Tests use `--mock` (no network, no ledger).
 
 StepAudio (StepFun, **free preview only**): `tts --provider stepaudio` (stepaudio-3-gen-preview via `/v1/audio/generate`,
-pitch-consistency retakes, `LEMO_TTS_STEPAUDIO_SPEED`) and `mix --bed-source stepaudio [--music-caption …]`
+pitch-consistency retakes, `WORDFILM_TTS_STEPAUDIO_SPEED`) and `mix --bed-source stepaudio [--music-caption …]`
 (stepaudio-3-music-preview instrumental, cached, cut/faded/RMS-matched). Key from `STEPFUN_API_KEY`; paid `/audio/speech`
 TTS and ASR routes are refused in code.
 
@@ -142,7 +151,7 @@ Lines need `function` (hook|turn|evidence|payoff|sting), ≤35字 each, hook in 
 Caption long-form (90 s): `timeline.json` `"capsMode": "per-line"` (one caption card per VO line, `cap` field)
 and `"syncShots": true` (schedule rewrites the project-copy style-version `main.js` SHOTS a/b + DUR; refused on hash-locked main.js).
 Multi-line shots now play lines back to back (+0.2 s gap) instead of stacking at shot start.
-Tests write spend rows to `$DC_BUDGET_LEDGER` (default in tests: /tmp), never `fixtures/budget-ledger.jsonl`.
+Tests write spend rows to `$WORDFILM_BUDGET_LEDGER` (upstream name `$DC_BUDGET_LEDGER` still honoured; the harness points it at a temp dir), never `fixtures/budget-ledger.jsonl`.
 
 ## Quality flags (post E2E fixes)
 
@@ -165,6 +174,8 @@ python3 tools/deepseek-controller/cli.py quality --project "$P" --require-vo \
 - Scaffold fetches OFL fonts via `fetch_fonts.py` for **all three styles** (Swiss `.ttf`, Pictogram `.ttf`, Caption `.woff2` subsets via cache/sibling/`tools/fonts.sh`). Override with `$LEMO_FONT_CACHE`. Swiss also writes `voices/words_rel.json` for zh (`zh_words_rel.py` / `post_tts.py`). Do **not** run English `tools/words.py` on CJK.
 - Pictogram: `edl_runtime.json` + optional `brand_strings.json` (HUD/intro/finale literal rewrite at eval time). Disk `edl.js`/`scenes.js` hashes stay locked on default scaffold. Audio: **`cli mix` / `music_bed.py`** writes `music/bed.wav` + ducked VO → `out/mix.wav` (locked Olympics `music.py` unused). See `docs/MUSIC-BED.md`.
 - Pictogram **style version** `finance-v001`: `apply_pictogram_style_version.py --version finance-v001` replaces `scenes.js` with content-driven intro/finale (see `styles/pictogram-motion/versions/finance-v001/VERSION.md`). Demo lock path unchanged.
+- Caption **style versions**: `apply_caption_style_version.py --version <id>` replaces `main.js` (DUR 32 s, topic SHOTS/TEXTS): `liquidity-v001` (see `styles/caption-news/versions/liquidity-v001/VERSION.md`), `compound-v001` (`styles/caption-news/versions/compound-v001/VERSION.md`), `diversify-v001` (`styles/caption-news/versions/diversify-v001/VERSION.md`).
+- Caption: `main.js` `DUR` is the locked picture length. `schedule` hard-fails when the caption/VO content runs past it, even if `targetDurationSec` or `--target` would allow it ("copy overruns the locked caption-news timeline by N s ... trim shots: ..."), and `apply_caption_timeline.py` refuses a failed or overrunning `timeline.parsed.json` unless `--force` (diagnostics only).
 - Swiss: `texts_runtime.json` + `page.mjs` installs `window.TEXTS(t)` (no film.js unlock). Without overlay → `NOT_APPLICABLE` (`swiss-demo-without-registry`), not eternal `NOT_CHECKED`.
 - When `content/engine.lock.json` protects `film.js`, `media_duration` uses **`style_locked_duration`**: compare mux length to engine `DUR` (±1s). Plan `targetDurationSec` stays the schedule budget.
 - `--asr-mode=zh-homophone-tolerant` uses `asr_homophones.json` v2 (`members` + optional `short` truncations, longest-match).
@@ -199,7 +210,11 @@ python3 tools/deepseek-controller/cli.py visual-check --project "$P" --media "$P
 
 ```bash
 python3 $CTL/cli.py handoff --project /workspace/films/fensan-pictogram-finance-v001 --target both --lint
+# frame size / fps: --size WxH and --fps N override; default is ffprobe of the master, else 1920x1080 @ 24
+python3 $CTL/cli.py handoff --project /tmp/film-liquidity-portrait --target all --size 1080x1920 --fps 30
 ```
+
+`--json` reports `width` / `height` / `fps` with `sizeSource` / `fpsSource` (`flag` | `probe` | `default`).
 
 See [`docs/nle-handoff.md`](docs/nle-handoff.md) and repo [`docs/integrations/nle-handoff.md`](../../docs/integrations/nle-handoff.md).
 
