@@ -61,7 +61,9 @@ build_one() {  # plan project name provider [handoffs:1|0]
   if PYTHONPATH="$CTL" python3 -c "import sys,dialogue_loop as D;from pathlib import Path;sys.exit(0 if D.gate_status(Path(sys.argv[1]))[0] else 1)" "$PJ" 2>/dev/null; then
     echo "dialogue-loop: evidence current (linesSha256 match) — not re-run"
   else
-    python3 "$CTL/cli.py" dialogue-loop --project "$PJ" --check-only --approved-by "$APPROVED" --item "$NM check-only" || true
+    DL_PAID=()
+    if [ "${ALLOW_PAID:-0}" = 1 ]; then DL_PAID=(--allow-paid); fi
+    python3 "$CTL/cli.py" dialogue-loop --project "$PJ" --check-only --approved-by "$APPROVED" --item "$NM check-only" "${DL_PAID[@]}" || true
   fi
   # 2) TTS: StepAudio free preview (one session take, reused if scripts unchanged) or ElevenLabs backup
   # REUSE_VOICES=1: keep the takes already in voices/ (ElevenLabs has no take cache — a re-run re-bills chars)

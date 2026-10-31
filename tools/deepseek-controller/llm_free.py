@@ -6,7 +6,7 @@ Order (env DC_LLM_CHAIN overrides as comma-separated provider:model):
   2. OpenRouter   nvidia/nemotron-3.5-lightning:free
   3. OpenRouter   recursive/flint-v1.0:free  (OPENROUTER_API_KEY)
 
-Paid DeepSeek official / paid OpenRouter are NEVER used unless allow_paid=True
+Paid SiliconFlow / DeepSeek official / paid OpenRouter are NEVER used unless allow_paid=True
 (--allow-paid). OpenCode free models are intentionally omitted (quota exhausted).
 
 Error classes:
@@ -44,6 +44,7 @@ from typing import Any
 
 TOKENHARBOR_BASE = os.environ.get("DC_TOKENHARBOR_BASE", "https://tokenharbor.ai/v1")
 OPENROUTER_BASE = os.environ.get("DC_OPENROUTER_BASE", "https://openrouter.ai/api/v1")
+SILICONFLOW_BASE = os.environ.get("DC_SILICONFLOW_BASE", "https://api.siliconflow.cn/v1")
 DEEPSEEK_BASE = os.environ.get("DC_DEEPSEEK_BASE", "https://api.deepseek.com")
 
 # (provider, model, env_key, base_url, paid)
@@ -53,6 +54,7 @@ DEFAULT_FREE_CHAIN: list[tuple[str, str, str, str, bool]] = [
     ("openrouter", "recursive/flint-v1.0:free", "OPENROUTER_API_KEY", OPENROUTER_BASE, False),
 ]
 PAID_FALLBACK: list[tuple[str, str, str, str, bool]] = [
+    ("siliconflow", os.environ.get("DC_SILICONFLOW_MODEL", "deepseek-ai/DeepSeek-V3"), "SILICONFLOW_API_KEY", SILICONFLOW_BASE, True),
     ("deepseek", "deepseek-flash", "DEEPSEEK_API_KEY", DEEPSEEK_BASE, True),
 ]
 
@@ -269,6 +271,8 @@ def parse_chain(spec: str | None = None) -> list[tuple[str, str, str, str, bool]
             if not model.endswith(":free"):
                 raise ProviderError(f"openrouter model must end with :free in free chain: {model}")
             out.append((provider, model, "OPENROUTER_API_KEY", OPENROUTER_BASE, False))
+        elif provider == "siliconflow":
+            out.append((provider, model, "SILICONFLOW_API_KEY", SILICONFLOW_BASE, True))
         elif provider == "deepseek":
             out.append((provider, model, "DEEPSEEK_API_KEY", DEEPSEEK_BASE, True))
         else:
@@ -429,7 +433,7 @@ class FreeFirstClient:
                     break
         raise ProviderError(
             "all free LLM models failed"
-            + ("" if self.allow_paid else " (paid fallback disabled; pass --allow-paid to use DeepSeek official)")
+            + ("" if self.allow_paid else " (paid fallback disabled; pass --allow-paid to use SiliconFlow then DeepSeek official)")
             + f"; tried: {tried}; last: {last_err}"
         )
 

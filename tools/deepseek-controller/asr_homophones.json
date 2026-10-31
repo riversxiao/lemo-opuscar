@@ -11,6 +11,14 @@
     },
     {
       "members": [
+        "偿付",
+        "常负"
+      ],
+      "short": [],
+      "note": "chang fu same pinyin+tone; prepayment-risk L02 small 2026-10-31"
+    },
+    {
+      "members": [
         "复利",
         "赋利",
         "负利",
@@ -237,7 +245,8 @@
       "id": "ta-pronoun",
       "members": [
         "它",
-        "他"
+        "他",
+        "她"
       ],
       "short": [
         "它",
@@ -692,6 +701,54 @@
       ],
       "short": [],
       "note": "yao jiao, same pinyin; margin L02 small 2026-10-30"
+    },
+    {
+      "members": [
+        "笔",
+        "比"
+      ],
+      "short": "bi",
+      "note": "bi, same pinyin; CCP L07 small 2026-10-31"
+    },
+    {
+      "members": [
+        "违约",
+        "伪约"
+      ],
+      "short": "weiyue",
+      "note": "wei yue, same pinyin; CCP L09 small 2026-10-31"
+    },
+    {
+      "members": [
+        "对手",
+        "对守"
+      ],
+      "short": "duishou",
+      "note": "dui shou, same pinyin; CCP L13 small/large 2026-10-31"
+    },
+    {
+      "members": [
+        "利差",
+        "立差"
+      ],
+      "short": "licha",
+      "note": "li cha same pinyin; CIP L11 small 2026-10-31"
+    },
+    {
+      "members": [
+        "偏离",
+        "片里"
+      ],
+      "short": "pianli",
+      "note": "pian li same pinyin; CIP L12 small 2026-10-31"
+    },
+    {
+      "members": [
+        "像给",
+        "向给"
+      ],
+      "short": [],
+      "note": "xiang gei same pinyin; cds L01 small 2026-10-31"
     }
   ]
 }
